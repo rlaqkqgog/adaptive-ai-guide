@@ -1604,6 +1604,8 @@ GameObject:
   - component: {fileID: 536207152}
   - component: {fileID: 536207153}
   - component: {fileID: 536207154}
+  - component: {fileID: 536207155}
+  - component: {fileID: 536207156}
   m_Layer: 0
   m_Name: SpatialAnchorManager
   m_TagString: Untagged
@@ -1697,6 +1699,84 @@ MonoBehaviour:
   hmdTransform: {fileID: 118821223}
   displayText: {fileID: 2078489109}
   refreshIntervalSeconds: 0.1
+--- !u!114 &536207155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31898bfa62de464fb002d9c079c88f0d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  floorPlanId: FP1
+  waitForMrukSeconds: 20
+--- !u!114 &536207156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e273bbca82ce42719b52b7e664d9f3f4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  spaceValidator: {fileID: 536207155}
+  hmdTransform: {fileID: 118821223}
+  hmdCamera: {fileID: 118821224}
+  initialSetIndex: 0
+  enableQuestControls: 1
+  enableKeyboardControls: 1
+  minimumWallDistanceMeters: 0.35
+  minimumObjectDistanceMeters: 1
+  floorGapMeters: 0.02
+  floorAlignmentToleranceMeters: 0.015
+  minimumObstacleDistanceMeters: 0.5
+  generationSafetyMarginMeters: 0.01
+  validationEpsilonMeters: 0.0001
+  minimumCornerDistanceMeters: 0.45
+  maximumCornerDistanceMeters: 1.25
+  maximumCornerAngleDegrees: 145
+  minimumCornerAdjacentEdgeLengthMeters: 0.5
+  minimumDoorwayDistanceMeters: 0.8
+  minimumWalkingPathDistanceMeters: 0.55
+  minimumAngularSeparationDegrees: 65
+  candidateGridSpacingMeters: 0.25
+  preferredWallBandWidthMeters: 0.35
+  narrowHallAspectRatioThreshold: 2.5
+  deterministicVariationWeight: 0.2
+  cornerProximityWeight: 2
+  wallBandWeight: 2
+  doorwayDistanceWeight: 0.5
+  walkingPathDistanceWeight: 1.25
+  entranceVisibilityPenaltyWeight: 1
+  sameRoomCoVisibilityPenaltyWeight: 2
+  objectDistanceWeight: 0.75
+  sameWallSegmentPenaltyWeight: 0.75
+  zoneReusePenaltyWeight: 0.5
+  roomDistributionWeight: 1
+  roomDistributionMode: 0
+  minimumRoomsUsed: 6
+  zoneGridColumns: 2
+  zoneGridRows: 2
+  maximumMarkersPerZone: 2
+  difficultyDistanceMetric: 0
+  maxVisibleObjectsPerView: 1
+  minimumDiscoverableObservationCount: 1
+  observationEyeHeightMeters: 1.6
+  observationGridSize: 3
+  observationPointWallClearanceMeters: 0.35
+  doorwayObservationInsetMeters: 0.8
+  fp1S1Seed: 11031
+  fp1S2Seed: 22063
+  fp1S3Seed: 33091
+  previewMarkerDiameterMeters: 0.18
+  drawCandidateDiagnostics: 1
+  diagnosticPointRadiusMeters: 0.025
 --- !u!1 &711473128
 GameObject:
   m_ObjectHideFlags: 0
