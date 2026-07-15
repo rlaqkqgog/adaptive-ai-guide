@@ -1006,7 +1006,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &393293920
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1267,7 +1267,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &453080126
 Transform:
   m_ObjectHideFlags: 0
@@ -1387,7 +1387,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &480286566
 Transform:
   m_ObjectHideFlags: 0
@@ -1626,6 +1626,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   anchorPrefab: {fileID: 6508694823310335948, guid: ae096c9560ece4943815c5974aec6235, type: 3}
+  enableManualSetAuthoring: 1
 --- !u!4 &536207150
 Transform:
   m_ObjectHideFlags: 0
@@ -1678,8 +1679,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9e15d8eabf04c1b95e2288ac6f3d4a1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   exportOnStart: 1
   waitForMrukSeconds: 20
   showRuntimeDiagnostics: 1
@@ -1694,8 +1695,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5c28ee0ac30e4a3da7ac55890176b819, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   hmdTransform: {fileID: 118821223}
   displayText: {fileID: 2078489109}
   refreshIntervalSeconds: 0.1
@@ -1709,8 +1710,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 31898bfa62de464fb002d9c079c88f0d, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   floorPlanId: FP1
   waitForMrukSeconds: 20
 --- !u!114 &536207156
@@ -1723,14 +1724,43 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: e273bbca82ce42719b52b7e664d9f3f4, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
+  candidateBankTopNPerSet: 4
+  maxQualityDropRatio: 0.15
+  crossSetExclusionRadiusMeters: 0.35
+  maximumCrossSetSlotReuse: 2
+  sameColorCrossSetExclusionRadiusMeters: 0.6
+  maxRouteLengthDifferenceRatio: 0.15
+  equivalenceDispersionMetric: 0
+  maxDispersionDifferenceRatio: 0.15
+  maxRoomCountDifferencePerUuid: 1
+  maxZoneCountDifference: 1
+  maxPlacementTypeRatioDifference: 0.2
+  maxEntranceVisibleMarkerDifference: 2
+  maxMeanDiscoverabilityDifferenceRatio: 0.25
+  maxVisibleCountDifference: 0
+  experimentStartPoint: {fileID: 0}
+  navMeshSampleRadiusMeters: 0.5
+  unlockConfirmationWindowSeconds: 10
+  manualHotspotAdjacencyMeters: 0.75
+  hotspotAnchorLoadTimeoutSeconds: 10
+  ignoreLegacyPlayerPrefsForPersistenceTest: 0
+  useCatalogWorldPoseDirectly: 1
+  room2MaximumMarkers: 5
+  room3MaximumMarkers: 3
   spaceValidator: {fileID: 536207155}
   hmdTransform: {fileID: 118821223}
   hmdCamera: {fileID: 118821224}
   initialSetIndex: 0
   enableQuestControls: 1
   enableKeyboardControls: 1
+  gripSwitchDebounceSeconds: 0.35
+  showNextSetFallbackButton: 1
+  showNextCandidateFallbackButton: 1
+  nextCandidateDebounceSeconds: 0.35
+  leftTrackedHand: {fileID: 480286572}
+  rightTrackedHand: {fileID: 2088031742}
   minimumWallDistanceMeters: 0.35
   minimumObjectDistanceMeters: 1
   floorGapMeters: 0.02
@@ -1764,6 +1794,12 @@ MonoBehaviour:
   zoneGridColumns: 2
   zoneGridRows: 2
   maximumMarkersPerZone: 2
+  zoneGroupOverrides: []
+  zoneGroupMinimumSharedFloorSamples: 3
+  maximumMarkersPerZoneGroup: 2
+  placementTypeDiversityWeight: 1.5
+  easyDiscoverabilityPenaltyWeight: 0.2
+  postSelectionOptimizationPasses: 3
   difficultyDistanceMetric: 0
   maxVisibleObjectsPerView: 1
   minimumDiscoverableObservationCount: 1
@@ -2485,6 +2521,37 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!1 &1964602097
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1964602098}
+  m_Layer: 0
+  m_Name: MCPforUnity
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1964602098
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1964602097}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.03999996, z: 0.10375}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1977923653
 GameObject:
   m_ObjectHideFlags: 0
@@ -2820,7 +2887,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2088031736
 Transform:
   m_ObjectHideFlags: 0
@@ -3006,3 +3073,4 @@ SceneRoots:
   - {fileID: 814525558}
   - {fileID: 536207150}
   - {fileID: 269678919}
+  - {fileID: 1964602098}

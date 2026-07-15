@@ -70,7 +70,7 @@ If `run-as` is unavailable for the deployed build, use Meta Quest Developer Hub'
 
 `AagFp1PlacementAuthoring` is attached to the `SpatialAnchorManager` GameObject in `AnchorSpawn`. It stays disabled unless `AagExperimentSpaceValidator` first validates all eight allowed FP1 room UUIDs and the one excluded test-room UUID.
 
-The authoring component uses only live MRUK floor polygons from allowed FP1 rooms. It builds a deterministic geometry-aware candidate pool; it does not retry 1,000 random points. Hard constraints reject candidates outside the floor/object bounds, inside wall or doorway clearances, inside MRUK volume-obstacle clearances, too close to another marker, or undiscoverable from every valid observation point. It never generates FP2 rooms, boundaries, placements, `plan_x`, or `plan_y`.
+The authoring component uses only live MRUK floor polygons from allowed FP1 rooms. It builds a deterministic geometry-aware candidate pool; it does not retry 1,000 random points. Hard constraints reject candidates outside the floor/object bounds, inside wall or doorway clearances, inside MRUK volume-obstacle clearances, too close to another marker, or undiscoverable from every valid observation point. It never generates FP2 rooms, boundaries, or placements, and it never fabricates `plan_x` / `plan_y` values.
 
 All values under these Inspector headers are initial preview values and are explicitly **PROVISIONAL**:
 
@@ -78,10 +78,15 @@ All values under these Inspector headers are initial preview values and are expl
 - `PROVISIONAL peripheral / corner placement`: corner target range, valid-corner geometry, doorway hard clearance, and walking-path/angular soft targets.
 - `PROVISIONAL geometry-aware candidate pool`: deterministic grid spacing, preferred wall band, narrow-Hall aspect threshold, and seed variation.
 - `PROVISIONAL candidate scoring weights`: corner, wall band, doorway distance, walking-path distance, entrance visibility, co-visibility, object distance, same-wall, and zone weights.
-- `PROVISIONAL room / zone distribution`: balanced or area-weighted room allocation, minimum rooms, zone grid, and maximum markers per zone.
+- `PROVISIONAL room / zone distribution`: exact eight-room quota, local zone grid, automatic/overridden physical zone groups, and maximum markers per zone group.
+- `PROVISIONAL placement diversity / post optimization`: placement-type diversity, easy-discoverability penalty, and deterministic candidate-replacement passes.
 - `PROVISIONAL difficulty comparison`: which distance metric is highlighted when comparing sets.
 - `PROVISIONAL visibility / discovery validation`: actual HMD-camera frustum limit, required discoverable observation count, eye height, entrance inset, and deterministic walking-position grid.
 - `PROVISIONAL preview appearance`: temporary marker diameter.
+- `PROVISIONAL candidate bank / triplet search`: per-set top-N bank size and the S3 quality-drop warning ratio.
+- `PROVISIONAL simplified cross-set diversity gate`: cross-set position exclusion, corner/wall slot reuse cap, and same-color similar-position exclusion.
+- `PROVISIONAL triplet equivalence tolerances`: navigable route, representative dispersion, room/zone distribution, placement-type ratio, entrance exposure, discoverability, and maximum-FOV differences.
+- `Optional navigable route metric`: a calibrated experiment start transform and NavMesh sampling radius. Leave the transform unassigned until both the start and connected NavMesh are trustworthy.
 
 Every generation logs the settings and the applied result with `[AAG Authoring]`, including room counts, minimum wall/object/obstacle distances, corner distance, discoverable observation count, maximum same-room objects in one view, mean nearest-neighbor distance, mean pairwise distance, and maximum pairwise distance.
 
@@ -92,28 +97,55 @@ Every generation logs the settings and the applied result with `[AAG Authoring]`
 - Candidate generation targets `minimumWallDistanceMeters + generationSafetyMarginMeters`. Final validation does not lower the requirement; it fails only when `measuredClearance + validationEpsilonMeters < requiredClearance`. The epsilon is only for floating-point calculation error.
 - Each floor gets a deterministic grid plus analytically inward-offset corner and long-wall candidates. Convex corner offsets include marker radius and hard wall clearance; long walls receive inward-offset wall-band candidates. Short/concave doorway notches are not promoted to corners.
 - Hard constraints are floor/object bounds, minimum wall clearance, doorway exclusion, MRUK volume-obstacle clearance, object-to-object distance, allowed FP1 UUID membership, and discovery from at least one configured valid observation point.
-- Corner proximity/range, preferred wall band, the floor polygon's central walking axis, `maxVisibleObjectsPerView`, entrance visibility, angular separation, same-wall reuse, room/zone distribution, and extra object distance are soft score terms. Missing a soft target produces a warning but does not suppress an otherwise hard-valid 12-marker draft. `BalancedAcrossAllRooms` prefers all eight rooms; a room with zero safe candidates is reported and skipped rather than blocking the whole draft.
+- Every set has an exact room quota: all eight allowed UUIDs receive one marker, and four rotating rooms receive one additional marker. Therefore every set has exactly four rooms with two markers and four rooms with one. A zero-candidate room now makes the set infeasible; it is never silently skipped.
+- Floor interiors that overlap across UUIDs are assigned deterministic `ZG-xx` IDs. Optional Inspector `zoneGroupOverrides` handle a field-confirmed physical grouping. A zone group contains at most two markers, so rooms already sharing one physical group are not selected for an additional marker. `[AAG Physical Zone Diagnosis]` distinguishes floor overlap from merely adjacent UUIDs that share a camera view.
+- Corner proximity/range, preferred wall band, the floor polygon's central walking axis, entrance visibility, angular separation, same-wall reuse, local zone reuse, placement-type diversity, and extra object distance are score terms. At most one marker per room may use the `Corner` type; other markers favor long-wall `WallBand` and `PeripheralInterior` candidates.
 - Rooms with length/width at or above `narrowHallAspectRatioThreshold` use the narrow-Hall profile: corner weight is reduced and long-wall-band weight is increased. The central walking axis remains a penalty only.
 - Observation positions are built deterministically from room centers, points immediately inside `DOOR_FRAME` anchors, and valid points in a walking-position grid. Every marker must pass MRUK line-of-sight from at least `minimumDiscoverableObservationCount` positions.
-- The component reads the runtime HMD Camera projection matrix. Co-visibility above `maxVisibleObjectsPerView` lowers the score and is reported as a soft warning; it is not a hard rejection.
-- Before selecting a set, `[AAG Candidate Pool]` logs each room's initial, floor, wall, doorway, obstacle, discoverable, and object-distance-precheck valid counts, plus width, aspect ratio, wall-band area, and room strategy. A zero room pool is reported once with a concrete adjustment and removed from soft room distribution; generation stops without retry only when the combined hard-valid feasibility scan cannot find a 12-marker packing. No hard setting is silently relaxed.
+- The component reads the runtime HMD Camera projection matrix. It audits all room, entrance, center, and walking observations across UUID boundaries. After the initial draft it deterministically replaces candidates to reduce simultaneous visibility, entrance visibility, excessive discoverability, and placement-type concentration. A draft above `maxVisibleObjectsPerView` may still be previewed, but `ready=false` prevents confirmation and logs the exact reason.
+- Before selecting a set, `[AAG Candidate Pool]` logs each room's initial, floor, wall, doorway, obstacle, discoverable, and object-distance-precheck valid counts, plus width, aspect ratio, wall-band area, and room strategy. Feasibility verifies both the global 12-marker packing and the required one/two-marker capacity of every room. No hard setting is silently relaxed.
+- `[AAG Distribution]` logs UUID and zone-group counts plus corner/wall-band/peripheral counts. `[AAG Visibility Audit]` logs entrance-visible markers, maximum entrance/FOV counts, and cross-UUID co-visible pairs. `[AAG Marker Visibility]` reports every marker's discoverable and entrance observation counts.
 - `[AAG Clearance]` logs every final marker with at least six decimal places, required wall clearance, generation margin, validation epsilon, marker radius/diameter, and the distance definition. If one marker fails hard revalidation, `[AAG Marker Repair]` replaces only that marker from the existing hard-valid pool and revalidates the full set. `[AAG Clearance Report]` reports each set and all available FP1 sets with minimum actual wall clearance and failure count.
 - With the component selected during Play mode, Unity Scene Gizmos show valid candidates in green, floor/wall failures in red, doorway failures in orange, obstacle failures in purple, and walking-path-penalized hard-valid candidates in yellow. Floor boundaries, doorway buffers, obstacle bounds, and walking axes are also drawn.
 
 Each set has a distinct serialized seed. With the same MRUK scan and Inspector settings, explicit regeneration is deterministic. A confirmed set cannot be regenerated or overwritten in the app; it is loaded and spawned from the saved coordinates on subsequent launches.
 
+### Candidate lifecycle, fingerprints, and triplet readiness
+
+Each generated placement is stored in a bounded per-set candidate bank as `DRAFT`, `READY`, `LOCKED`, `STALE`, or `INVALIDATED`. The bank compares the top-N candidates for S1, S2, and S3 jointly instead of accepting only the first greedy locking sequence. A recommendation must pass each set's existing hard validation, the simplified diversity gate, and the equivalence gate. Among feasible combinations, the lowest quality-score spread is recommended.
+
+`NEXT CANDIDATE` advances through the current set's bank in deterministic seed order. If the displayed candidate is already the bank's last entry, it derives a new unused seed, generates a candidate, retains that new entry in the bounded bank, removes the 12 old preview markers, and spawns the new 12 markers. It is blocked while the current candidate is `LOCKED`; unlock first. Every result logs input/controller/button, set ID, before/after candidate IDs, source (`BANK` or `GENERATED`), removed/spawned counts, and success/failure reason.
+
+`TRIPLET_READY` is separate from individual `READY`: it becomes true only when all three recommended candidates pass the joint gates and all three are explicitly `LOCKED`. A stale, invalidated, draft, or merely ready candidate may be previewed, but it cannot be locked for runtime use. Runtime consumers must require `IsTripletReadyForRuntime == true`.
+
+The only cross-set diversity hard gates are `crossSetExclusionRadiusMeters`, `maximumCrossSetSlotReuse`, and `sameColorCrossSetExclusionRadiusMeters`. Mean nearest-neighbor distance, spatial-cell overlap, overall location similarity, exact minimum assignment (Hungarian-equivalent) distance, and placement-type difference are logged as report-only and never block `READY`.
+
+The equivalence gate uses one Inspector-selected dispersion metric plus room/zone and visibility differences. It also uses minimum navigable route length only when a calibrated `experimentStartPoint` and complete NavMesh paths are available. The current `AnchorSpawn` scene deliberately has no experiment start transform and no baked NavMesh data, so route output is `ROUTE_METRIC_UNAVAILABLE` and report-only; no fake start or straight-line-through-walls value is generated.
+
+Every candidate fingerprint includes its ID/seed, prior locked candidate IDs, prior locked world-coordinate hash, placement-settings hash, FP1 UUID list, latest raw MRUK export identifier, live MRUK geometry hash, and generator version. A mismatch marks it `STALE` and logs what changed. Explicit revalidation (`F5`) recomputes hard validation, metrics, and the fingerprint.
+
+Unlock is a two-step explicit action. On a selected `LOCKED` set, left-thumbstick click (or `F4`) first displays, for example, `Unlocking FP1-S1 will invalidate FP1-S2, FP1-S3 and the current triplet. Continue?`; repeat the same action within the Inspector confirmation window to continue. S1 changes invalidate S2/S3, S2 changes invalidate S3, and every change immediately clears `TRIPLET_READY`. Coordinates and candidate files are retained; only their states are demoted until revalidation. On a `STALE`/`INVALIDATED` set, left-thumbstick click performs revalidation only; click again after it becomes `READY` to lock it.
+
 ### Quest controls
 
-Only one set is visible at a time. Nothing is generated automatically.
+Only one set is visible at a time. A set switch loads confirmed coordinates when present, otherwise it creates that target set's reproducible fixed-seed draft. It never changes the placement algorithm or clearance settings during a switch.
 
-| Action | Quest left controller | Editor keyboard |
+| Action | Quest controller / headset UI | Editor keyboard |
 |---|---|---|
-| Select next set | Index trigger | `F1` |
-| Deterministically regenerate selected, unconfirmed set | Grip | `F2` |
-| Confirm and save the displayed preview | Thumbstick click | `F3` |
+| Next set (`S1 → S2 → S3 → S1`) | Left or right Grip press start; left index trigger remains a secondary shortcut; `NEXT SET` UI | `F1` |
+| Next candidate in current set; generate one at bank end | Head-locked `NEXT CANDIDATE` button, UI ray or hand pointer + index pinch | `F6` |
+| Deterministically regenerate selected, unconfirmed set | — | `F2` |
+| Lock and save displayed `READY`; revalidate displayed `STALE/INVALIDATED` | Left thumbstick click | `F3` (same context-sensitive action), or `F5` for revalidation only |
+| Unlock selected `LOCKED` set (two presses required) | Left thumbstick twice within confirmation window | `F4`, then `F4` again within the confirmation window |
 
 Temporary sphere markers are colored red, blue, green, or yellow and carry a world-space label containing the set ID, color, and color-specific number.
-When Grip/F2 is detected, the enlarged outlined HUD first shows `LEFT GRIP DETECTED` and `BUILDING ... CANDIDATE POOLS`. Candidate pools are built once, feasibility is checked once, and the highest scoring hard-valid draft is shown. There is no 1,000-attempt rejection loop. Full pool counts and feasibility details remain in `[AAG Candidate Pool]`, `[AAG Feasibility]`, and `[AAG Authoring]` logcat lines.
+Grip is read directly through Meta `OVRInput` (`LHandTrigger` / `RHandTrigger`) on the press-start edge with an Inspector-configurable debounce, so holding it cannot repeatedly advance sets. The active `SpatialAnchorManager` previously used right Grip to erase all anchors; while FP1 authoring is ready, that erase action is suppressed so right Grip belongs only to set switching. Other anchor controls are unchanged.
+
+Right Thumbstick click was checked first, but it is already assigned to `SpatialAnchorManager.LoadSavedAnchors()`. That binding is preserved. Therefore Quest `NEXT CANDIDATE` uses the separate head-locked button and Editor diagnosis uses `F6`; startup logs `RightThumbstickConflict=SpatialAnchorManager.LoadSavedAnchors (preserved)` and `RightThumbstickRebound=false`.
+
+The headset HUD always displays set ID, full candidate ID, seed, lifecycle state, and `TRIPLET_READY`. Every set or candidate switch resolves the target data, removes the old markers, and spawns the target positions. A failed generation keeps the current candidate visible and logs `success=false reason="..."` instead of failing silently.
+
+For controller-free diagnosis, point either tracked hand at the headset-fixed `NEXT SET` or `NEXT CANDIDATE` button and index-pinch. Each button highlights while targeted and remains a normal Unity UI `Button`, so configured UI rays can click it. There is no 1,000-attempt rejection loop. Full pool counts and feasibility details remain in `[AAG Candidate Pool]`, `[AAG Feasibility]`, and `[AAG Authoring]` logcat lines.
 
 To capture the six-decimal clearance audit and the FP1-S1 through FP1-S3 minimum/failure report:
 
@@ -125,12 +157,12 @@ To capture the six-decimal clearance audit and the FP1-S1 through FP1-S3 minimum
 
 1. Build and run `AnchorSpawn` as an Android Development Build in the current FP1 Space Setup.
 2. Wait for `[AAG Space] FP1 validation passed`. Authoring remains disabled if this line is not produced.
-3. Confirm the headset HUD shows `PROVISIONAL FP1-S1 [EMPTY]` or the already-confirmed state. Existing confirmed coordinates spawn without regeneration.
-4. For an empty set, press the left grip once. Walk through the full space and visually inspect all 12 markers. Confirm each sphere bottom is at the configured floor gap, no marker blocks a doorway/walking path, and same-room markers occupy separated corners/directions.
-5. Check the HUD and `[AAG Authoring]` log for room counts, minimum wall/object/obstacle/corner distances, discoverable observation counts, and `maxVisibleInOneView`. Physically check from the room entrance, room center, and normal walking positions that exploration reveals every marker without exposing all same-room markers in one view.
-6. If accepted, click the left thumbstick once to confirm. The set becomes immutable in-app and is saved immediately.
-7. Press the left index trigger to select FP1-S2 and repeat steps 4-6, then repeat for FP1-S3.
-8. After the third confirmation, require the log `FINAL FP1 export verified: JSON/CSV rows=36`. Do not accept a partial row count as the final authoring result.
+3. Confirm the headset HUD continuously shows set ID, candidate ID, seed, lifecycle state, and `TRIPLET_READY=true/false`. Existing locked coordinates spawn without regeneration; legacy coordinates without fingerprints appear as `STALE` until explicitly revalidated.
+4. If FP1-S1 is empty, use `F2` in an Editor test to explicitly generate it; on Quest, one Grip switch resolves the next set automatically. Walk through the full space and visually inspect all 12 displayed markers. Confirm each sphere bottom is at the configured floor gap, no marker blocks a doorway/walking path, and same-room markers occupy separated corners/directions.
+5. Before locking, press `NEXT CANDIDATE` to inspect bank alternatives. Confirm the log reports different before/after candidate IDs and `removed=12 spawned=12`. At the bank end, confirm `source=GENERATED` and a new seed. Check the HUD and `[AAG Authoring]` log for room counts, clearances, discoverability, and `maxVisibleInOneView`.
+6. If accepted and the HUD state is `READY`, click the left thumbstick once to lock it. `STALE`, `INVALIDATED`, or `DRAFT` is rejected with an explicit reason.
+7. Press either Grip once to select FP1-S2 and repeat steps 4-6, then press once for FP1-S3. Verify the actual marker positions change, not only their labels/colors. Holding Grip must not advance again. The expected log shape is `[AAG Authoring] Switch input=RightGrip ... from=FP1-S1 to=FP1-S2 ... removed=12 spawned=12 positionsDiffer=true success=true`.
+8. After the third lock, require `[AAG Equivalence] ... tripletReady=true`, 36 JSON/CSV rows, and three recommended locked candidate IDs. If individual READY candidates exist but no feasible joint combination exists, generate/revalidate alternatives rather than accepting the greedy sequence.
 9. Restart the app. Cycle through all three sets and verify that each confirmed set spawns without regeneration. At each confirmation, require the `JSON/CSV save-and-reload verification passed with identical coordinates/content` log; after restart, require `Loaded confirmed placements without regeneration`.
 
 The aggregate files are written separately from the raw MRUK exports:
@@ -139,15 +171,18 @@ The aggregate files are written separately from the raw MRUK exports:
 <Application.persistentDataPath>/AagFp1Placements/
   fp1_confirmed_placements.json
   fp1_confirmed_placements.csv
+  fp1_candidate_bank.json
 ```
 
-Both formats use the fields below. No plan-coordinate fields are emitted.
+The confirmed JSON and CSV retain world coordinates and explicitly state that plan coordinates are unavailable:
 
 ```text
-floor_plan_id,set_id,answer_marker_id,color,room_uuid,world_x,world_y,world_z,seed,corner_distance,wall_distance,nearest_object_distance,discoverable_observation_count,set_max_visible_objects_per_view
+floor_plan_id,set_id,answer_marker_id,color,room_uuid,world_x,world_y,world_z,seed,corner_distance,wall_distance,nearest_object_distance,discoverable_observation_count,set_max_visible_objects_per_view,plan_x,plan_y,planCoordinateStatus,worldToPlanTransformVersion,candidate_id,candidate_state,triplet_ready,export_status
 ```
 
-The last five columns are validation measurements. Distances are horizontal meters; wall and nearest-object values are clear distances from the temporary marker surface. `set_max_visible_objects_per_view` is repeated on each row so the flat CSV still remains exactly 36 data rows.
+`plan_x=null`, `plan_y=null`, `planCoordinateStatus=UNAVAILABLE`, and `worldToPlanTransformVersion=null` are deliberate. Even a runtime-eligible triplet is exported as `TRIPLET_READY_RUNTIME_ONLY_PLAN_COORDINATES_UNAVAILABLE`, not as a `FINAL` website answer key. A future calibrated transform must add its version/hash, control points, residual/error, normalized-range checks, and round-trip verification before that status can change. No website or Supabase path consumes this authoring export automatically.
+
+The validation columns remain horizontal-meter measurements. `set_max_visible_objects_per_view` is repeated on each row so the flat CSV still has exactly 36 data rows when all sets are locked. The candidate bank preserves alternative coordinates, lifecycle reasons, dependency fingerprints, metrics, and the recommended triplet without modifying the raw MRUK exports.
 
 ### Copy confirmed placements to the PC
 

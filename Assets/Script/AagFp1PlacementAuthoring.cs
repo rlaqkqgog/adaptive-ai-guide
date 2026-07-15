@@ -8,6 +8,7 @@ using System.Text;
 using Meta.XR.MRUtilityKit;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -25,11 +26,18 @@ public enum AagDifficultyDistanceMetric
     MaximumPairwiseDistance,
 }
 
+public enum AagPlacementType
+{
+    Corner,
+    WallBand,
+    PeripheralInterior,
+}
+
 /// <summary>
 /// Deterministic FP1 placement authoring and preview. Confirmed coordinates are
 /// immutable in-app and are stored separately from raw MRUK room exports.
 /// </summary>
-public sealed class AagFp1PlacementAuthoring : MonoBehaviour
+public sealed partial class AagFp1PlacementAuthoring : MonoBehaviour
 {
     private const string ClearanceDistanceDefinition = "marker bounds edge to MRUK boundary/footprint (horizontal XZ meters)";
 
@@ -71,7 +79,34 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         public float walkingPathClearance;
         public int discoverableObservationCount;
         public bool visibleFromEntrance;
+        public int entranceVisibleObservationCount;
+        public AagPlacementType placementType;
         public float deterministicVariation;
+        public string placementSource = "PROCEDURAL";
+        public string hotspotUuid;
+        public float hotspotOffsetMeters;
+        public float hotspotSectorAngle;
+        public string hotspotZoneGroup;
+        public string spatialSlotKey;
+        public bool isNearManualHotspot;
+    }
+
+    [Serializable]
+    private sealed class ZoneGroupDefinition
+    {
+        public string zoneGroupId = "ZG-01";
+        public List<string> roomUuids = new List<string>();
+    }
+
+    private sealed class VisibilityAudit
+    {
+        public int maximumVisible;
+        public int entranceVisibleMarkerCount;
+        public int maximumVisibleFromOneEntrance;
+        public int simultaneousExcess;
+        public readonly Dictionary<string, int> discoverableByMarker = new Dictionary<string, int>(StringComparer.Ordinal);
+        public readonly Dictionary<string, int> entranceObservationsByMarker = new Dictionary<string, int>(StringComparer.Ordinal);
+        public readonly HashSet<string> crossUuidPairs = new HashSet<string>(StringComparer.Ordinal);
     }
 
     private sealed class RoomCandidatePool
@@ -93,7 +128,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     private const string StorageFolderName = "AagFp1Placements";
     private const string JsonFileName = "fp1_confirmed_placements.json";
     private const string CsvFileName = "fp1_confirmed_placements.csv";
-    private const string SchemaVersion = "aag-fp1-placement/v2";
+    private const string SchemaVersion = "aag-fp1-placement/v5-bundled-manual-hotspots";
     private const int MarkerCountPerSet = 12;
     private const int MarkersPerColor = 3;
 
@@ -118,6 +153,18 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     [SerializeField, Range(0, 2)] private int initialSetIndex;
     [SerializeField] private bool enableQuestControls = true;
     [SerializeField] private bool enableKeyboardControls = true;
+
+    [Header("Set switch diagnostics")]
+    [Tooltip("Minimum unscaled time between accepted Grip set-switch presses.")]
+    [SerializeField, Min(0f)] private float gripSwitchDebounceSeconds = 0.35f;
+    [Tooltip("Shows a headset-fixed NEXT SET button. Pointing at it and index-pinching also works with hand tracking.")]
+    [SerializeField] private bool showNextSetFallbackButton = true;
+    [Tooltip("Shows a headset-fixed NEXT CANDIDATE button because Right Thumbstick is already used by SpatialAnchorManager.LoadSavedAnchors.")]
+    [SerializeField] private bool showNextCandidateFallbackButton = true;
+    [Tooltip("Prevents duplicate UI/pinch activation from advancing more than one candidate.")]
+    [SerializeField, Min(0f)] private float nextCandidateDebounceSeconds = 0.35f;
+    [SerializeField] private OVRHand leftTrackedHand;
+    [SerializeField] private OVRHand rightTrackedHand;
 
     [Header("PROVISIONAL clearance settings")]
     [Tooltip("PROVISIONAL: minimum horizontal distance from the MRUK floor polygon boundary, in meters.")]
@@ -180,6 +227,17 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     [SerializeField, Range(1, 8)] private int zoneGridColumns = 2;
     [SerializeField, Range(1, 8)] private int zoneGridRows = 2;
     [SerializeField, Min(1)] private int maximumMarkersPerZone = 2;
+    [Tooltip("Optional physical-zone UUID group overrides. Unassigned rooms are grouped automatically only when their floor interiors overlap.")]
+    [SerializeField] private List<ZoneGroupDefinition> zoneGroupOverrides = new List<ZoneGroupDefinition>();
+    [Tooltip("Number of reciprocal hard-valid floor samples required to automatically treat UUIDs as one physical zone.")]
+    [SerializeField, Min(1)] private int zoneGroupMinimumSharedFloorSamples = 3;
+    [Tooltip("Maximum markers across every physical zoneGroupId.")]
+    [SerializeField, Min(1)] private int maximumMarkersPerZoneGroup = 2;
+
+    [Header("PROVISIONAL placement diversity / post optimization")]
+    [SerializeField, Min(0f)] private float placementTypeDiversityWeight = 1.5f;
+    [SerializeField, Min(0f)] private float easyDiscoverabilityPenaltyWeight = 0.2f;
+    [SerializeField, Range(1, 16)] private int postSelectionOptimizationPasses = 3;
 
     [Header("PROVISIONAL difficulty comparison")]
     [SerializeField] private AagDifficultyDistanceMetric difficultyDistanceMetric = AagDifficultyDistanceMetric.MeanNearestNeighborDistance;
@@ -214,11 +272,24 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     private readonly List<GameObject> previewObjects = new List<GameObject>();
     private readonly List<Transform> previewLabels = new List<Transform>();
     private readonly List<CandidateDiagnostic> candidateDiagnostics = new List<CandidateDiagnostic>();
+    private readonly Dictionary<Guid, string> activeZoneGroupByRoom = new Dictionary<Guid, string>();
+    private readonly Dictionary<string, bool> globalLineOfSightCache = new Dictionary<string, bool>(StringComparer.Ordinal);
 
     private int selectedSetIndex;
     private bool isReady;
     private bool isGenerating;
     private TextMeshPro authoringHud;
+    private Button nextSetFallbackButton;
+    private RectTransform nextSetFallbackRect;
+    private Image nextSetFallbackImage;
+    private Button nextCandidateFallbackButton;
+    private RectTransform nextCandidateFallbackRect;
+    private Image nextCandidateFallbackImage;
+    private bool previousLeftGripPressed;
+    private bool previousRightGripPressed;
+    private bool previousLeftPinchPressed;
+    private bool previousRightPinchPressed;
+    private float nextGripSwitchAllowedTime;
     private string lastValidationSummary = "No preview";
 
     private string StorageFolderPath => Path.Combine(Application.persistentDataPath, StorageFolderName);
@@ -227,17 +298,18 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     private string SelectedSetId => SetIds[selectedSetIndex];
     private float PreviewMarkerRadiusMeters => previewMarkerDiameterMeters * 0.5f;
     private float PreviewObjectBottomOffsetMeters => PreviewMarkerRadiusMeters;
+    public bool ReservesRightGripForSetSwitch => isReady && enableQuestControls && enabled && gameObject.activeInHierarchy;
 
     private IEnumerator Start()
     {
         selectedSetIndex = Mathf.Clamp(initialSetIndex, 0, SetIds.Length - 1);
         CreateAuthoringHud();
-        SetHud("Waiting for FP1 validation...");
+        SetHud($"PROVISIONAL {SelectedSetId}\nWaiting for FP1 validation...");
 
         if (spaceValidator == null)
         {
             Debug.LogError("[AAG Authoring] AagExperimentSpaceValidator reference is missing.");
-            SetHud("ERROR: validator reference missing");
+            SetHud($"PROVISIONAL {SelectedSetId}\nERROR: validator reference missing");
             yield break;
         }
 
@@ -249,9 +321,17 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         if (hmdCamera == null)
         {
             Debug.LogError("[AAG Authoring] HMD Camera reference is missing; FOV/frustum validation cannot run.");
-            SetHud("ERROR: HMD Camera reference missing");
+            SetHud($"PROVISIONAL {SelectedSetId}\nERROR: HMD Camera reference missing");
             yield break;
         }
+
+        CreateNextSetFallbackButton();
+        CreateNextCandidateFallbackButton();
+        InitializeUiInteractionLifecycle();
+
+        // Report the immutable bundled recovery inputs immediately, but do not query the
+        // Quest anchor store until MRUK validation completes. The query is attempted once.
+        yield return InitializeHotspotRecoveryCatalogs("startup");
 
         while (!spaceValidator.IsValidationComplete)
         {
@@ -263,25 +343,49 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             || !string.Equals(spaceValidator.ValidatedFloorPlan.FloorPlanId, AagExperimentSpaceCatalog.Fp1Id, StringComparison.Ordinal))
         {
             Debug.LogError("[AAG Authoring] Placement authoring disabled because FP1 validation did not pass.");
-            SetHud("FP1 VALIDATION FAILED\nAuthoring disabled");
+            SetHud($"PROVISIONAL {SelectedSetId}\nFP1 VALIDATION FAILED\nAuthoring disabled");
             yield break;
         }
 
         if (!ValidateSeeds() || !ValidateProvisionalSettings())
         {
-            SetHud("ERROR: invalid FP1 authoring settings");
+            SetHud($"PROVISIONAL {SelectedSetId}\nERROR: invalid FP1 authoring settings");
             yield break;
         }
 
+        // Query the Quest local-anchor store once. Failed anchors then use only the validated
+        // MRUK room-local recovery catalog; no raw catalog world-pose fallback is permitted.
+        yield return LoadSavedHotspotAnchorsReadOnly("post-fp1-validation");
         LoadConfirmedPlacements();
+        RefreshPreferredHotspotCatalog("initial-authoring-ready");
+        LoadCandidateRobustnessState();
         isReady = true;
+        SyncGripStates();
+        SyncHandPinchStates();
         LogProvisionalSettings();
+        var anchorManager = GetComponent<SpatialAnchorManager>();
+        Debug.Log(
+            $"[AAG Authoring] Input backend=OVRInput direct polling; InputSystem=keyboard diagnostics only; " +
+            $"LeftGrip=LHandTrigger RightGrip=RHandTrigger edgeTrigger=true debounce={gripSwitchDebounceSeconds:F3}s " +
+            $"rightGripAnchorConflict={(anchorManager != null ? "suppressed while authoring is ready" : "none detected")}; " +
+            $"RightThumbstickConflict={(anchorManager != null ? "SpatialAnchorManager.LoadSavedAnchors (preserved)" : "none detected")}; " +
+            $"NextCandidateInput=HeadLockedButton+F6; RightThumbstickRebound=false");
         ShowSelectedSet();
+        LogUiInteractionState("initial-run-ready");
     }
 
     private void Update()
     {
-        if (!isReady || isGenerating)
+        UpdateUiInteractionLifecycle();
+        if (!isReady)
+        {
+            return;
+        }
+
+        PollGripSwitchInput();
+        PollHandTrackingFallbackInput();
+
+        if (isGenerating)
         {
             return;
         }
@@ -289,6 +393,9 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         var cycleRequested = false;
         var regenerateRequested = false;
         var confirmRequested = false;
+        var unlockRequested = false;
+        var revalidateRequested = false;
+        var nextCandidateRequested = false;
 
         if (enableKeyboardControls)
         {
@@ -299,24 +406,29 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 cycleRequested = keyboard.f1Key.wasPressedThisFrame;
                 regenerateRequested = keyboard.f2Key.wasPressedThisFrame;
                 confirmRequested = keyboard.f3Key.wasPressedThisFrame;
+                unlockRequested = keyboard.f4Key.wasPressedThisFrame;
+                revalidateRequested = keyboard.f5Key.wasPressedThisFrame;
+                nextCandidateRequested = keyboard.f6Key.wasPressedThisFrame;
             }
 #else
             cycleRequested = Input.GetKeyDown(KeyCode.F1);
             regenerateRequested = Input.GetKeyDown(KeyCode.F2);
             confirmRequested = Input.GetKeyDown(KeyCode.F3);
+            unlockRequested = Input.GetKeyDown(KeyCode.F4);
+            revalidateRequested = Input.GetKeyDown(KeyCode.F5);
+            nextCandidateRequested = Input.GetKeyDown(KeyCode.F6);
 #endif
         }
 
         if (enableQuestControls)
         {
             cycleRequested |= OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.LTouch);
-            regenerateRequested |= OVRInput.GetDown(OVRInput.RawButton.LHandTrigger, OVRInput.Controller.LTouch);
             confirmRequested |= OVRInput.GetDown(OVRInput.Button.PrimaryThumbstick, OVRInput.Controller.LTouch);
         }
 
         if (cycleRequested)
         {
-            SelectNextSet();
+            RequestNextSetSwitch("LeftIndexTrigger", "LTouch", "PrimaryIndexTrigger", false);
         }
 
         if (regenerateRequested)
@@ -327,6 +439,21 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         if (confirmRequested)
         {
             ConfirmSelectedSet();
+        }
+
+        if (unlockRequested)
+        {
+            RequestUnlockSelectedSet();
+        }
+
+        if (revalidateRequested)
+        {
+            RevalidateSelectedCandidate();
+        }
+
+        if (nextCandidateRequested)
+        {
+            RequestNextCandidate("F6", "Keyboard", "F6");
         }
     }
 
@@ -444,14 +571,341 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
     public void SelectNextSet()
     {
-        if (!isReady)
+        RequestNextSetSwitch("SelectNextSetAPI", "API", "SelectNextSet", false);
+    }
+
+    public void NextSetFromUi()
+    {
+        MarkCurrentPinchesConsumedForUiClick();
+        LogUiInteractionState("click-immediately-before", "NEXT_SET");
+        RequestNextSetSwitch("NextSetUI", "HandTracking/UI", "NextSet", false);
+    }
+
+    private void PollGripSwitchInput()
+    {
+        if (!enableQuestControls)
+        {
+            SyncGripStates();
+            return;
+        }
+
+        var leftPressed = OVRInput.Get(OVRInput.RawButton.LHandTrigger, OVRInput.Controller.LTouch);
+        var rightPressed = OVRInput.Get(OVRInput.RawButton.RHandTrigger, OVRInput.Controller.RTouch);
+        var leftStarted = leftPressed && !previousLeftGripPressed;
+        var rightStarted = rightPressed && !previousRightGripPressed;
+        previousLeftGripPressed = leftPressed;
+        previousRightGripPressed = rightPressed;
+
+        if (leftStarted && rightStarted)
+        {
+            RequestNextSetSwitch("BothGrips", "LTouch+RTouch", "LHandTrigger+RHandTrigger", true);
+        }
+        else if (leftStarted)
+        {
+            RequestNextSetSwitch("LeftGrip", "LTouch", "LHandTrigger", true);
+        }
+        else if (rightStarted)
+        {
+            RequestNextSetSwitch("RightGrip", "RTouch", "RHandTrigger", true);
+        }
+    }
+
+    private void PollHandTrackingFallbackInput()
+    {
+        if ((!showNextSetFallbackButton || nextSetFallbackRect == null)
+            && (!showNextCandidateFallbackButton || nextCandidateFallbackRect == null))
+        {
+            SyncHandPinchStates();
+            return;
+        }
+
+        var leftPinching = IsIndexPinching(leftTrackedHand);
+        var rightPinching = IsIndexPinching(rightTrackedHand);
+        var leftStarted = leftPinching && !previousLeftPinchPressed && !leftPinchReleasePending;
+        var rightStarted = rightPinching && !previousRightPinchPressed && !rightPinchReleasePending;
+        previousLeftPinchPressed = leftPinching;
+        previousRightPinchPressed = rightPinching;
+
+        var inputAllowed = CanAcceptAuthoringUiInput();
+        var leftPointerOnSet = inputAllowed && IsHandPointerOnButton(leftTrackedHand, nextSetFallbackRect);
+        var rightPointerOnSet = inputAllowed && IsHandPointerOnButton(rightTrackedHand, nextSetFallbackRect);
+        var pointerOnSet = leftPointerOnSet || rightPointerOnSet;
+        if (nextSetFallbackImage != null)
+        {
+            nextSetFallbackImage.color = pointerOnSet
+                ? new Color(0.15f, 0.9f, 0.45f, 0.95f)
+                : new Color(0.05f, 0.35f, 0.65f, 0.9f);
+        }
+
+        var leftPointerOnCandidate = inputAllowed && IsHandPointerOnButton(leftTrackedHand, nextCandidateFallbackRect);
+        var rightPointerOnCandidate = inputAllowed && IsHandPointerOnButton(rightTrackedHand, nextCandidateFallbackRect);
+        var pointerOnCandidate = leftPointerOnCandidate || rightPointerOnCandidate;
+        if (nextCandidateFallbackImage != null)
+        {
+            nextCandidateFallbackImage.color = pointerOnCandidate
+                ? new Color(0.15f, 0.9f, 0.45f, 0.95f)
+                : new Color(0.45f, 0.18f, 0.65f, 0.9f);
+        }
+
+        var leftCandidateActivated = leftStarted && leftPointerOnCandidate;
+        var rightCandidateActivated = rightStarted && rightPointerOnCandidate;
+        if (leftCandidateActivated || rightCandidateActivated)
+        {
+            MarkPinchConsumed(leftCandidateActivated, rightCandidateActivated);
+            var controller = leftCandidateActivated && rightCandidateActivated
+                ? "BothHands"
+                : leftCandidateActivated ? "LeftHandTracking" : "RightHandTracking";
+            LogUiInteractionState("click-immediately-before", "NEXT_CANDIDATE");
+            RequestNextCandidate("NextCandidateUI", controller, "IndexPinch");
+            return;
+        }
+
+        var leftSetActivated = leftStarted && leftPointerOnSet;
+        var rightSetActivated = rightStarted && rightPointerOnSet;
+        if (!leftSetActivated && !rightSetActivated)
         {
             return;
         }
 
-        selectedSetIndex = (selectedSetIndex + 1) % SetIds.Length;
-        Debug.Log($"[AAG Authoring] Explicit set switch -> {SelectedSetId}");
-        ShowSelectedSet();
+        if (leftSetActivated && rightSetActivated)
+        {
+            MarkPinchConsumed(true, true);
+            LogUiInteractionState("click-immediately-before", "NEXT_SET");
+            RequestNextSetSwitch("NextSetUI", "BothHands", "IndexPinch", false);
+        }
+        else if (leftSetActivated)
+        {
+            MarkPinchConsumed(true, false);
+            LogUiInteractionState("click-immediately-before", "NEXT_SET");
+            RequestNextSetSwitch("NextSetUI", "LeftHandTracking", "IndexPinch", false);
+        }
+        else
+        {
+            MarkPinchConsumed(false, true);
+            LogUiInteractionState("click-immediately-before", "NEXT_SET");
+            RequestNextSetSwitch("NextSetUI", "RightHandTracking", "IndexPinch", false);
+        }
+    }
+
+    private bool IsHandPointerOnButton(OVRHand hand, RectTransform buttonRect)
+    {
+        if (hand == null || !hand.isActiveAndEnabled || !hand.IsTracked || !hand.IsPointerPoseValid
+            || buttonRect == null || hmdCamera == null)
+        {
+            return false;
+        }
+
+        var pointerPose = hand.PointerPose;
+        var buttonPlane = new Plane(buttonRect.forward, buttonRect.position);
+        var pointerRay = new Ray(pointerPose.position, pointerPose.forward);
+        if (!buttonPlane.Raycast(pointerRay, out var distance) || distance < 0f || distance > 5f)
+        {
+            return false;
+        }
+
+        var hitPoint = pointerRay.GetPoint(distance);
+        var screenPoint = RectTransformUtility.WorldToScreenPoint(hmdCamera, hitPoint);
+        return RectTransformUtility.RectangleContainsScreenPoint(buttonRect, screenPoint, hmdCamera);
+    }
+
+    private static bool IsIndexPinching(OVRHand hand)
+    {
+        return hand != null && hand.isActiveAndEnabled && hand.IsTracked
+            && hand.GetFingerIsPinching(OVRHand.HandFinger.Index);
+    }
+
+    private void SyncGripStates()
+    {
+        previousLeftGripPressed = OVRInput.Get(OVRInput.RawButton.LHandTrigger, OVRInput.Controller.LTouch);
+        previousRightGripPressed = OVRInput.Get(OVRInput.RawButton.RHandTrigger, OVRInput.Controller.RTouch);
+    }
+
+    private void SyncHandPinchStates()
+    {
+        previousLeftPinchPressed = IsIndexPinching(leftTrackedHand);
+        previousRightPinchPressed = IsIndexPinching(rightTrackedHand);
+    }
+
+    private void RequestNextSetSwitch(string input, string controller, string button, bool applyGripDebounce)
+    {
+        var fromSetId = SelectedSetId;
+        var targetSetId = SetIds[(selectedSetIndex + 1) % SetIds.Length];
+
+        if (!isReady)
+        {
+            LogSwitchResult(input, controller, button, fromSetId, targetSetId, false, "not-checked", 0, 0, false, false, "FP1 authoring is not ready");
+            return;
+        }
+
+        if (isGenerating)
+        {
+            LogSwitchResult(input, controller, button, fromSetId, targetSetId, false, "not-checked", 0, 0, false, false, "another generate/switch operation is in progress");
+            return;
+        }
+
+        if (applyGripDebounce && Time.unscaledTime < nextGripSwitchAllowedTime)
+        {
+            LogSwitchResult(input, controller, button, fromSetId, targetSetId, false, "not-checked", 0, 0, false, false, "Grip debounce window is active");
+            return;
+        }
+
+        if (applyGripDebounce)
+        {
+            nextGripSwitchAllowedTime = Time.unscaledTime + gripSwitchDebounceSeconds;
+        }
+
+        StartCoroutine(SwitchToNextSetRoutine(input, controller, button));
+    }
+
+    private IEnumerator SwitchToNextSetRoutine(string input, string controller, string button)
+    {
+        BeginUiInteractionOperation("NEXT_SET");
+        var fromIndex = selectedSetIndex;
+        var targetIndex = (fromIndex + 1) % SetIds.Length;
+        var fromSetId = SetIds[fromIndex];
+        var targetSetId = SetIds[targetIndex];
+        try
+        {
+            TryGetSetPlacements(fromSetId, out var fromPlacements, out _, out _);
+            var targetDataExists = TryGetSetPlacements(targetSetId, out var targetPlacements, out var targetConfirmed, out var targetDataState);
+
+            Debug.Log(
+                $"[AAG Authoring] Switch detected input={input} controller={controller} button={button} " +
+                $"from={fromSetId} to={targetSetId} targetDataExists={BoolText(targetDataExists)} targetData={targetDataState}");
+            SetHud($"PROVISIONAL {fromSetId}\nSWITCHING TO {targetSetId}\ninput={input}");
+            yield return null;
+
+            var generationSummary = string.Empty;
+            if (!targetDataExists)
+            {
+                if (!TryGenerateSet(targetSetId, GetSeed(targetSetId), out targetPlacements, out generationSummary))
+                {
+                    lastValidationSummary = $"Switch failed: {generationSummary}";
+                    UpdateHud(IsSetConfirmed(fromSetId));
+                    LogSwitchResult(input, controller, button, fromSetId, targetSetId, false, "generation-failed", 0, 0, false, false, generationSummary);
+                    RecordUiInteractionOperationResult(0, 0, false, generationSummary);
+                    yield break;
+                }
+
+                InvalidateDependentSetsAfterChange(targetSetId, true);
+                EvaluateTripletBank();
+                SaveCandidateBank();
+                unconfirmedBySet[targetSetId] = targetPlacements;
+                targetConfirmed = false;
+                targetDataState = "fixed-seed-draft-generated";
+            }
+
+            if (!ValidatePlacementSet(targetPlacements, out var validationSummary))
+            {
+                if (!targetDataExists)
+                {
+                    unconfirmedBySet.Remove(targetSetId);
+                }
+
+                lastValidationSummary = $"Switch failed: {validationSummary}";
+                UpdateHud(IsSetConfirmed(fromSetId));
+                LogSwitchResult(input, controller, button, fromSetId, targetSetId, targetDataExists, targetDataState, 0, 0, false, false, validationSummary);
+                RecordUiInteractionOperationResult(0, 0, false, validationSummary);
+                yield break;
+            }
+
+            var positionsDiffer = fromPlacements == null
+                || !string.Equals(BuildPositionSignature(fromPlacements), BuildPositionSignature(targetPlacements), StringComparison.Ordinal);
+            if (!positionsDiffer)
+            {
+                if (!targetDataExists)
+                {
+                    unconfirmedBySet.Remove(targetSetId);
+                }
+
+                lastValidationSummary = $"Switch failed: {fromSetId} and {targetSetId} have identical position combinations";
+                UpdateHud(IsSetConfirmed(fromSetId));
+                LogSwitchResult(input, controller, button, fromSetId, targetSetId, targetDataExists, targetDataState, 0, 0, false, false, "target position combination is identical to the current set");
+                RecordUiInteractionOperationResult(0, 0, false, "target position combination is identical to the current set");
+                yield break;
+            }
+
+            selectedSetIndex = targetIndex;
+            LogMarkerUiIdentity("before-next-set-marker-change");
+            var removedCount = DestroyPreviewObjects();
+            foreach (var placement in targetPlacements)
+            {
+                CreatePreviewMarker(placement);
+            }
+
+            var spawnedCount = previewObjects.Count;
+            LogMarkerUiIdentity("after-next-set-marker-change");
+            lastValidationSummary = string.IsNullOrEmpty(generationSummary) ? validationSummary : generationSummary;
+            UpdateHud(targetConfirmed);
+            var success = spawnedCount == MarkerCountPerSet;
+            var reason = success ? "ok" : $"expected {MarkerCountPerSet} markers but spawned {spawnedCount}";
+            LogSwitchResult(
+                input, controller, button, fromSetId, targetSetId, targetDataExists, targetDataState,
+                removedCount, spawnedCount, positionsDiffer, success, reason);
+            RecordUiInteractionOperationResult(removedCount, spawnedCount, success, reason);
+        }
+        finally
+        {
+            EndUiInteractionOperation("NEXT_SET");
+        }
+    }
+
+    private bool TryGetSetPlacements(string setId, out List<AagPlacementRecord> placements, out bool confirmed, out string dataState)
+    {
+        confirmed = confirmedBySet.TryGetValue(setId, out placements);
+        if (confirmed)
+        {
+            dataState = "confirmed-saved";
+            return true;
+        }
+
+        if (unconfirmedBySet.TryGetValue(setId, out placements))
+        {
+            dataState = "fixed-seed-draft-cached";
+            return true;
+        }
+
+        placements = null;
+        dataState = "missing";
+        return false;
+    }
+
+    private bool IsSetConfirmed(string setId)
+    {
+        return confirmedBySet.ContainsKey(setId);
+    }
+
+    private static void LogSwitchResult(
+        string input,
+        string controller,
+        string button,
+        string fromSetId,
+        string targetSetId,
+        bool targetDataExists,
+        string targetDataState,
+        int removedCount,
+        int spawnedCount,
+        bool positionsDiffer,
+        bool success,
+        string reason)
+    {
+        Debug.Log(success
+            ? $"[AAG Authoring] Switch input={input} controller={controller} button={button} from={fromSetId} to={targetSetId} " +
+              $"targetDataExists={BoolText(targetDataExists)} targetData={targetDataState} removed={removedCount} spawned={spawnedCount} " +
+              $"positionsDiffer={BoolText(positionsDiffer)} success=true reason=\"{SanitizeLogReason(reason)}\""
+            : $"[AAG Authoring] Switch input={input} controller={controller} button={button} from={fromSetId} to={targetSetId} " +
+              $"targetDataExists={BoolText(targetDataExists)} targetData={targetDataState} removed={removedCount} spawned={spawnedCount} " +
+              $"positionsDiffer={BoolText(positionsDiffer)} success=false reason=\"{SanitizeLogReason(reason)}\"");
+    }
+
+    private static string BoolText(bool value)
+    {
+        return value ? "true" : "false";
+    }
+
+    private static string SanitizeLogReason(string reason)
+    {
+        return string.IsNullOrWhiteSpace(reason) ? "unspecified" : reason.Replace('"', '\'');
     }
 
     public void RegenerateSelectedSet()
@@ -473,30 +927,46 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
     private IEnumerator RegenerateSelectedSetRoutine()
     {
-        isGenerating = true;
+        BeginUiInteractionOperation("REGENERATE_SELECTED_SET");
         var requestedSetId = SelectedSetId;
-        Debug.Log($"[AAG Authoring] LEFT GRIP detected -> generating {requestedSetId}.");
-        SetHud($"LEFT GRIP DETECTED\nBUILDING {requestedSetId} CANDIDATE POOLS...\nHard constraints + soft scoring");
-        yield return null;
-
-        LogProvisionalSettings();
-        if (!TryGenerateSet(requestedSetId, GetSeed(requestedSetId), out var placements, out var resultSummary))
+        try
         {
-            unconfirmedBySet.Remove(requestedSetId);
-            DestroyPreviewObjects();
-            lastValidationSummary = resultSummary;
-            Debug.LogError($"[AAG Authoring] {requestedSetId} generation failed: {resultSummary}");
-            isGenerating = false;
-            UpdateHud(false);
-            yield break;
-        }
+            Debug.Log($"[AAG Authoring] Explicit regenerate -> generating {requestedSetId}.");
+            SetHud($"PROVISIONAL {requestedSetId}\nREGENERATING CANDIDATE POOLS...\nHard constraints + soft scoring");
+            yield return null;
 
-        unconfirmedBySet[requestedSetId] = placements;
-        lastValidationSummary = resultSummary;
-        Debug.Log($"[AAG Authoring] {requestedSetId} deterministic preview generated: {resultSummary}");
-        LogAllSetClearanceReport();
-        isGenerating = false;
-        ShowSelectedSet();
+            LogProvisionalSettings();
+            var candidateSeed = GetNextCandidateSeed(requestedSetId);
+            if (!TryGenerateSet(requestedSetId, candidateSeed, out var placements, out var resultSummary))
+            {
+                unconfirmedBySet.Remove(requestedSetId);
+                LogMarkerUiIdentity("before-regenerate-failure-marker-remove");
+                var removed = DestroyPreviewObjects();
+                LogMarkerUiIdentity("after-regenerate-failure-marker-remove");
+                lastValidationSummary = resultSummary;
+                Debug.LogError($"[AAG Authoring] {requestedSetId} generation failed: {resultSummary}");
+                UpdateHud(false);
+                RecordUiInteractionOperationResult(removed, 0, false, resultSummary);
+                yield break;
+            }
+
+            InvalidateDependentSetsAfterChange(requestedSetId, true);
+            EvaluateTripletBank();
+            SaveCandidateBank();
+            unconfirmedBySet[requestedSetId] = placements;
+            lastValidationSummary = resultSummary;
+            Debug.Log($"[AAG Authoring] {requestedSetId} deterministic preview generated: {resultSummary}");
+            LogAllSetClearanceReport();
+            LogMarkerUiIdentity("before-regenerate-show-selected-set");
+            var previousCount = previewObjects.Count;
+            ShowSelectedSet();
+            LogMarkerUiIdentity("after-regenerate-show-selected-set");
+            RecordUiInteractionOperationResult(previousCount, previewObjects.Count, previewObjects.Count == MarkerCountPerSet, resultSummary);
+        }
+        finally
+        {
+            EndUiInteractionOperation("REGENERATE_SELECTED_SET");
+        }
     }
 
     public void ConfirmSelectedSet()
@@ -508,8 +978,16 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
         if (confirmedBySet.ContainsKey(SelectedSetId))
         {
-            Debug.LogWarning($"[AAG Authoring] {SelectedSetId} is already confirmed; saved coordinates were not modified.");
-            ShowSelectedSet();
+            var confirmedState = GetSelectedCandidateLifecycleState();
+            if (confirmedState == "STALE" || confirmedState == "INVALIDATED")
+            {
+                Debug.Log($"[AAG Candidate] Left thumbstick explicitly requested revalidation of {SelectedSetId} state={confirmedState}; this action does not unlock or replace coordinates.");
+                RevalidateSelectedCandidate();
+            }
+            else
+            {
+                RequestUnlockSelectedSet();
+            }
             return;
         }
 
@@ -520,7 +998,23 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             return;
         }
 
-        if (!ValidatePlacementSet(preview, out var validationSummary))
+        var previewState = GetSelectedCandidateLifecycleState();
+        if (previewState == "STALE" || previewState == "INVALIDATED")
+        {
+            Debug.Log($"[AAG Candidate] Left thumbstick explicitly requested revalidation of {SelectedSetId} state={previewState}; press again only after it becomes READY.");
+            RevalidateSelectedCandidate();
+            return;
+        }
+
+        if (!CanLockSelectedCandidate(preview, out var candidateStateReason))
+        {
+            Debug.LogError($"[AAG Authoring] {SelectedSetId} lock rejected: {candidateStateReason}");
+            lastValidationSummary = candidateStateReason;
+            UpdateHud(false);
+            return;
+        }
+
+        if (!ValidatePlacementSet(preview, out var validationSummary, true))
         {
             Debug.LogError($"[AAG Authoring] {SelectedSetId} confirmation rejected: {validationSummary}");
             lastValidationSummary = validationSummary;
@@ -530,11 +1024,13 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
         confirmedBySet[SelectedSetId] = CloneRecords(preview);
         unconfirmedBySet.Remove(SelectedSetId);
+        var lockedCandidate = MarkCandidateLocked(SelectedSetId, preview);
 
         if (!SaveConfirmedPlacementsAndVerifyRoundTrip())
         {
             confirmedBySet.Remove(SelectedSetId);
             unconfirmedBySet[SelectedSetId] = preview;
+            RollbackCandidateLock(lockedCandidate);
             Debug.LogError($"[AAG Authoring] {SelectedSetId} confirmation rolled back because save/reload verification failed.");
             UpdateHud(false);
             return;
@@ -550,40 +1046,66 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         placements = new List<AagPlacementRecord>(MarkerCountPerSet);
         resultSummary = string.Empty;
         candidateDiagnostics.Clear();
+        globalLineOfSightCache.Clear();
+        RefreshPreferredHotspotCatalog("candidate-generation");
 
         var allowedRooms = GetLoadedAllowedRooms();
         if (allowedRooms.Count != AagExperimentSpaceCatalog.Fp1.RoomIds.Count)
         {
             resultSummary = $"loaded allowed rooms={allowedRooms.Count}, expected={AagExperimentSpaceCatalog.Fp1.RoomIds.Count}";
+            LogCandidateGenerationStage(setId, "FP1_ROOM_LOAD", false, resultSummary);
             return false;
         }
 
         var random = new System.Random(seed);
-        var roomSequence = BuildRoomSequence(allowedRooms, random);
-        if (roomSequence.Count != MarkerCountPerSet)
-        {
-            resultSummary = "room distribution could not produce 12 assignments";
-            return false;
-        }
-
         var colors = BuildColorSequence(random);
         var observationCache = new Dictionary<Guid, List<Vector3>>();
         var pools = new Dictionary<Guid, RoomCandidatePool>();
         foreach (var room in allowedRooms)
         {
-            var pool = BuildRoomCandidatePool(room, observationCache, seed);
+            var pool = BuildManualHotspotCandidatePool(room, observationCache, seed);
             pools[room.Anchor.Uuid] = pool;
             Debug.Log($"[AAG Candidate Pool] room={room.Anchor.Uuid}; initial={pool.initialCount}; "
                 + $"floor={pool.floorPassCount}; wall={pool.wallPassCount}; doorway={pool.doorwayPassCount}; "
                 + $"obstacle={pool.obstaclePassCount}; discoverable={pool.discoverablePassCount}; "
                 + $"validBeforeObjectDistance={pool.candidates.Count}; width={pool.minimumWidthMeters:F3}m; "
                 + $"aspect={pool.aspectRatio:F2}; wallBandArea={pool.wallBandAreaSquareMeters:F3}m2; "
-                + $"strategy={(pool.isNarrowHall ? "NARROW_HALL_LONG_WALL" : "ROOM_CORNER_THEN_WALL")}");
+                + $"strategy=LOCALIZED_USER_APPROVED_HOTSPOT_DIRECT_XZ");
         }
 
-        if (!ValidateCandidatePoolFeasibility(pools, out var feasibilityFailure))
+        if (!TryBuildManualHotspotZoneMap(allowedRooms, out var zoneGroupByRoom, out var zoneGroupFailure))
+        {
+            resultSummary = zoneGroupFailure;
+            LogCandidateGenerationStage(setId, "ZONE_GROUP_MAP", false, resultSummary);
+            return false;
+        }
+        activeZoneGroupByRoom.Clear();
+        foreach (var pair in zoneGroupByRoom)
+        {
+            activeZoneGroupByRoom[pair.Key] = pair.Value;
+        }
+
+        var roomSequence = BuildManualHotspotRoomSequence(setId, allowedRooms, pools, random, out var roomSequenceFailure);
+        if (roomSequence.Count != MarkerCountPerSet)
+        {
+            resultSummary = roomSequenceFailure;
+            LogCandidateGenerationStage(setId, "ROOM_SEQUENCE", false, resultSummary);
+            return false;
+        }
+
+        if (!TryPrepareMixedPlacement(setId, roomSequence, pools, out var manualMarkerIndices, out var hotspotFailure))
+        {
+            resultSummary = hotspotFailure;
+            return false;
+        }
+
+        var requiredRoomCounts = roomSequence
+            .GroupBy(room => room.Anchor.Uuid)
+            .ToDictionary(group => group.Key, group => group.Count());
+        if (!ValidateManualHotspotFeasibility(pools, requiredRoomCounts, out var feasibilityFailure))
         {
             resultSummary = feasibilityFailure;
+            LogCandidateGenerationStage(setId, "CANDIDATE_POOL_FEASIBILITY", false, resultSummary);
             return false;
         }
 
@@ -593,21 +1115,47 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         var draftPlacements = placements;
         var softWarnings = new List<string>();
         var selectedRoomCounts = allowedRooms.ToDictionary(room => room.Anchor.Uuid, _ => 0);
+        var selectedZoneGroupCounts = zoneGroupByRoom.Values
+            .Distinct(StringComparer.Ordinal)
+            .ToDictionary(zoneGroupId => zoneGroupId, _ => 0, StringComparer.Ordinal);
+        var placementTypeCounts = Enum.GetValues(typeof(AagPlacementType))
+            .Cast<AagPlacementType>()
+            .ToDictionary(type => type, _ => 0);
 
         for (var markerIndex = 0; markerIndex < MarkerCountPerSet; markerIndex++)
         {
             var preferredRoom = roomSequence[markerIndex];
-            var eligible = pools.Values
-                .SelectMany(pool => pool.candidates.Select(candidate => new { Pool = pool, Candidate = candidate }))
+            var preferredPool = pools[preferredRoom.Anchor.Uuid];
+            var preferredZoneGroup = zoneGroupByRoom[preferredRoom.Anchor.Uuid];
+            var color = colors[markerIndex];
+            var manualRequired = manualMarkerIndices.Contains(markerIndex);
+            var eligible = preferredPool.candidates
+                .Select(candidate => new { Pool = preferredPool, Candidate = candidate })
+                .Where(item => IsCandidateEligibleForMixedSource(
+                    setId,
+                    color,
+                    item.Candidate,
+                    manualRequired,
+                    selectedCandidates))
                 .Where(item => DistanceToNearestPlacementSurface(draftPlacements, item.Candidate.markerWorld) >= minimumObjectDistanceMeters)
+                .Where(item => item.Candidate.placementType != AagPlacementType.Corner
+                    || !selectedCandidates.Any(existing => existing.room.Anchor.Uuid == preferredRoom.Anchor.Uuid
+                        && existing.placementType == AagPlacementType.Corner))
                 .Select(item => new
                 {
                     item.Candidate,
                     item.Pool,
-                    Score = ScoreCandidate(item.Candidate, item.Pool, selectedCandidates, draftPlacements, zoneCounts, observationCache)
-                        + ScoreRoomDistribution(item.Candidate, preferredRoom, selectedRoomCounts, pools),
+                    Score = ScoreCandidate(
+                        item.Candidate,
+                        item.Pool,
+                        selectedCandidates,
+                        draftPlacements,
+                        zoneCounts,
+                        placementTypeCounts,
+                        observationCache),
                 })
-                .OrderByDescending(item => item.Score)
+                .OrderBy(item => manualRequired ? GetHotspotPriorUseCount(setId, item.Candidate.hotspotUuid) : 0)
+                .ThenByDescending(item => item.Score)
                 .ThenByDescending(item => item.Candidate.deterministicVariation)
                 .ToList();
 
@@ -617,6 +1165,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                     + $"globalValidBeforeObjectDistance={pools.Values.Sum(pool => pool.candidates.Count)}; validAfterObjectDistance=0. "
                     + $"Increase candidate density (lower candidateGridSpacingMeters) or, after a safety review, "
                     + $"decrease minimumObjectDistanceMeters.";
+                LogCandidateGenerationStage(setId, manualRequired ? "MANUAL_HOTSPOT_SELECTION" : "PROCEDURAL_SELECTION", false, resultSummary);
                 placements.Clear();
                 return false;
             }
@@ -625,12 +1174,18 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 MarkerCountPerSet - markerIndex - 1,
                 pools,
                 selectedCandidates,
-                item.Candidate));
+                item.Candidate)
+                && CanMeetRemainingRoomQuotas(
+                    roomSequence.Skip(markerIndex + 1),
+                    pools,
+                    selectedCandidates,
+                    item.Candidate));
             if (chosen == null)
             {
                 resultSummary = $"candidate look-ahead found no hard-valid completion at marker={markerIndex + 1}/12; "
                     + "Increase pool density by lowering candidateGridSpacingMeters, "
                     + "or inspect minimumObjectDistanceMeters after a safety review.";
+                LogCandidateGenerationStage(setId, "HARD_CONSTRAINT_LOOKAHEAD", false, resultSummary);
                 placements.Clear();
                 return false;
             }
@@ -638,6 +1193,8 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             var selected = chosen.Candidate;
             selectedCandidates.Add(selected);
             selectedRoomCounts[selected.room.Anchor.Uuid]++;
+            selectedZoneGroupCounts[preferredZoneGroup]++;
+            placementTypeCounts[selected.placementType]++;
             zoneCounts.TryGetValue(selected.zoneKey, out var zoneCount);
             zoneCounts[selected.zoneKey] = zoneCount + 1;
             Debug.Log($"[AAG Candidate Select] set={setId}; marker={markerIndex + 1}/12; "
@@ -648,11 +1205,13 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 + $"obstacleStatus={(float.IsPositiveInfinity(selected.obstacleClearance) ? "NO_NEARBY_OBSTACLE_PASS" : "MEASURED")}; "
                 + $"walking={selected.walkingPathClearance:F6}m; markerRadius={PreviewMarkerRadiusMeters:F6}m; "
                 + $"discoverable={selected.discoverableObservationCount}; entranceVisible={selected.visibleFromEntrance}; "
-                + $"wallSegment={selected.nearestWallSegment}; zone={selected.zoneKey}; definition=\"{ClearanceDistanceDefinition}\"");
+                + $"entranceVisibleObservations={selected.entranceVisibleObservationCount}; placementType={selected.placementType}; "
+                + $"placementSource={selected.placementSource}; hotspot={selected.hotspotUuid ?? "NONE"}; "
+                + $"hotspotOffset={selected.hotspotOffsetMeters:F3}m; hotspotSector={selected.hotspotSectorAngle:F1}; "
+                + $"wallSegment={selected.nearestWallSegment}; zone={selected.zoneKey}; zoneGroupId={preferredZoneGroup}; definition=\"{ClearanceDistanceDefinition}\"");
 
-            var color = colors[markerIndex];
             var colorNumber = ++colorNumbers[color];
-            placements.Add(new AagPlacementRecord
+            var placementRecord = new AagPlacementRecord
             {
                 floor_plan_id = AagExperimentSpaceCatalog.Fp1Id,
                 set_id = setId,
@@ -663,17 +1222,13 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 world_y = selected.markerWorld.y,
                 world_z = selected.markerWorld.z,
                 seed = seed,
-            });
+            };
+            ApplyCandidateMetadata(placementRecord, selected);
+            placements.Add(placementRecord);
 
             if (selected.walkingPathClearance < minimumWalkingPathDistanceMeters)
             {
                 softWarnings.Add($"{markerIndex + 1}:walkingPath={selected.walkingPathClearance:F2}m");
-            }
-
-            if (selected.cornerDistance < minimumCornerDistanceMeters
-                || selected.cornerDistance > maximumCornerDistanceMeters)
-            {
-                softWarnings.Add($"{markerIndex + 1}:corner={selected.cornerDistance:F2}m");
             }
 
             if (selected.wallClearance > minimumWallDistanceMeters + preferredWallBandWidthMeters)
@@ -686,19 +1241,14 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 softWarnings.Add($"{markerIndex + 1}:visibleFromEntrance");
             }
 
-            if (selected.room.Anchor.Uuid != preferredRoom.Anchor.Uuid)
-            {
-                softWarnings.Add($"{markerIndex + 1}:roomDistributionFallback");
-            }
         }
 
-        var usedRoomCount = selectedRoomCounts.Count(pair => pair.Value > 0);
-        var preferredMinimumRooms = roomDistributionMode == AagRoomDistributionMode.BalancedAcrossAllRooms
-            ? allowedRooms.Count
-            : minimumRoomsUsed;
-        if (usedRoomCount < preferredMinimumRooms)
+        if (selectedRoomCounts.Any(pair => pair.Value != requiredRoomCounts[pair.Key]))
         {
-            softWarnings.Add($"roomsUsed={usedRoomCount}/{preferredMinimumRooms}");
+            resultSummary = "exact room quota was not met after candidate selection";
+            LogCandidateGenerationStage(setId, "ROOM_QUOTA_VALIDATION", false, resultSummary);
+            placements.Clear();
+            return false;
         }
 
         if (!TryRepairHardInvalidMarkers(
@@ -710,6 +1260,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 out var repairSummary))
         {
             resultSummary = repairSummary;
+            LogCandidateGenerationStage(setId, "HARD_CONSTRAINT_REPAIR", false, resultSummary);
             placements.Clear();
             return false;
         }
@@ -719,9 +1270,31 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             softWarnings.Add(repairSummary);
         }
 
+        OptimizePostSelectionVisibility(
+            setId,
+            placements,
+            selectedCandidates,
+            pools,
+            observationCache,
+            out var optimizationSummary);
+        if (!string.IsNullOrEmpty(optimizationSummary))
+        {
+            softWarnings.Add(optimizationSummary);
+        }
+
+        if (!ValidateMixedPlacementComposition(setId, placements, out var mixedFailure))
+        {
+            resultSummary = mixedFailure;
+            LogCandidateGenerationStage(setId, "MIXED_COMPOSITION_7_TO_5", false, resultSummary);
+            LogMixedPlacementResult(setId, placements, false, mixedFailure);
+            placements.Clear();
+            return false;
+        }
+
         if (!PopulatePlacementMetrics(placements, observationCache, out var metricFailure))
         {
             resultSummary = metricFailure;
+            LogCandidateGenerationStage(setId, "PLACEMENT_METRICS", false, resultSummary);
             placements.Clear();
             return false;
         }
@@ -729,8 +1302,10 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         var selectedMaximumVisible = placements.Max(record => record.set_max_visible_objects_per_view);
         if (selectedMaximumVisible > maxVisibleObjectsPerView)
         {
-            softWarnings.Add($"maxVisible={selectedMaximumVisible}/{maxVisibleObjectsPerView}");
+            softWarnings.Add($"NOT_READY:maxVisible={selectedMaximumVisible}/{maxVisibleObjectsPerView}");
         }
+
+        LogDistributionAndVisibilityDiagnostics(setId, placements, selectedCandidates, zoneGroupByRoom, observationCache);
 
         foreach (var group in selectedCandidates.GroupBy(candidate => candidate.room.Anchor.Uuid))
         {
@@ -762,20 +1337,41 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         if (HasDuplicatePositionCombination(setId, placements))
         {
             resultSummary = "position combination duplicates another FP1 set; adjust the set seed or deterministicVariationWeight";
+            LogCandidateGenerationStage(setId, "CROSS_SET_POSITION_COMBINATION", false, resultSummary);
             placements.Clear();
             return false;
         }
 
         if (!ValidatePlacementSet(placements, out resultSummary))
         {
+            LogCandidateGenerationStage(setId, "FINAL_PLACEMENT_VALIDATION", false, resultSummary);
+            LogMixedPlacementResult(setId, placements, false, resultSummary);
             placements.Clear();
             return false;
         }
+
+        LogMixedPlacementResult(
+            setId,
+            placements,
+            resultSummary.StartsWith("ready=true", StringComparison.Ordinal),
+            resultSummary);
+        LogCandidateGenerationStage(setId, "CANDIDATE_READY", true, resultSummary);
+
+        Debug.Log(resultSummary.StartsWith("ready=true", StringComparison.Ordinal)
+            ? $"[AAG Ready] set={setId}; ready=true"
+            : $"[AAG Ready] set={setId}; ready=false; reason=\"{SanitizeLogReason(resultSummary)}\"");
 
         if (softWarnings.Count > 0)
         {
             resultSummary += $"; SOFT warnings=[{string.Join(",", softWarnings.Take(12))}]";
         }
+
+        RegisterGeneratedCandidate(
+            setId,
+            seed,
+            placements,
+            resultSummary.StartsWith("ready=true", StringComparison.Ordinal),
+            resultSummary);
 
         return true;
     }
@@ -800,35 +1396,54 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         return rooms;
     }
 
-    private List<MRUKRoom> BuildRoomSequence(List<MRUKRoom> rooms, System.Random random)
+    private List<MRUKRoom> BuildRoomSequence(
+        string setId,
+        List<MRUKRoom> rooms,
+        System.Random random,
+        Dictionary<Guid, string> zoneGroupByRoom,
+        out string failure)
     {
+        failure = string.Empty;
         var result = new List<MRUKRoom>(MarkerCountPerSet);
-        var shuffledRooms = new List<MRUKRoom>(rooms);
-        Shuffle(shuffledRooms, random);
-
-        if (roomDistributionMode == AagRoomDistributionMode.BalancedAcrossAllRooms)
+        if (rooms.Count != 8)
         {
-            result.AddRange(shuffledRooms);
-            for (var index = 0; result.Count < MarkerCountPerSet; index++)
-            {
-                result.Add(shuffledRooms[index % shuffledRooms.Count]);
-            }
-        }
-        else
-        {
-            var requiredDistinctRooms = Mathf.Clamp(minimumRoomsUsed, 1, rooms.Count);
-            for (var index = 0; index < requiredDistinctRooms; index++)
-            {
-                result.Add(shuffledRooms[index]);
-            }
-
-            while (result.Count < MarkerCountPerSet)
-            {
-                result.Add(ChooseRoomByArea(rooms, random));
-            }
+            failure = $"exact FP1 room quota requires 8 loaded rooms; actual={rooms.Count}";
+            return result;
         }
 
+        result.AddRange(rooms);
+        var singletonZoneRooms = rooms
+            .Where(room => zoneGroupByRoom.Values.Count(value => string.Equals(
+                value,
+                zoneGroupByRoom[room.Anchor.Uuid],
+                StringComparison.Ordinal)) == 1)
+            .OrderBy(room => room.Anchor.Uuid.ToString(), StringComparer.Ordinal)
+            .ToList();
+        if (singletonZoneRooms.Count < 4)
+        {
+            failure = $"room quota + zoneGroup max is infeasible: only {singletonZoneRooms.Count} rooms can receive a second marker, required=4; "
+                + $"maximumMarkersPerZoneGroup={maximumMarkersPerZoneGroup}";
+            result.Clear();
+            return result;
+        }
+
+        var setIndex = Array.IndexOf(SetIds, setId);
+        var rotationStep = Mathf.Max(1, singletonZoneRooms.Count / 2 - 1);
+        var rotationStart = Mathf.Abs(setIndex * rotationStep) % singletonZoneRooms.Count;
+        var doubledRooms = new List<MRUKRoom>(4);
+        for (var offset = 0; offset < singletonZoneRooms.Count && doubledRooms.Count < 4; offset++)
+        {
+            doubledRooms.Add(singletonZoneRooms[(rotationStart + offset) % singletonZoneRooms.Count]);
+        }
+
+        result.AddRange(doubledRooms);
         Shuffle(result, random);
+        var quotaSummary = rooms
+            .OrderBy(room => room.Anchor.Uuid.ToString(), StringComparer.Ordinal)
+            .Select(room => $"{room.Anchor.Uuid.ToString().Substring(0, 8)}={result.Count(item => item.Anchor.Uuid == room.Anchor.Uuid)}");
+        Debug.Log($"[AAG Distribution] set={setId}; exactRoomQuota=[{string.Join(",", quotaSummary)}]; "
+            + $"doubleRooms=[{string.Join(",", doubledRooms.Select(room => room.Anchor.Uuid.ToString().Substring(0, 8)))}]; "
+            + $"rotationStart={rotationStart}; rotationStep={rotationStep}; policy=8 rooms min1 max2, exactly four rooms doubled");
         return result;
     }
 
@@ -851,6 +1466,171 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         }
 
         return rooms[rooms.Count - 1];
+    }
+
+    private bool TryBuildZoneGroupMap(
+        List<MRUKRoom> rooms,
+        Dictionary<Guid, RoomCandidatePool> pools,
+        out Dictionary<Guid, string> zoneGroupByRoom,
+        out string failure)
+    {
+        zoneGroupByRoom = new Dictionary<Guid, string>();
+        failure = string.Empty;
+        var parent = rooms.ToDictionary(room => room.Anchor.Uuid, room => room.Anchor.Uuid);
+
+        Guid Find(Guid id)
+        {
+            while (parent[id] != id)
+            {
+                parent[id] = parent[parent[id]];
+                id = parent[id];
+            }
+
+            return id;
+        }
+
+        void Union(Guid left, Guid right)
+        {
+            var leftRoot = Find(left);
+            var rightRoot = Find(right);
+            if (leftRoot == rightRoot)
+            {
+                return;
+            }
+
+            if (string.CompareOrdinal(leftRoot.ToString(), rightRoot.ToString()) <= 0)
+            {
+                parent[rightRoot] = leftRoot;
+            }
+            else
+            {
+                parent[leftRoot] = rightRoot;
+            }
+        }
+
+        var overrideIdByRoom = new Dictionary<Guid, string>();
+        foreach (var definition in zoneGroupOverrides ?? new List<ZoneGroupDefinition>())
+        {
+            if (definition == null || string.IsNullOrWhiteSpace(definition.zoneGroupId))
+            {
+                continue;
+            }
+
+            var ids = new List<Guid>();
+            foreach (var uuidText in definition.roomUuids ?? new List<string>())
+            {
+                if (!Guid.TryParse(uuidText, out var roomId) || !parent.ContainsKey(roomId))
+                {
+                    failure = $"zoneGroup override {definition.zoneGroupId} contains unknown FP1 room UUID '{uuidText}'";
+                    return false;
+                }
+
+                if (overrideIdByRoom.TryGetValue(roomId, out var existingId)
+                    && !string.Equals(existingId, definition.zoneGroupId, StringComparison.Ordinal))
+                {
+                    failure = $"room {roomId} belongs to conflicting zone groups {existingId} and {definition.zoneGroupId}";
+                    return false;
+                }
+
+                overrideIdByRoom[roomId] = definition.zoneGroupId.Trim();
+                ids.Add(roomId);
+            }
+
+            for (var index = 1; index < ids.Count; index++)
+            {
+                Union(ids[0], ids[index]);
+            }
+        }
+
+        for (var leftIndex = 0; leftIndex < rooms.Count; leftIndex++)
+        {
+            for (var rightIndex = leftIndex + 1; rightIndex < rooms.Count; rightIndex++)
+            {
+                var left = rooms[leftIndex];
+                var right = rooms[rightIndex];
+                if (overrideIdByRoom.ContainsKey(left.Anchor.Uuid)
+                    || overrideIdByRoom.ContainsKey(right.Anchor.Uuid))
+                {
+                    continue;
+                }
+
+                var sharedSamples = CountSharedFloorInteriorSamples(pools[left.Anchor.Uuid], right)
+                    + CountSharedFloorInteriorSamples(pools[right.Anchor.Uuid], left);
+                var grouped = sharedSamples >= zoneGroupMinimumSharedFloorSamples;
+                if (grouped)
+                {
+                    Union(left.Anchor.Uuid, right.Anchor.Uuid);
+                }
+
+                Debug.Log($"[AAG Physical Zone Diagnosis] pair={left.Anchor.Uuid.ToString().Substring(0, 8)}+{right.Anchor.Uuid.ToString().Substring(0, 8)}; "
+                    + $"sharedFloorInteriorSamples={sharedSamples}; threshold={zoneGroupMinimumSharedFloorSamples}; grouped={BoolText(grouped)}");
+            }
+        }
+
+        var groups = rooms
+            .GroupBy(room => Find(room.Anchor.Uuid))
+            .OrderBy(group => group.Min(room => room.Anchor.Uuid.ToString()), StringComparer.Ordinal)
+            .ToList();
+        for (var index = 0; index < groups.Count; index++)
+        {
+            var members = groups[index]
+                .OrderBy(room => room.Anchor.Uuid.ToString(), StringComparer.Ordinal)
+                .ToList();
+            var explicitIds = members
+                .Where(room => overrideIdByRoom.ContainsKey(room.Anchor.Uuid))
+                .Select(room => overrideIdByRoom[room.Anchor.Uuid])
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (explicitIds.Count > 1)
+            {
+                failure = $"automatically merged floor group contains conflicting explicit zoneGroupIds [{string.Join(",", explicitIds)}]";
+                return false;
+            }
+
+            var zoneGroupId = explicitIds.Count == 1 ? explicitIds[0] : $"ZG-{index + 1:D2}";
+            foreach (var member in members)
+            {
+                zoneGroupByRoom[member.Anchor.Uuid] = zoneGroupId;
+            }
+
+            Debug.Log($"[AAG Zone Group] zoneGroupId={zoneGroupId}; rooms=[{string.Join(",", members.Select(room => room.Anchor.Uuid.ToString().Substring(0, 8)))}]; "
+                + $"roomCount={members.Count}; maxMarkers={maximumMarkersPerZoneGroup}; source={(explicitIds.Count == 1 ? "INSPECTOR_OVERRIDE" : members.Count > 1 ? "AUTO_FLOOR_OVERLAP" : "SINGLE_ROOM")}");
+        }
+
+        var oversized = zoneGroupByRoom.GroupBy(pair => pair.Value, StringComparer.Ordinal)
+            .FirstOrDefault(group => group.Count() > maximumMarkersPerZoneGroup);
+        if (oversized != null)
+        {
+            failure = $"zoneGroup {oversized.Key} contains {oversized.Count()} mandatory rooms but maximumMarkersPerZoneGroup={maximumMarkersPerZoneGroup}; "
+                + "review the overlap diagnosis or Inspector zoneGroup override";
+            return false;
+        }
+
+        return true;
+    }
+
+    private static int CountSharedFloorInteriorSamples(RoomCandidatePool sourcePool, MRUKRoom targetRoom)
+    {
+        var count = 0;
+        foreach (var candidate in sourcePool.candidates)
+        {
+            if (targetRoom.FloorAnchors.Any(floor =>
+                    floor != null
+                    && floor.PlaneBoundary2D != null
+                    && floor.PlaneBoundary2D.Count >= 3
+                    && floor.IsPositionInBoundary(ToFloorLocal2D(floor, candidate.floorWorld))))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static Vector2 ToFloorLocal2D(MRUKAnchor floor, Vector3 worldPoint)
+    {
+        var local = floor.transform.InverseTransformPoint(worldPoint);
+        return new Vector2(local.x, local.y);
     }
 
     private RoomCandidatePool BuildRoomCandidatePool(
@@ -932,6 +1712,12 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                     cornerDistance = GetNearestFloorVertexDistance(floor, rawWorld);
                 }
                 var walkingPathClearance = DistanceToMainWalkingPaths(floor, rawWorld) - PreviewMarkerRadiusMeters;
+                var entranceVisibleObservationCount = entranceObservations.Count(
+                    observation => HasMrukLineOfSight(room, observation, markerWorld));
+                var placementType = ClassifyPlacementType(
+                    nearestCornerIndex,
+                    cornerDistance,
+                    clearances.wall);
                 var candidate = new PlacementCandidate
                 {
                     room = room,
@@ -947,9 +1733,12 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                     obstacleClearance = clearances.obstacle,
                     walkingPathClearance = walkingPathClearance,
                     discoverableObservationCount = discoveryCounts[0],
-                    visibleFromEntrance = entranceObservations.Any(observation => HasMrukLineOfSight(room, observation, markerWorld)),
+                    visibleFromEntrance = entranceVisibleObservationCount > 0,
+                    entranceVisibleObservationCount = entranceVisibleObservationCount,
+                    placementType = placementType,
                     deterministicVariation = GetDeterministicVariation(seed, room.Anchor.Uuid, localPoint),
                 };
+                candidate.spatialSlotKey = BuildPlacementCandidateSlotKey(candidate);
                 pool.candidates.Add(candidate);
 
                 AddCandidateDiagnostic(
@@ -1111,6 +1900,26 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         return result;
     }
 
+    private AagPlacementType ClassifyPlacementType(
+        int nearestValidCornerIndex,
+        float cornerDistance,
+        float wallClearance)
+    {
+        if (nearestValidCornerIndex >= 0
+            && cornerDistance >= minimumCornerDistanceMeters
+            && cornerDistance <= maximumCornerDistanceMeters)
+        {
+            return AagPlacementType.Corner;
+        }
+
+        if (wallClearance <= minimumWallDistanceMeters + preferredWallBandWidthMeters)
+        {
+            return AagPlacementType.WallBand;
+        }
+
+        return AagPlacementType.PeripheralInterior;
+    }
+
     private static float GetDeterministicVariation(int seed, Guid roomId, Vector2 point)
     {
         unchecked
@@ -1140,16 +1949,30 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
     private bool ValidateCandidatePoolFeasibility(
         Dictionary<Guid, RoomCandidatePool> pools,
+        Dictionary<Guid, int> requiredRoomCounts,
         out string failure)
     {
         failure = string.Empty;
         foreach (var pool in pools.Values.Where(candidate => candidate.candidates.Count == 0))
         {
-            Debug.LogWarning($"[AAG Feasibility] room={pool.room.Anchor.Uuid} contributes zero candidates; "
+            failure = $"FEASIBILITY FAILED room={pool.room.Anchor.Uuid} has zero candidates but every FP1 room requires at least one marker; "
                 + $"initial={pool.initialCount}; floor={pool.floorPassCount}; wall={pool.wallPassCount}; "
                 + $"doorway={pool.doorwayPassCount}; obstacle={pool.obstaclePassCount}; "
-                + $"discoverable={pool.discoverablePassCount}. Room distribution will use a hard-valid fallback. "
-                + GetFeasibilityAdjustmentAdvice(pool));
+                + $"discoverable={pool.discoverablePassCount}. {GetFeasibilityAdjustmentAdvice(pool)}";
+            Debug.LogError($"[AAG Feasibility] {failure}");
+            return false;
+        }
+
+        foreach (var pair in requiredRoomCounts.OrderBy(pair => pair.Key.ToString(), StringComparer.Ordinal))
+        {
+            var pool = pools[pair.Key];
+            if (!HasObjectDistanceCapacity(pool.candidates, pair.Value))
+            {
+                failure = $"FEASIBILITY FAILED room={pair.Key} cannot fit requiredMarkers={pair.Value} with "
+                    + $"minimumObjectDistanceMeters={minimumObjectDistanceMeters:F3}m; hardValidCandidates={pool.candidates.Count}";
+                Debug.LogError($"[AAG Feasibility] {failure}");
+                return false;
+            }
         }
 
         var totalCandidates = pools.Values.Sum(pool => pool.candidates.Count);
@@ -1171,7 +1994,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
         Debug.Log($"[AAG Feasibility] PASS: contributingRooms={pools.Values.Count(pool => pool.candidates.Count > 0)}/{pools.Count}, "
             + $"validCandidates={totalCandidates}, requiredMarkers=12, "
-            + $"minimumObjectDistance={minimumObjectDistanceMeters:F3}m.");
+            + $"minimumObjectDistance={minimumObjectDistanceMeters:F3}m; exactRoomQuota=true.");
         return true;
     }
 
@@ -1252,6 +2075,29 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         return HasObjectDistanceCapacity(available, remainingMarkerCount);
     }
 
+    private bool CanMeetRemainingRoomQuotas(
+        IEnumerable<MRUKRoom> remainingAssignments,
+        Dictionary<Guid, RoomCandidatePool> pools,
+        List<PlacementCandidate> alreadySelected,
+        PlacementCandidate proposed)
+    {
+        var fixedCandidates = new List<PlacementCandidate>(alreadySelected) { proposed };
+        foreach (var assignmentGroup in remainingAssignments.GroupBy(room => room.Anchor.Uuid))
+        {
+            var compatible = pools[assignmentGroup.Key].candidates
+                .Where(candidate => fixedCandidates.All(existing =>
+                    HorizontalDistance(existing.markerWorld, candidate.markerWorld) - previewMarkerDiameterMeters
+                    >= minimumObjectDistanceMeters))
+                .ToList();
+            if (!HasObjectDistanceCapacity(compatible, assignmentGroup.Count()))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private bool TryRepairHardInvalidMarkers(
         string setId,
         List<AagPlacementRecord> placements,
@@ -1297,11 +2143,25 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 && pools.TryGetValue(preferredRoomId, out var preferredPool)
                     ? preferredPool.room
                     : pools.Values.First().room;
+            var placementTypeCounts = Enum.GetValues(typeof(AagPlacementType))
+                .Cast<AagPlacementType>()
+                .ToDictionary(type => type, type => otherCandidates.Count(candidate => candidate.placementType == type));
             var replacement = pools.Values
                 .SelectMany(pool => pool.candidates.Select(candidate => new { Pool = pool, Candidate = candidate }))
+                .Where(item => item.Candidate.room.Anchor.Uuid == preferredRoom.Anchor.Uuid)
+                .Where(item => MatchesMixedPlacementIdentity(item.Candidate, selectedCandidates[invalidIndex]))
+                .Where(item => IsCandidateEligibleForMixedSource(
+                    setId,
+                    invalidRecord.color,
+                    item.Candidate,
+                    IsManualHotspotCandidate(selectedCandidates[invalidIndex]),
+                    otherCandidates))
                 .Where(item => !rejectedPositions.Contains(PositionKey(item.Candidate.markerWorld)))
                 .Where(item => DistanceToNearestPlacementSurface(otherPlacements, item.Candidate.markerWorld)
                     >= minimumObjectDistanceMeters)
+                .Where(item => item.Candidate.placementType != AagPlacementType.Corner
+                    || !otherCandidates.Any(existing => existing.room.Anchor.Uuid == preferredRoom.Anchor.Uuid
+                        && existing.placementType == AagPlacementType.Corner))
                 .Select(item => new
                 {
                     item.Candidate,
@@ -1311,6 +2171,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                             otherCandidates,
                             otherPlacements,
                             zoneCounts,
+                            placementTypeCounts,
                             observationCache)
                         + ScoreRoomDistribution(item.Candidate, preferredRoom, roomCounts, pools),
                 })
@@ -1329,6 +2190,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             invalidRecord.world_x = selected.markerWorld.x;
             invalidRecord.world_y = selected.markerWorld.y;
             invalidRecord.world_z = selected.markerWorld.z;
+            ApplyCandidateMetadata(invalidRecord, selected);
             selectedCandidates[invalidIndex] = selected;
             repairedMarkerIds.Add(invalidRecord.answer_marker_id);
             Debug.LogWarning($"[AAG Marker Repair] set={setId}; marker={invalidRecord.answer_marker_id}; "
@@ -1469,6 +2331,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         List<PlacementCandidate> selectedCandidates,
         List<AagPlacementRecord> placements,
         Dictionary<string, int> zoneCounts,
+        Dictionary<AagPlacementType, int> placementTypeCounts,
         Dictionary<Guid, List<Vector3>> observationCache)
     {
         var cornerRange = Mathf.Max(0.001f, maximumCornerDistanceMeters - minimumCornerDistanceMeters);
@@ -1512,6 +2375,13 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
         zoneCounts.TryGetValue(candidate.zoneKey, out var zoneCount);
         var zoneOverTarget = Mathf.Max(0, zoneCount + 1 - maximumMarkersPerZone);
+        placementTypeCounts.TryGetValue(candidate.placementType, out var placementTypeCount);
+        var sameRoomPlacementTypeCount = sameRoom.Count(existing => existing.placementType == candidate.placementType);
+        var placementTypeRepeatPenalty = placementTypeCount / (float)Mathf.Max(1, selectedCandidates.Count + 1)
+            + sameRoomPlacementTypeCount;
+        var easyDiscoveryPenalty = candidate.discoverableObservationCount <= minimumDiscoverableObservationCount
+            ? 0f
+            : candidate.discoverableObservationCount - minimumDiscoverableObservationCount;
         var appliedCornerWeight = pool.isNarrowHall ? cornerProximityWeight * 0.35f : cornerProximityWeight;
         var appliedWallWeight = pool.isNarrowHall ? wallBandWeight * 1.5f : wallBandWeight;
         return appliedCornerWeight * cornerScore
@@ -1523,7 +2393,9 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             - entranceVisibilityPenaltyWeight * (candidate.visibleFromEntrance ? 1f : 0f)
             - sameRoomCoVisibilityPenaltyWeight * coVisibilityPenalty
             - sameWallSegmentPenaltyWeight * sameWallSegmentCount
-            - zoneReusePenaltyWeight * zoneOverTarget;
+            - zoneReusePenaltyWeight * zoneOverTarget
+            - placementTypeDiversityWeight * placementTypeRepeatPenalty
+            - easyDiscoverabilityPenaltyWeight * easyDiscoveryPenalty;
     }
 
     private float ScoreRoomDistribution(
@@ -1587,7 +2459,10 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     }
 
 
-    private bool ValidatePlacementSet(List<AagPlacementRecord> placements, out string summary)
+    private bool ValidatePlacementSet(
+        List<AagPlacementRecord> placements,
+        out string summary,
+        bool requireReady = false)
     {
         summary = string.Empty;
         if (placements == null || placements.Count != MarkerCountPerSet)
@@ -1616,12 +2491,16 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         }
 
         var roomCounts = new SortedDictionary<string, int>(StringComparer.Ordinal);
+        var roomCountsById = new Dictionary<Guid, int>();
+        var roomCornerCounts = new Dictionary<Guid, int>();
+        var placementTypeCounts = Enum.GetValues(typeof(AagPlacementType))
+            .Cast<AagPlacementType>()
+            .ToDictionary(type => type, _ => 0);
         var minimumWall = float.PositiveInfinity;
         var minimumObstacle = float.PositiveInfinity;
         var minimumCorner = float.PositiveInfinity;
         var minimumWalkingPath = float.PositiveInfinity;
         var minimumDiscoveryCount = int.MaxValue;
-        var cornerPreferenceMisses = 0;
         var walkingPreferenceMisses = 0;
 
         foreach (var record in placements)
@@ -1662,18 +2541,19 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 cornerDistance = GetNearestFloorVertexDistance(floor, floorPoint);
             }
             var clearances = MeasureClearances(room, floor, floorPoint);
+            var placementType = ClassifyPlacementType(cornerIndex, cornerDistance, clearances.wall);
+            placementTypeCounts[placementType]++;
+            if (placementType == AagPlacementType.Corner)
+            {
+                roomCornerCounts.TryGetValue(roomId, out var roomCornerCount);
+                roomCornerCounts[roomId] = roomCornerCount + 1;
+            }
             LogClearanceMeasurement(record.answer_marker_id, clearances);
             var walkingPathDistance = DistanceToMainWalkingPaths(floor, floorPoint) - PreviewMarkerRadiusMeters;
             minimumWall = Mathf.Min(minimumWall, clearances.wall);
             minimumObstacle = Mathf.Min(minimumObstacle, clearances.obstacle);
             minimumCorner = Mathf.Min(minimumCorner, cornerDistance);
             minimumWalkingPath = Mathf.Min(minimumWalkingPath, walkingPathDistance);
-
-            if (cornerDistance < minimumCornerDistanceMeters
-                || cornerDistance > maximumCornerDistanceMeters)
-            {
-                cornerPreferenceMisses++;
-            }
 
             if (FailsValidatedClearance(clearances.wall, minimumWallDistanceMeters)
                 || FailsValidatedClearance(clearances.obstacle, minimumObstacleDistanceMeters)
@@ -1696,6 +2576,8 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             var key = roomId.ToString().Substring(0, 8);
             roomCounts.TryGetValue(key, out var count);
             roomCounts[key] = count + 1;
+            roomCountsById.TryGetValue(roomId, out var fullRoomCount);
+            roomCountsById[roomId] = fullRoomCount + 1;
         }
 
         var measured = CloneRecords(placements);
@@ -1730,14 +2612,41 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 ? meanPairwise
                 : maximumPairwise;
 
-        summary = $"rooms=[{string.Join(",", roomCounts.Select(pair => pair.Key + "=" + pair.Value))}], "
+        var readinessReasons = new List<string>();
+        roomCountsById.TryGetValue(Room2Uuid, out var room2Count);
+        roomCountsById.TryGetValue(Room3Uuid, out var room3Count);
+        if (room2Count > room2MaximumMarkers)
+            readinessReasons.Add($"room=Room2 count={room2Count}>{room2MaximumMarkers}");
+        if (room3Count > room3MaximumMarkers)
+            readinessReasons.Add($"room=Room3 count={room3Count}>{room3MaximumMarkers}");
+
+        foreach (var pair in roomCornerCounts.Where(pair => pair.Value > 1))
+        {
+            readinessReasons.Add($"room={pair.Key.ToString().Substring(0, 8)} cornerCount={pair.Value}>1");
+        }
+
+        if (setMaximumVisible > maxVisibleObjectsPerView)
+        {
+            readinessReasons.Add($"maxVisibleInOneView={setMaximumVisible}/{maxVisibleObjectsPerView}");
+        }
+
+        var ready = readinessReasons.Count == 0;
+
+        summary = $"ready={BoolText(ready)}, rooms=[{string.Join(",", roomCounts.Select(pair => pair.Key + "=" + pair.Value))}], "
+            + $"placementTypes=[corner={placementTypeCounts[AagPlacementType.Corner]},wallBand={placementTypeCounts[AagPlacementType.WallBand]},peripheral={placementTypeCounts[AagPlacementType.PeripheralInterior]}], "
             + $"minObjectSurface={minimumObject:F3}m, minWallEdge={minimumWall:F3}m, minObstacleEdge={minimumObstacle:F3}m, "
             + $"minCorner={minimumCorner:F3}m, minDiscoverableObservations={minimumDiscoveryCount}, "
             + $"maxVisibleInOneView={setMaximumVisible}/{maxVisibleObjectsPerView}, "
-            + $"softCornerMisses={cornerPreferenceMisses}, softWalkingMisses={walkingPreferenceMisses}, "
+            + $"softWalkingMisses={walkingPreferenceMisses}, "
             + $"minWalkingPath={minimumWalkingPath:F3}m, "
             + $"difficultyMetric={difficultyDistanceMetric}:{selectedMetricValue:F3}m, "
-            + $"meanNearest={meanNearest:F3}m, meanPairwise={meanPairwise:F3}m, maxPairwise={maximumPairwise:F3}m";
+            + $"meanNearest={meanNearest:F3}m, meanPairwise={meanPairwise:F3}m, maxPairwise={maximumPairwise:F3}m"
+            + (ready ? string.Empty : $", notReadyReasons=[{string.Join(" | ", readinessReasons)}]");
+        if (requireReady && !ready)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -1854,7 +2763,13 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             }
 
             placements[index].nearest_object_distance = nearest;
-            placements[index].set_max_visible_objects_per_view = setMaximumVisible;
+        }
+
+        var globalVisibility = EvaluateGlobalVisibilityAudit(placements, observationCache);
+        setMaximumVisible = Mathf.Max(setMaximumVisible, globalVisibility.maximumVisible);
+        foreach (var record in placements)
+        {
+            record.set_max_visible_objects_per_view = setMaximumVisible;
         }
 
         return true;
@@ -2465,6 +3380,352 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         return observations.Count > 0;
     }
 
+    private void OptimizePostSelectionVisibility(
+        string setId,
+        List<AagPlacementRecord> placements,
+        List<PlacementCandidate> selectedCandidates,
+        Dictionary<Guid, RoomCandidatePool> pools,
+        Dictionary<Guid, List<Vector3>> observationCache,
+        out string summary)
+    {
+        var baseline = EvaluateGlobalVisibilityAudit(placements, observationCache);
+        var initialMaximum = baseline.maximumVisible;
+        var replacementCount = 0;
+        var passCount = Mathf.Max(1, postSelectionOptimizationPasses);
+        for (var pass = 0; pass < passCount; pass++)
+        {
+            var improvedThisPass = false;
+            for (var markerIndex = 0; markerIndex < placements.Count; markerIndex++)
+            {
+                var currentCandidate = selectedCandidates[markerIndex];
+                var otherPlacements = placements.Where((_, index) => index != markerIndex).ToList();
+                var otherCandidates = selectedCandidates.Where((_, index) => index != markerIndex).ToList();
+                var roomHasOtherCorner = otherCandidates.Any(candidate =>
+                    candidate.room.Anchor.Uuid == currentCandidate.room.Anchor.Uuid
+                    && candidate.placementType == AagPlacementType.Corner);
+                var typeCounts = Enum.GetValues(typeof(AagPlacementType))
+                    .Cast<AagPlacementType>()
+                    .ToDictionary(type => type, type => otherCandidates.Count(candidate => candidate.placementType == type));
+                var bestCandidate = currentCandidate;
+                var bestAudit = baseline;
+
+                var alternatives = pools[currentCandidate.room.Anchor.Uuid].candidates
+                    .Where(candidate => PositionKey(candidate.markerWorld) != PositionKey(currentCandidate.markerWorld))
+                    .Where(candidate => MatchesMixedPlacementIdentity(candidate, currentCandidate))
+                    .Where(candidate => IsCandidateEligibleForMixedSource(
+                        setId,
+                        placements[markerIndex].color,
+                        candidate,
+                        IsManualHotspotCandidate(currentCandidate),
+                        otherCandidates))
+                    .Where(candidate => DistanceToNearestPlacementSurface(otherPlacements, candidate.markerWorld)
+                        >= minimumObjectDistanceMeters)
+                    .Where(candidate => candidate.placementType != AagPlacementType.Corner || !roomHasOtherCorner)
+                    .OrderBy(candidate => typeCounts[candidate.placementType])
+                    .ThenBy(candidate => candidate.entranceVisibleObservationCount)
+                    .ThenBy(candidate => candidate.discoverableObservationCount)
+                    .ThenByDescending(candidate => candidate.deterministicVariation)
+                    .Take(32)
+                    .ToList();
+                foreach (var alternative in alternatives)
+                {
+                    var record = placements[markerIndex];
+                    var previousPosition = ToVector3(record);
+                    record.world_x = alternative.markerWorld.x;
+                    record.world_y = alternative.markerWorld.y;
+                    record.world_z = alternative.markerWorld.z;
+                    selectedCandidates[markerIndex] = alternative;
+                    var audit = EvaluateGlobalVisibilityAudit(placements, observationCache);
+                    if (IsVisibilityAuditBetter(audit, selectedCandidates, bestAudit, ReplaceCandidate(selectedCandidates, markerIndex, bestCandidate)))
+                    {
+                        bestAudit = audit;
+                        bestCandidate = alternative;
+                    }
+
+                    record.world_x = previousPosition.x;
+                    record.world_y = previousPosition.y;
+                    record.world_z = previousPosition.z;
+                    selectedCandidates[markerIndex] = currentCandidate;
+                }
+
+                if (bestCandidate == currentCandidate)
+                {
+                    continue;
+                }
+
+                var selectedRecord = placements[markerIndex];
+                selectedRecord.world_x = bestCandidate.markerWorld.x;
+                selectedRecord.world_y = bestCandidate.markerWorld.y;
+                selectedRecord.world_z = bestCandidate.markerWorld.z;
+                ApplyCandidateMetadata(selectedRecord, bestCandidate);
+                selectedCandidates[markerIndex] = bestCandidate;
+                baseline = bestAudit;
+                replacementCount++;
+                improvedThisPass = true;
+                Debug.Log($"[AAG Visibility Optimize] set={setId}; pass={pass + 1}; marker={selectedRecord.answer_marker_id}; "
+                    + $"room={selectedRecord.room_uuid.Substring(0, 8)}; replacement={replacementCount}; "
+                    + $"placementType={bestCandidate.placementType}; maxVisible={baseline.maximumVisible}/{maxVisibleObjectsPerView}; "
+                    + $"simultaneousExcess={baseline.simultaneousExcess}; entranceVisibleMarkers={baseline.entranceVisibleMarkerCount}");
+            }
+
+            if (!improvedThisPass || (baseline.maximumVisible <= maxVisibleObjectsPerView && baseline.simultaneousExcess == 0))
+            {
+                break;
+            }
+        }
+
+        summary = $"postOptimization replacements={replacementCount}, maxVisible={initialMaximum}->{baseline.maximumVisible}, "
+            + $"simultaneousExcess={baseline.simultaneousExcess}, entranceVisibleMarkers={baseline.entranceVisibleMarkerCount}";
+        Debug.Log($"[AAG Visibility Optimize] set={setId}; {summary}");
+    }
+
+    private static List<PlacementCandidate> ReplaceCandidate(
+        List<PlacementCandidate> source,
+        int index,
+        PlacementCandidate replacement)
+    {
+        var result = new List<PlacementCandidate>(source);
+        result[index] = replacement;
+        return result;
+    }
+
+    private bool IsVisibilityAuditBetter(
+        VisibilityAudit candidate,
+        List<PlacementCandidate> candidatePlacements,
+        VisibilityAudit current,
+        List<PlacementCandidate> currentPlacements)
+    {
+        if (candidate.maximumVisible != current.maximumVisible)
+        {
+            return candidate.maximumVisible < current.maximumVisible;
+        }
+
+        if (candidate.simultaneousExcess != current.simultaneousExcess)
+        {
+            return candidate.simultaneousExcess < current.simultaneousExcess;
+        }
+
+        if (candidate.entranceVisibleMarkerCount != current.entranceVisibleMarkerCount)
+        {
+            return candidate.entranceVisibleMarkerCount < current.entranceVisibleMarkerCount;
+        }
+
+        var candidateEasyVisibility = candidate.discoverableByMarker.Values.Sum();
+        var currentEasyVisibility = current.discoverableByMarker.Values.Sum();
+        if (candidateEasyVisibility != currentEasyVisibility)
+        {
+            return candidateEasyVisibility < currentEasyVisibility;
+        }
+
+        return CalculatePlacementTypeConcentration(candidatePlacements)
+            < CalculatePlacementTypeConcentration(currentPlacements);
+    }
+
+    private static int CalculatePlacementTypeConcentration(List<PlacementCandidate> candidates)
+    {
+        var globalConcentration = candidates
+            .GroupBy(candidate => candidate.placementType)
+            .Sum(group => group.Count() * group.Count());
+        var sameRoomRepeats = candidates
+            .GroupBy(candidate => new { Room = candidate.room.Anchor.Uuid, candidate.placementType })
+            .Sum(group => Mathf.Max(0, group.Count() - 1));
+        return globalConcentration + sameRoomRepeats * 4;
+    }
+
+    private void LogDistributionAndVisibilityDiagnostics(
+        string setId,
+        List<AagPlacementRecord> placements,
+        List<PlacementCandidate> selectedCandidates,
+        Dictionary<Guid, string> zoneGroupByRoom,
+        Dictionary<Guid, List<Vector3>> observationCache)
+    {
+        var roomCounts = placements
+            .GroupBy(record => record.room_uuid, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Key.Substring(0, 8)}={group.Count()}");
+        var zoneGroupCounts = placements
+            .GroupBy(record =>
+            {
+                return Guid.TryParse(record.room_uuid, out var roomId)
+                    && zoneGroupByRoom.TryGetValue(roomId, out var zoneGroupId)
+                        ? zoneGroupId
+                        : "UNMAPPED";
+            }, StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group => $"{group.Key}={group.Count()}");
+        var placementTypes = selectedCandidates
+            .GroupBy(candidate => candidate.placementType)
+            .ToDictionary(group => group.Key, group => group.Count());
+        var audit = EvaluateGlobalVisibilityAudit(placements, observationCache);
+        var crossUuidDiagnostics = audit.crossUuidPairs
+            .OrderBy(value => value, StringComparer.Ordinal)
+            .Select(pair =>
+            {
+                var parts = pair.Split('+');
+                var matchingRooms = zoneGroupByRoom.Keys
+                    .Where(roomId => parts.Contains(roomId.ToString().Substring(0, 8), StringComparer.Ordinal))
+                    .ToList();
+                var sameZoneGroup = matchingRooms.Count == 2
+                    && string.Equals(zoneGroupByRoom[matchingRooms[0]], zoneGroupByRoom[matchingRooms[1]], StringComparison.Ordinal);
+                return $"{pair}:sameZoneGroup={BoolText(sameZoneGroup)}";
+            })
+            .ToList();
+        var hasCrossUuidWithinOneZone = crossUuidDiagnostics.Any(value => value.EndsWith("sameZoneGroup=true", StringComparison.Ordinal));
+
+        Debug.Log($"[AAG Distribution] set={setId}; uuidCounts=[{string.Join(",", roomCounts)}]; "
+            + $"zoneGroupCounts=[{string.Join(",", zoneGroupCounts)}]; "
+            + $"placementTypes=[corner={placementTypes.GetValueOrDefault(AagPlacementType.Corner)},"
+            + $"wallBand={placementTypes.GetValueOrDefault(AagPlacementType.WallBand)},"
+            + $"peripheral={placementTypes.GetValueOrDefault(AagPlacementType.PeripheralInterior)}]");
+        Debug.Log($"[AAG Visibility Audit] set={setId}; entranceVisibleMarkers={audit.entranceVisibleMarkerCount}; "
+            + $"maxVisibleFromOneEntrance={audit.maximumVisibleFromOneEntrance}; "
+            + $"maxVisibleInOneView={audit.maximumVisible}/{maxVisibleObjectsPerView}; simultaneousExcess={audit.simultaneousExcess}; "
+            + $"crossUuidCoVisiblePairs=[{string.Join(",", crossUuidDiagnostics)}]; "
+            + $"diagnosis={(hasCrossUuidWithinOneZone ? "OVERLAPPING_OR_SPLIT_UUIDS_IN_ONE_ZONE" : audit.crossUuidPairs.Count > 0 ? "ADJACENT_UUIDS_SHARE_PHYSICAL_FOV" : "NO_CROSS_UUID_CO_VISIBILITY_DETECTED")}");
+
+        for (var index = 0; index < placements.Count; index++)
+        {
+            var record = placements[index];
+            var candidate = selectedCandidates[index];
+            audit.entranceObservationsByMarker.TryGetValue(record.answer_marker_id, out var entranceObservationCount);
+            Debug.Log($"[AAG Marker Visibility] set={setId}; marker={record.answer_marker_id}; "
+                + $"room={record.room_uuid.Substring(0, 8)}; zoneGroupId={zoneGroupByRoom[Guid.Parse(record.room_uuid)]}; "
+                + $"placementType={candidate.placementType}; discoverableObservations={record.discoverable_observation_count}; "
+                + $"entranceVisibleObservations={entranceObservationCount}; entranceVisible={BoolText(entranceObservationCount > 0)}");
+        }
+
+        if (audit.maximumVisible > maxVisibleObjectsPerView)
+        {
+            Debug.LogWarning($"[AAG Ready] set={setId}; ready=false; reason=maxVisibleInOneView={audit.maximumVisible}/{maxVisibleObjectsPerView}; "
+                + $"crossUuidPairs=[{string.Join(",", audit.crossUuidPairs)}]");
+        }
+    }
+
+    private VisibilityAudit EvaluateGlobalVisibilityAudit(
+        List<AagPlacementRecord> placements,
+        Dictionary<Guid, List<Vector3>> observationCache)
+    {
+        var audit = new VisibilityAudit();
+        foreach (var record in placements)
+        {
+            audit.discoverableByMarker[record.answer_marker_id] = 0;
+            audit.entranceObservationsByMarker[record.answer_marker_id] = 0;
+        }
+
+        var observations = new List<(Vector3 position, bool isEntrance, string sourceRoom)>();
+        var loadedRooms = GetLoadedAllowedRooms();
+        var roomsById = loadedRooms.ToDictionary(room => room.Anchor.Uuid, room => room);
+        foreach (var room in loadedRooms)
+        {
+            var entranceKeys = new HashSet<string>(
+                GetEntranceObservationPoints(room).Select(PositionKey),
+                StringComparer.Ordinal);
+            foreach (var observation in GetObservationPoints(room, observationCache))
+            {
+                observations.Add((
+                    observation,
+                    entranceKeys.Contains(PositionKey(observation)),
+                    room.Anchor.Uuid.ToString()));
+            }
+        }
+
+        GetHmdFrustumFovDegrees(out var horizontalFov, out var verticalFov);
+        var entranceVisibleMarkers = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var observation in observations)
+        {
+            var visibleIndices = new List<int>();
+            var visibleDirections = new List<Vector3>();
+            for (var index = 0; index < placements.Count; index++)
+            {
+                var markerPosition = ToVector3(placements[index]);
+                if (!Guid.TryParse(observation.sourceRoom, out var sourceRoomId)
+                    || !Guid.TryParse(placements[index].room_uuid, out var targetRoomId)
+                    || !HasCrossRoomMrukLineOfSight(
+                        observation.position,
+                        markerPosition,
+                        sourceRoomId,
+                        targetRoomId,
+                        roomsById))
+                {
+                    continue;
+                }
+
+                visibleIndices.Add(index);
+                visibleDirections.Add((markerPosition - observation.position).normalized);
+                audit.discoverableByMarker[placements[index].answer_marker_id]++;
+                if (observation.isEntrance)
+                {
+                    audit.entranceObservationsByMarker[placements[index].answer_marker_id]++;
+                    entranceVisibleMarkers.Add(placements[index].answer_marker_id);
+                }
+            }
+
+            var maximumInView = CalculateMaximumObjectsInFrustum(visibleDirections, horizontalFov, verticalFov);
+            audit.maximumVisible = Mathf.Max(audit.maximumVisible, maximumInView);
+            audit.simultaneousExcess += Mathf.Max(0, maximumInView - maxVisibleObjectsPerView);
+            if (observation.isEntrance)
+            {
+                audit.maximumVisibleFromOneEntrance = Mathf.Max(audit.maximumVisibleFromOneEntrance, maximumInView);
+            }
+
+            for (var first = 0; first < visibleIndices.Count; first++)
+            {
+                for (var second = first + 1; second < visibleIndices.Count; second++)
+                {
+                    var firstRecord = placements[visibleIndices[first]];
+                    var secondRecord = placements[visibleIndices[second]];
+                    if (string.Equals(firstRecord.room_uuid, secondRecord.room_uuid, StringComparison.Ordinal)
+                        || !CanShareOneFov(visibleDirections[first], visibleDirections[second], horizontalFov, verticalFov))
+                    {
+                        continue;
+                    }
+
+                    var pair = new[] { firstRecord.room_uuid.Substring(0, 8), secondRecord.room_uuid.Substring(0, 8) };
+                    Array.Sort(pair, StringComparer.Ordinal);
+                    audit.crossUuidPairs.Add($"{pair[0]}+{pair[1]}");
+                }
+            }
+        }
+
+        audit.entranceVisibleMarkerCount = entranceVisibleMarkers.Count;
+        return audit;
+    }
+
+    private bool HasCrossRoomMrukLineOfSight(
+        Vector3 observation,
+        Vector3 markerPosition,
+        Guid sourceRoomId,
+        Guid targetRoomId,
+        Dictionary<Guid, MRUKRoom> roomsById)
+    {
+        var cacheKey = $"{sourceRoomId}:{targetRoomId}:{PositionKey(observation)}:{PositionKey(markerPosition)}";
+        if (globalLineOfSightCache.TryGetValue(cacheKey, out var cached))
+        {
+            return cached;
+        }
+
+        var visible = roomsById.TryGetValue(sourceRoomId, out var sourceRoom)
+            && HasMrukLineOfSight(sourceRoom, observation, markerPosition);
+        if (visible && targetRoomId != sourceRoomId)
+        {
+            visible = roomsById.TryGetValue(targetRoomId, out var targetRoom)
+                && HasMrukLineOfSight(targetRoom, observation, markerPosition);
+        }
+
+        globalLineOfSightCache[cacheKey] = visible;
+        return visible;
+    }
+
+    private static bool CanShareOneFov(Vector3 left, Vector3 right, float horizontalFov, float verticalFov)
+    {
+        var leftAzimuth = Mathf.Atan2(left.x, left.z) * Mathf.Rad2Deg;
+        var rightAzimuth = Mathf.Atan2(right.x, right.z) * Mathf.Rad2Deg;
+        var leftElevation = Mathf.Asin(Mathf.Clamp(left.y, -1f, 1f)) * Mathf.Rad2Deg;
+        var rightElevation = Mathf.Asin(Mathf.Clamp(right.y, -1f, 1f)) * Mathf.Rad2Deg;
+        return Mathf.Abs(Mathf.DeltaAngle(leftAzimuth, rightAzimuth)) <= horizontalFov + 0.001f
+            && Mathf.Abs(leftElevation - rightElevation) <= verticalFov + 0.001f;
+    }
+
     private bool HasMrukLineOfSight(MRUKRoom room, Vector3 observation, Vector3 markerPosition)
     {
         var direction = markerPosition - observation;
@@ -2753,6 +4014,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         var collider = marker.GetComponent<Collider>();
         if (collider != null)
         {
+            ConfigurePreviewMarkerInteraction(marker, collider);
             Destroy(collider);
         }
 
@@ -2773,10 +4035,19 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         labelObject.transform.localScale = Vector3.one * 0.8f;
         var label = labelObject.AddComponent<TextMeshPro>();
         label.text = $"{placement.set_id}\n{placement.color.ToUpperInvariant()} #{ExtractColorNumber(placement.answer_marker_id)}";
+        if (string.Equals(placement.placementSource, ManualHotspotPlacementSource, StringComparison.Ordinal))
+        {
+            label.text += $"\nH:{(placement.hotspot_uuid ?? "NONE").Substring(0, Mathf.Min(8, (placement.hotspot_uuid ?? "NONE").Length))} +{placement.hotspot_offset_meters:F2}m";
+        }
+        else
+        {
+            label.text += "\nP:PROCEDURAL";
+        }
         label.alignment = TextAlignmentOptions.Center;
         label.fontSize = 1.5f;
         label.rectTransform.sizeDelta = new Vector2(6f, 2f);
         label.color = Color.white;
+        CreatePlacementSourcePreviewIcon(marker, placement);
 
         previewObjects.Add(marker);
         previewLabels.Add(labelObject.transform);
@@ -2800,18 +4071,27 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         }
     }
 
-    private void DestroyPreviewObjects()
+    private int DestroyPreviewObjects()
     {
+        var removedCount = 0;
         foreach (var previewObject in previewObjects)
         {
             if (previewObject != null)
             {
+                if (IsProtectedInteractionObject(previewObject))
+                {
+                    Debug.LogError($"[AAG UI Lifecycle] Refused to remove protected interaction object from marker list: {previewObject.name}#{previewObject.GetInstanceID()}");
+                    continue;
+                }
+                previewObject.SetActive(false);
                 Destroy(previewObject);
+                removedCount++;
             }
         }
 
         previewObjects.Clear();
         previewLabels.Clear();
+        return removedCount;
     }
 
     private void CreateAuthoringHud()
@@ -2837,10 +4117,140 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         authoringHud.outlineWidth = 0.22f;
     }
 
+    private void CreateNextSetFallbackButton()
+    {
+        if (!showNextSetFallbackButton || hmdTransform == null || nextSetFallbackButton != null)
+        {
+            return;
+        }
+
+        var canvasObject = new GameObject(
+            "AAG Next Set Fallback Canvas",
+            typeof(RectTransform),
+            typeof(Canvas),
+            typeof(CanvasScaler),
+            typeof(GraphicRaycaster));
+        var canvasRect = canvasObject.GetComponent<RectTransform>();
+        canvasRect.SetParent(hmdTransform, false);
+        canvasRect.localPosition = new Vector3(0.29f, -0.12f, 0.75f);
+        canvasRect.localRotation = Quaternion.identity;
+        canvasRect.localScale = Vector3.one * 0.001f;
+        canvasRect.sizeDelta = new Vector2(280f, 100f);
+
+        var canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = hmdCamera;
+        canvas.sortingOrder = 100;
+
+        var scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.dynamicPixelsPerUnit = 10f;
+
+        var buttonObject = new GameObject("Next Set", typeof(RectTransform), typeof(Image), typeof(Button));
+        nextSetFallbackRect = buttonObject.GetComponent<RectTransform>();
+        nextSetFallbackRect.SetParent(canvasRect, false);
+        nextSetFallbackRect.anchorMin = Vector2.zero;
+        nextSetFallbackRect.anchorMax = Vector2.one;
+        nextSetFallbackRect.offsetMin = Vector2.zero;
+        nextSetFallbackRect.offsetMax = Vector2.zero;
+
+        nextSetFallbackImage = buttonObject.GetComponent<Image>();
+        nextSetFallbackImage.color = new Color(0.05f, 0.35f, 0.65f, 0.9f);
+        nextSetFallbackButton = buttonObject.GetComponent<Button>();
+        nextSetFallbackButton.targetGraphic = nextSetFallbackImage;
+        nextSetFallbackButton.onClick.AddListener(NextSetFromUi);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(nextSetFallbackRect, false);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = "NEXT SET\nPOINT + INDEX PINCH";
+        label.alignment = TextAlignmentOptions.Center;
+        label.fontSize = 30f;
+        label.fontStyle = FontStyles.Bold;
+        label.color = Color.white;
+        label.raycastTarget = false;
+
+        ConfigureAuthoringUi(canvasObject, canvas, nextSetFallbackButton, nextSetFallbackRect, false);
+
+        Debug.Log("[AAG Authoring] Diagnostic Next Set UI created; Unity UI click or left/right tracked-hand pointer + index pinch activates it.");
+    }
+
+    private void CreateNextCandidateFallbackButton()
+    {
+        if (!showNextCandidateFallbackButton || hmdTransform == null || nextCandidateFallbackButton != null)
+        {
+            return;
+        }
+
+        var canvasObject = new GameObject(
+            "AAG Next Candidate Fallback Canvas",
+            typeof(RectTransform),
+            typeof(Canvas),
+            typeof(CanvasScaler),
+            typeof(GraphicRaycaster));
+        var canvasRect = canvasObject.GetComponent<RectTransform>();
+        canvasRect.SetParent(hmdTransform, false);
+        canvasRect.localPosition = new Vector3(-0.29f, -0.12f, 0.75f);
+        canvasRect.localRotation = Quaternion.identity;
+        canvasRect.localScale = Vector3.one * 0.001f;
+        canvasRect.sizeDelta = new Vector2(300f, 100f);
+
+        var canvas = canvasObject.GetComponent<Canvas>();
+        canvas.renderMode = RenderMode.WorldSpace;
+        canvas.worldCamera = hmdCamera;
+        canvas.sortingOrder = 100;
+
+        var scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.dynamicPixelsPerUnit = 10f;
+
+        var buttonObject = new GameObject("Next Candidate", typeof(RectTransform), typeof(Image), typeof(Button));
+        nextCandidateFallbackRect = buttonObject.GetComponent<RectTransform>();
+        nextCandidateFallbackRect.SetParent(canvasRect, false);
+        nextCandidateFallbackRect.anchorMin = Vector2.zero;
+        nextCandidateFallbackRect.anchorMax = Vector2.one;
+        nextCandidateFallbackRect.offsetMin = Vector2.zero;
+        nextCandidateFallbackRect.offsetMax = Vector2.zero;
+
+        nextCandidateFallbackImage = buttonObject.GetComponent<Image>();
+        nextCandidateFallbackImage.color = new Color(0.45f, 0.18f, 0.65f, 0.9f);
+        nextCandidateFallbackButton = buttonObject.GetComponent<Button>();
+        nextCandidateFallbackButton.targetGraphic = nextCandidateFallbackImage;
+        nextCandidateFallbackButton.onClick.AddListener(NextCandidateFromUi);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(nextCandidateFallbackRect, false);
+        labelRect.anchorMin = Vector2.zero;
+        labelRect.anchorMax = Vector2.one;
+        labelRect.offsetMin = Vector2.zero;
+        labelRect.offsetMax = Vector2.zero;
+        var label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = "NEXT CANDIDATE\nPOINT + INDEX PINCH";
+        label.alignment = TextAlignmentOptions.Center;
+        label.fontSize = 28f;
+        label.fontStyle = FontStyles.Bold;
+        label.color = Color.white;
+        label.raycastTarget = false;
+
+        ConfigureAuthoringUi(canvasObject, canvas, nextCandidateFallbackButton, nextCandidateFallbackRect, true);
+
+        Debug.Log("[AAG Authoring] Head-locked Next Candidate UI created because Right Thumbstick remains assigned to SpatialAnchorManager.LoadSavedAnchors; Unity UI click or hand pointer + index pinch activates it.");
+    }
+
+    public void NextCandidateFromUi()
+    {
+        MarkCurrentPinchesConsumedForUiClick();
+        LogUiInteractionState("click-immediately-before", "NEXT_CANDIDATE");
+        RequestNextCandidate("NextCandidateUI", "HandTracking/UI", "NextCandidate");
+    }
+
     private void UpdateHud(bool confirmed)
     {
-        var state = confirmed ? "CONFIRMED" : unconfirmedBySet.ContainsKey(SelectedSetId) ? "UNCONFIRMED" : "EMPTY";
-        SetHud($"PROVISIONAL {SelectedSetId} [{state}]\n{FormatHudSummary(lastValidationSummary)}\nL INDEX next | L GRIP generate | L STICK save");
+        SetHud($"{BuildCandidateHudHeader()}\n{FormatHudSummary(lastValidationSummary)}\nGRIP set | NEXT CANDIDATE button | L STICK state | F6 candidate");
     }
 
     private static string FormatHudSummary(string summary)
@@ -2879,7 +4289,10 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     {
         if (authoringHud != null)
         {
-            authoringHud.text = text;
+            var body = isReady && (text == null || text.IndexOf("CANDIDATE ID:", StringComparison.Ordinal) < 0)
+                ? $"{BuildCandidateHudHeader()}\n{text}"
+                : text;
+            authoringHud.text = $"{body}\nWARNING: Export final candidate bank/LOCKED results to PC before uninstall or Clear App Data.";
         }
     }
 
@@ -2897,19 +4310,25 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             + $"doorway={minimumDoorwayDistanceMeters:F3}m, "
             + $"candidateGrid={candidateGridSpacingMeters:F3}m, preferredWallBand={preferredWallBandWidthMeters:F3}m, "
             + $"hallAspect={narrowHallAspectRatioThreshold:F2}, walkingPathSoft={minimumWalkingPathDistanceMeters:F3}m, "
-            + $"angularSeparationSoft={minimumAngularSeparationDegrees:F1}deg, maxVisibleSoft={maxVisibleObjectsPerView}, "
+            + $"angularSeparationSoft={minimumAngularSeparationDegrees:F1}deg, maxVisibleReadyLimit={maxVisibleObjectsPerView}, "
             + $"minDiscoverableHard={minimumDiscoverableObservationCount}, "
             + $"observationGrid={observationGridSize}x{observationGridSize}, eyeHeight={observationEyeHeightMeters:F3}m, "
             + $"HMDFrustum={horizontalFov:F1}x{verticalFov:F1}deg, "
-            + $"minimumRooms={minimumRoomsUsed}, zones={zoneGridColumns}x{zoneGridRows}, "
-            + $"maxPerZone={maximumMarkersPerZone}, difficultyMetric={difficultyDistanceMetric}, "
+            + $"roomQuota=manual:Room2Max={room2MaximumMarkers}:Room3Max={room3MaximumMarkers}:noCommonMax, zones={zoneGridColumns}x{zoneGridRows}, "
+            + $"maxPerZone={maximumMarkersPerZone}, "
+            + $"zoneGroupSharedSamples={zoneGroupMinimumSharedFloorSamples}, zoneGroupOverrides={zoneGroupOverrides.Count}, "
+            + $"optimizationPasses={postSelectionOptimizationPasses}, difficultyMetric={difficultyDistanceMetric}, "
+            + $"hotspotPlacement=manual:{ManualMarkersPerSet}:procedural:{ProceduralMarkersPerSet}, adjacency={manualHotspotAdjacencyMeters:F3}m, "
+            + $"sourcePriority=runtimeOverride>bundled>legacyMigration, recoveryPriority=SPATIAL_ANCHOR_LOCALIZED>MRUK_ROOM_LOCAL_RECOVERY>UNAVAILABLE, ignoreLegacyTest={BoolText(ignoreLegacyPlayerPrefsForPersistenceTest)}, "
             + $"seeds={fp1S1Seed}/{fp1S2Seed}/{fp1S3Seed}");
         Debug.Log($"[AAG Authoring] PROVISIONAL scoring weights: corner={cornerProximityWeight:F2}, "
             + $"wallBand={wallBandWeight:F2}, doorway={doorwayDistanceWeight:F2}, walking={walkingPathDistanceWeight:F2}, "
             + $"entrancePenalty={entranceVisibilityPenaltyWeight:F2}, coVisibilityPenalty={sameRoomCoVisibilityPenaltyWeight:F2}, "
             + $"objectDistance={objectDistanceWeight:F2}, sameWallPenalty={sameWallSegmentPenaltyWeight:F2}, "
             + $"zonePenalty={zoneReusePenaltyWeight:F2}, roomDistribution={roomDistributionWeight:F2}, "
+            + $"placementTypeDiversity={placementTypeDiversityWeight:F2}, easyDiscoveryPenalty={easyDiscoverabilityPenaltyWeight:F2}, "
             + $"seedVariation={deterministicVariationWeight:F2}");
+        LogCandidateRobustnessSettings();
     }
 
     private bool ValidateProvisionalSettings()
@@ -2924,7 +4343,14 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             && previewMarkerDiameterMeters > 0f
             && maxVisibleObjectsPerView >= 1
             && minimumDiscoverableObservationCount >= 1
-            && observationGridSize >= 2;
+            && zoneGroupMinimumSharedFloorSamples >= 1
+            && postSelectionOptimizationPasses >= 1
+            && observationGridSize >= 2
+            && manualHotspotAdjacencyMeters > 0f
+            && hotspotAnchorLoadTimeoutSeconds >= 0f
+            && room2MaximumMarkers >= 1
+            && room3MaximumMarkers >= 1
+            && ValidateCandidateRobustnessSettings();
         if (!valid)
         {
             Debug.LogError("[AAG Authoring] Invalid PROVISIONAL settings: corner min must not exceed corner max; corner edge/jitter must be non-negative; marker/visibility/observation values must be positive.");
@@ -3001,7 +4427,7 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
 
             var expected = BuildPlacementFile();
             var expectedCsv = BuildCsv(expected.placements);
-            File.WriteAllText(temporaryJsonPath, JsonUtility.ToJson(expected, true), Encoding.UTF8);
+            File.WriteAllText(temporaryJsonPath, NormalizeUnavailablePlanCoordinatesJson(JsonUtility.ToJson(expected, true)), Encoding.UTF8);
             File.WriteAllText(temporaryCsvPath, expectedCsv, Encoding.UTF8);
 
             var reloaded = JsonUtility.FromJson<AagPlacementFile>(File.ReadAllText(temporaryJsonPath));
@@ -3046,7 +4472,9 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             var expectedRowCount = GetConfirmedRowCount();
             if (expectedRowCount == 36)
             {
-                Debug.Log($"[AAG Authoring] FINAL FP1 export verified: JSON/CSV rows=36; JSON={JsonPath}; CSV={CsvPath}");
+                Debug.Log($"[AAG Authoring] FP1 export verified: JSON/CSV rows=36; tripletReady={BoolText(tripletReady)}; "
+                    + $"exportStatus={expected.export_status}; planCoordinateStatus=UNAVAILABLE; "
+                    + $"this file is not a FINAL website answer key; JSON={JsonPath}; CSV={CsvPath}");
             }
             else
             {
@@ -3121,11 +4549,25 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         }
     }
 
+    private static string NormalizeUnavailablePlanCoordinatesJson(string json)
+    {
+        return (json ?? string.Empty)
+            .Replace("\"plan_x\": \"\"", "\"plan_x\": null")
+            .Replace("\"plan_y\": \"\"", "\"plan_y\": null")
+            .Replace("\"worldToPlanTransformVersion\": \"\"", "\"worldToPlanTransformVersion\": null");
+    }
+
     private AagPlacementFile BuildPlacementFile()
     {
         var file = new AagPlacementFile
         {
             schema_version = SchemaVersion,
+            triplet_ready = tripletReady,
+            triplet_status_reason = tripletStatusReason,
+            export_status = GetPlacementExportStatus(),
+            planCoordinateStatus = "UNAVAILABLE",
+            worldToPlanTransformVersion = null,
+            recommended_candidate_ids = candidateBank.recommended_candidate_ids.ToList(),
             placements = new List<AagPlacementRecord>(),
         };
 
@@ -3133,19 +4575,20 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         {
             if (confirmedBySet.TryGetValue(setId, out var records))
             {
-                file.placements.AddRange(records.OrderBy(record => record.answer_marker_id, StringComparer.Ordinal));
+                file.placements.AddRange(CloneRecords(records).OrderBy(record => record.answer_marker_id, StringComparer.Ordinal));
             }
         }
 
         return file;
     }
 
-    private static string BuildCsv(List<AagPlacementRecord> placements)
+    private string BuildCsv(List<AagPlacementRecord> placements)
     {
         var csv = new StringBuilder();
-        csv.AppendLine("floor_plan_id,set_id,answer_marker_id,color,room_uuid,world_x,world_y,world_z,seed,corner_distance,wall_distance,nearest_object_distance,discoverable_observation_count,set_max_visible_objects_per_view");
+        csv.AppendLine("floor_plan_id,set_id,answer_marker_id,color,room_uuid,world_x,world_y,world_z,seed,corner_distance,wall_distance,nearest_object_distance,discoverable_observation_count,set_max_visible_objects_per_view,placementSource,hotspot_uuid,hotspot_offset_meters,hotspot_sector_angle,spatial_slot_key,plan_x,plan_y,planCoordinateStatus,worldToPlanTransformVersion,candidate_id,candidate_state,triplet_ready,export_status");
         foreach (var record in placements)
         {
+            var candidate = GetExportCandidate(record.set_id);
             var fields = new[]
             {
                 record.floor_plan_id,
@@ -3162,6 +4605,19 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 record.nearest_object_distance.ToString("R", CultureInfo.InvariantCulture),
                 record.discoverable_observation_count.ToString(CultureInfo.InvariantCulture),
                 record.set_max_visible_objects_per_view.ToString(CultureInfo.InvariantCulture),
+                record.placementSource,
+                record.hotspot_uuid,
+                record.hotspot_offset_meters.ToString("R", CultureInfo.InvariantCulture),
+                record.hotspot_sector_angle.ToString("R", CultureInfo.InvariantCulture),
+                record.spatial_slot_key,
+                "null",
+                "null",
+                "UNAVAILABLE",
+                "null",
+                candidate?.candidate_id,
+                candidate?.state ?? "UNTRACKED",
+                BoolText(tripletReady),
+                GetPlacementExportStatus(),
             };
             csv.AppendLine(string.Join(",", fields.Select(CsvEscape)));
         }
@@ -3198,13 +4654,28 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
                 || !left.wall_distance.Equals(right.wall_distance)
                 || !left.nearest_object_distance.Equals(right.nearest_object_distance)
                 || left.discoverable_observation_count != right.discoverable_observation_count
-                || left.set_max_visible_objects_per_view != right.set_max_visible_objects_per_view)
+                || left.set_max_visible_objects_per_view != right.set_max_visible_objects_per_view
+                || !string.Equals(left.placementSource, right.placementSource, StringComparison.Ordinal)
+                || !string.Equals(left.hotspot_uuid, right.hotspot_uuid, StringComparison.Ordinal)
+                || !left.hotspot_offset_meters.Equals(right.hotspot_offset_meters)
+                || !left.hotspot_sector_angle.Equals(right.hotspot_sector_angle)
+                || !string.Equals(left.spatial_slot_key, right.spatial_slot_key, StringComparison.Ordinal)
+                || !PlanNullValuesAreEqual(left.plan_x, right.plan_x)
+                || !PlanNullValuesAreEqual(left.plan_y, right.plan_y)
+                || !string.Equals(left.planCoordinateStatus, right.planCoordinateStatus, StringComparison.Ordinal)
+                || !PlanNullValuesAreEqual(left.worldToPlanTransformVersion, right.worldToPlanTransformVersion))
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private static bool PlanNullValuesAreEqual(string left, string right)
+    {
+        return string.IsNullOrEmpty(left) && string.IsNullOrEmpty(right)
+            || string.Equals(left, right, StringComparison.Ordinal);
     }
 
     private static List<AagPlacementRecord> CloneRecords(List<AagPlacementRecord> records)
@@ -3225,6 +4696,15 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
             nearest_object_distance = record.nearest_object_distance,
             discoverable_observation_count = record.discoverable_observation_count,
             set_max_visible_objects_per_view = record.set_max_visible_objects_per_view,
+            placementSource = record.placementSource,
+            hotspot_uuid = record.hotspot_uuid,
+            hotspot_offset_meters = record.hotspot_offset_meters,
+            hotspot_sector_angle = record.hotspot_sector_angle,
+            spatial_slot_key = record.spatial_slot_key,
+            plan_x = null,
+            plan_y = null,
+            planCoordinateStatus = "UNAVAILABLE",
+            worldToPlanTransformVersion = null,
         }).ToList();
     }
 
@@ -3306,6 +4786,12 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
     private sealed class AagPlacementFile
     {
         public string schema_version;
+        public bool triplet_ready;
+        public string triplet_status_reason;
+        public string export_status;
+        public string planCoordinateStatus = "UNAVAILABLE";
+        public string worldToPlanTransformVersion;
+        public List<string> recommended_candidate_ids = new List<string>();
         public List<AagPlacementRecord> placements = new List<AagPlacementRecord>();
     }
 
@@ -3326,5 +4812,14 @@ public sealed class AagFp1PlacementAuthoring : MonoBehaviour
         public float nearest_object_distance;
         public int discoverable_observation_count;
         public int set_max_visible_objects_per_view;
+        public string placementSource = ProceduralPlacementSource;
+        public string hotspot_uuid;
+        public float hotspot_offset_meters;
+        public float hotspot_sector_angle;
+        public string spatial_slot_key;
+        public string plan_x;
+        public string plan_y;
+        public string planCoordinateStatus = "UNAVAILABLE";
+        public string worldToPlanTransformVersion;
     }
 }
