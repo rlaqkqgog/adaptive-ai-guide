@@ -197,7 +197,6 @@ public sealed partial class AagFp1PlacementAuthoring
     {
         yield return ResolveSourceCatalog();
         yield return ResolveRoomLocalCatalog();
-        var manager = GetComponent<SpatialAnchorManager>();
         var loader = GetComponent<AnchorLoader>();
         var requested = activeSourceCatalog?.anchors
             .Select(entry => Guid.TryParse(entry.uuid, out var uuid) ? uuid : Guid.Empty)
@@ -205,14 +204,10 @@ public sealed partial class AagFp1PlacementAuthoring
             .Distinct()
             .ToList() ?? new List<Guid>();
 
-        if (requested.Count == 0 && !ignoreLegacyPlayerPrefsForPersistenceTest)
-        {
-            requested = manager?.GetSavedAnchorUuidsReadOnly().Distinct().ToList() ?? new List<Guid>();
-            activeSourceCatalogKind = "PLAYERPREFS_LEGACY_MIGRATION_ONLY";
-            Debug.LogWarning($"[AAG Hotspot Persistence] bundled/override unavailable; legacy PlayerPrefs migration UUIDs={requested.Count}; candidate generation remains blocked without a validated catalog");
-        }
+        if (requested.Count == 0)
+            Debug.LogWarning("[AAG Hotspot Persistence] catalog has no UUIDs; PlayerPrefs fallback is disabled");
 
-        var playerPrefsCount = manager?.GetSavedAnchorUuidsReadOnly().Distinct().Count() ?? 0;
+        const int playerPrefsCount = 0;
         if (hotspotAnchorLoadAttempted)
         {
             Debug.LogWarning($"[AAG Hotspot Recovery] phase={phase}; anchorQuery=SKIPPED_ALREADY_ATTEMPTED; requested={requested.Count}; playerPrefs={playerPrefsCount}");

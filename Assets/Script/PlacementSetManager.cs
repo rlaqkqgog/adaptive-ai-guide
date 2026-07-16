@@ -18,10 +18,10 @@ public sealed class PlacementSetManager : MonoBehaviour
 
     [SerializeField] private string initialSet = "FP1-S1";
     [SerializeField] private GameObject markerPrefab;
-    [SerializeField, Min(1f)] private float localizationTimeoutSeconds = 15f;
-    [SerializeField] private bool loadInitialSetOnStart = true;
+    [SerializeField] private bool loadInitialSetOnStart = false;
 
     private AnchorLoader anchorLoader;
+    private int selectionVersion;
     private readonly List<GameObject> spawnedMarkers = new List<GameObject>();
     private readonly List<LocalizedMarkerPose> localizedMarkerPoses = new List<LocalizedMarkerPose>();
 
@@ -36,24 +36,32 @@ public sealed class PlacementSetManager : MonoBehaviour
 
     private IEnumerator Start()
     {
-        if (loadInitialSetOnStart) yield return LoadSet(initialSet);
+        if (GetComponent<AagManualAnchorSetAuthoring>() != null)
+        {
+            Debug.Log("[PlacementSetManager] Initial set load skipped because manual anchor authoring requires an explicit LOAD ACTIVE SET trigger.");
+            yield break;
+        }
+        if (loadInitialSetOnStart) yield return LoadSet(initialSet, ++selectionVersion);
     }
 
     public Coroutine SelectSet(string setId)
     {
-        return StartCoroutine(LoadSet(setId));
+        return StartCoroutine(LoadSet(setId, ++selectionVersion));
     }
 
-    private IEnumerator LoadSet(string setId)
+    private IEnumerator LoadSet(string setId, int loadVersion)
     {
         ClearSpawnedMarkers();
+        anchorLoader?.ClearLoadedAnchors();
         CurrentSet = string.Empty;
         var manifest = AagManualAnchorSetStore.LoadOrCreate();
+        Debug.Log(
+            $"[PlacementSetManager] manifestSource=FIXED_RUNTIME_FILE path={AagManualAnchorSetStore.ManifestPath} " +
+            "exportsSearched=false backupsSearched=false playerPrefsUsed=false legacyAnchorLogUsed=false");
         var set = manifest.sets.FirstOrDefault(value => string.Equals(value.set_id, setId, StringComparison.Ordinal));
-        if (set == null || !set.locked || set.anchors.Count != 12
-            || AagManualAnchorSetStore.Colors.Any(color => set.anchors.Count(entry => entry.color == color) != 3))
+        if (set == null)
         {
-            Debug.LogError($"[PlacementSetManager] set={setId} load blocked: manifest set must be locked with 12 anchors and 3 per color");
+            Debug.LogError($"[PlacementSetManager] Failed set={setId} reason=set not found in manual manifest");
             yield break;
         }
         if (anchorLoader == null)
@@ -62,22 +70,26 @@ public sealed class PlacementSetManager : MonoBehaviour
             yield break;
         }
         var entriesByUuid = set.anchors.ToDictionary(entry => Guid.Parse(entry.anchor_uuid));
-        anchorLoader.LoadAnchorsByUuid(entriesByUuid.Keys, $"PLACEMENT_SET:{setId}");
-        var expires = Time.unscaledTime + localizationTimeoutSeconds;
-        while (anchorLoader.IsReadOnlyLoadInProgress && Time.unscaledTime < expires) yield return null;
-        if (anchorLoader.IsReadOnlyLoadInProgress) anchorLoader.FinalizePendingAsTimedOut();
+        anchorLoader.LoadAnchorsByUuid(entriesByUuid.Keys, $"PLACEMENT_SET:{setId}", true);
+        while (anchorLoader.IsReadOnlyLoadInProgress)
+        {
+            if (loadVersion != selectionVersion) yield break;
+            yield return null;
+        }
+        if (loadVersion != selectionVersion) yield break;
 
         foreach (var pair in entriesByUuid)
         {
-            if (!anchorLoader.LocalizedAnchorsReadOnly.TryGetValue(pair.Key, out var localizedAnchor) || localizedAnchor == null)
+            if (!anchorLoader.TryGetLocalizedAnchor(pair.Key, out var localizedAnchor)
+                || anchorLoader.LocalizationFailuresReadOnly.ContainsKey(pair.Key))
             {
                 var reason = anchorLoader.LocalizationFailuresReadOnly.TryGetValue(pair.Key, out var failure) ? failure : "NOT_LOCALIZED";
-                Debug.LogError($"[PlacementSetManager] set={setId} marker={pair.Value.marker_id} uuid={pair.Key} unavailable reason={reason}");
+                Debug.LogError($"[PlacementSetManager] Failed marker={pair.Value.marker_id} uuid={pair.Key} reason={reason}");
                 continue;
             }
             if (markerPrefab == null)
             {
-                Debug.LogError($"[PlacementSetManager] markerPrefab missing; localized uuid={pair.Key} was not spawned");
+                Debug.LogError($"[PlacementSetManager] Failed marker={pair.Value.marker_id} uuid={pair.Key} reason=marker prefab missing");
                 continue;
             }
             var marker = Instantiate(markerPrefab, localizedAnchor.transform.position, localizedAnchor.transform.rotation);
@@ -90,9 +102,10 @@ public sealed class PlacementSetManager : MonoBehaviour
                 AnchorUuid = pair.Key,
                 Pose = marker.transform,
             });
+            Debug.Log($"[PlacementSetManager] Loaded marker={pair.Value.marker_id} uuid={pair.Key}");
         }
         CurrentSet = setId;
-        Debug.Log($"[PlacementSetManager] CurrentSet={CurrentSet}; requested=12 localized={anchorLoader.LocalizedRequestedCount} spawned={localizedMarkerPoses.Count}");
+        Debug.Log($"[PlacementSetManager] Load complete set={CurrentSet} loaded={localizedMarkerPoses.Count}/{set.anchors.Count}");
         CurrentSetLocalized?.Invoke(CurrentSet, LocalizedMarkerPoses);
     }
 

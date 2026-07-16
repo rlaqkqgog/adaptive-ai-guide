@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Oculus.Interaction.Input;
@@ -9,11 +10,30 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
 {
+    // Runtime-only repair workflow; no scene serialization is required.
     public readonly struct SaveContext
     {
-        public SaveContext(string setId, string color) { SetId = setId; Color = color; }
+        public SaveContext(string setId, string color)
+        {
+            SetId = setId;
+            Color = color;
+            MarkerId = string.Empty;
+            ReplacedUuid = Guid.Empty;
+        }
+
+        public SaveContext(string setId, string color, string markerId, Guid replacedUuid)
+        {
+            SetId = setId;
+            Color = color;
+            MarkerId = markerId;
+            ReplacedUuid = replacedUuid;
+        }
+
         public string SetId { get; }
         public string Color { get; }
+        public string MarkerId { get; }
+        public Guid ReplacedUuid { get; }
+        public bool IsReplacement => ReplacedUuid != Guid.Empty && !string.IsNullOrEmpty(MarkerId);
     }
     private const int AnchorsPerColor = 3;
     private const int AnchorsPerSet = 12;
@@ -28,13 +48,14 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
     };
 
     private SpatialAnchorManager anchorManager;
+    private AnchorLoader anchorLoader;
+    private AagSpatialAnchorTutorialTest tutorialTest;
     private AagManualAnchorSetManifest manifest;
     private string activeSetId = "FP1-S1";
     private string activeColor = "Red";
     private string lastSavedUuid = "NONE";
-    private string operationMessage = "Ready: right trigger creates, A saves";
+    private string operationMessage = "READY - PRESS LOAD ACTIVE SET";
     private TextMeshProUGUI statusText;
-    private bool showLockedReferences = true;
     private readonly List<GameObject> lockedReferenceMarkers = new List<GameObject>();
     private readonly Dictionary<Collider, Button> uiButtonsByCollider = new Dictionary<Collider, Button>();
     private readonly Dictionary<Button, Color> uiButtonBaseColors = new Dictionary<Button, Color>();
@@ -43,15 +64,23 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
     private IController metaLeftController;
     private bool previousMetaTriggerPressed;
     private bool metaControllerUnavailableLogged;
+    private int setLoadVersion;
+    private readonly List<GameObject> approximatedMarkers = new List<GameObject>();
+    private readonly List<AagManualAnchorEntry> missingEntries = new List<AagManualAnchorEntry>();
 
     public string ActiveSetId => activeSetId;
     public string ActiveColor => activeColor;
     public string ManifestPath => AagManualAnchorSetStore.ManifestPath;
+    public bool IsTutorialTestBusy => tutorialTest != null && tutorialTest.OperationInProgress;
 
     private void Awake()
     {
         DisableHandTrackingRootsForControllerOnly();
         anchorManager = GetComponent<SpatialAnchorManager>();
+        anchorLoader = GetComponent<AnchorLoader>();
+        tutorialTest = GetComponent<AagSpatialAnchorTutorialTest>() ?? gameObject.AddComponent<AagSpatialAnchorTutorialTest>();
+        tutorialTest.Configure(anchorManager != null ? anchorManager.anchorPrefab : null);
+        tutorialTest.StatusChanged += OnTutorialTestStatusChanged;
         manifest = AagManualAnchorSetStore.LoadOrCreate();
         var firstUnlocked = AagManualAnchorSetStore.SetIds.FirstOrDefault(id => !GetSet(id).locked);
         if (!string.IsNullOrEmpty(firstUnlocked)) activeSetId = firstUnlocked;
@@ -72,7 +101,7 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         CreateHudAndControls();
         RefreshLockedReferences();
         RefreshHud();
-        Debug.Log($"[AAG Manual Sets] authoring=true manifest={AagManualAnchorSetStore.ManifestPath}; legacyAnchors=REFERENCE_ONLY; automaticPlacement=false");
+        Debug.Log($"[AAG Manual Sets] authoring=true manifest={AagManualAnchorSetStore.ManifestPath}; legacyAnchors=REFERENCE_ONLY; automaticPlacement=false; automaticAnchorLoad=false; waitingForManualLoad=true");
     }
 
     private void Update()
@@ -80,12 +109,17 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         UpdateLeftControllerUiRay();
     }
 
+    private void OnDestroy()
+    {
+        if (tutorialTest != null) tutorialTest.StatusChanged -= OnTutorialTestStatusChanged;
+    }
+
     public bool CanAcceptAnchor(out string reason)
     {
         return CanAcceptAnchor(activeSetId, activeColor, out reason);
     }
 
-    public bool BeginAnchorSave(out SaveContext context, out string reason)
+    public bool BeginAnchorSave(OVRSpatialAnchor candidateAnchor, out SaveContext context, out string reason)
     {
         context = new SaveContext(activeSetId, activeColor);
         return CanAcceptAnchor(context.SetId, context.Color, out reason);
@@ -121,13 +155,14 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
             failure = "saved anchor callback returned null";
             return false;
         }
-        if (!CanAcceptAnchor(context.SetId, context.Color, out failure)) return false;
-        var set = GetSet(context.SetId);
         if (manifest.sets.SelectMany(value => value.anchors).Any(value => string.Equals(value.anchor_uuid, anchor.Uuid.ToString(), StringComparison.OrdinalIgnoreCase)))
         {
             failure = $"anchor UUID already exists in manual manifest: {anchor.Uuid}";
             return false;
         }
+
+        if (!CanAcceptAnchor(context.SetId, context.Color, out failure)) return false;
+        var set = GetSet(context.SetId);
 
         var colorOrdinal = CountColor(set, context.Color) + 1;
         var position = anchor.transform.position;
@@ -163,12 +198,18 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         operationMessage = colorCount == AnchorsPerColor
             ? $"{context.Color} complete. Select the next color."
             : $"Saved {entry.marker_id}";
+        RefreshLockedReferences();
         RefreshHud();
-        Debug.Log($"[AAG Manual Sets Append] floor_plan_id=FP1 set_id={entry.set_id} marker_id={entry.marker_id} color={entry.color} "
-            + $"anchor_uuid={entry.anchor_uuid} world=({entry.world_x:F6},{entry.world_y:F6},{entry.world_z:F6}) saved_at={entry.saved_at_utc} "
-            + $"colorCount={colorCount}/3 setCount={set.anchors.Count}/12");
+        Debug.Log($"[AAG Manual Set] Saved marker={entry.marker_id} uuid={entry.anchor_uuid} set={entry.set_id} "
+            + $"color={entry.color} setCount={set.anchors.Count}/12");
         failure = string.Empty;
         return true;
+    }
+
+    public void NotifyAnchorCreated(OVRSpatialAnchor anchor)
+    {
+        // Runtime load mode does not replace UUIDs. Kept as a no-op because the
+        // anchor creation component also supports the original authoring flow.
     }
 
     public void ReportBlockedSave(string reason)
@@ -181,10 +222,16 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
     public void SelectSet(string setId)
     {
         if (!AagManualAnchorSetStore.SetIds.Contains(setId, StringComparer.Ordinal)) return;
+        setLoadVersion++;
+        missingEntries.Clear();
+        ClearApproximatedMarkers();
+        tutorialTest?.HideRuntimeAnchors();
+        anchorLoader?.ClearLoadedAnchors();
         activeSetId = setId;
-        operationMessage = GetSet(setId).locked ? $"Viewing locked {setId}" : $"Active set: {setId}";
+        operationMessage = $"READY - PRESS LOAD ACTIVE SET ({setId})";
         RefreshLockedReferences();
         RefreshHud();
+        Debug.Log($"[AAG Manual Set] Selected set={setId}; automaticLoad=false; waitingForManualLoad=true");
     }
 
     public void SelectColor(string color)
@@ -294,12 +341,212 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         }
     }
 
-    public void ToggleLockedReferences()
+    public void ReloadActiveSet()
     {
-        showLockedReferences = !showLockedReferences;
+        if (anchorLoader == null) return;
+        var loadVersion = ++setLoadVersion;
+        // Reload exactly one authoritative file. Exports, repair backups,
+        // PlayerPrefs, and anchor_log.json are never set-load sources.
+        manifest = AagManualAnchorSetStore.LoadOrCreate();
+        var set = GetSet(activeSetId);
+        missingEntries.Clear();
+        ClearApproximatedMarkers();
+        tutorialTest?.HideRuntimeAnchors();
+        anchorLoader.ClearLoadedAnchors();
         RefreshLockedReferences();
-        operationMessage = $"Locked references: {(showLockedReferences ? "SHOWN" : "HIDDEN")}";
+        if (set.anchors.Count == 0)
+        {
+            operationMessage = $"{activeSetId} has no manifest UUIDs";
+            RefreshHud();
+            return;
+        }
+        Debug.Log(
+            $"[AAG Manual Set] Manual load trigger set={activeSetId}; clearingRuntimeAnchors=true; " +
+            $"forceQuestStoreQuery=true; existingAnchorReuse=false; requested={set.anchors.Count}; " +
+            $"manifestSource=FIXED_RUNTIME_FILE; manifestPath={AagManualAnchorSetStore.ManifestPath}");
+        StartCoroutine(ReloadActiveSetCoroutine(activeSetId, loadVersion));
+    }
+
+    private IEnumerator ReloadActiveSetCoroutine(string setId, int loadVersion)
+    {
+        var set = GetSet(setId);
+        var uuids = new List<Guid>();
+        foreach (var entry in set.anchors)
+        {
+            if (!Guid.TryParse(entry.anchor_uuid, out var uuid) || uuid == Guid.Empty)
+            {
+                operationMessage = $"{setId} load failed: invalid UUID for {entry.marker_id}";
+                RefreshHud();
+                yield break;
+            }
+            uuids.Add(uuid);
+        }
+
+        operationMessage = $"Fresh Quest load {setId}: 0 / {uuids.Count}...";
+        RefreshLockedReferences();
         RefreshHud();
+        anchorLoader.ClearPrefabOverrides();
+        foreach (var entry in set.anchors)
+        {
+            if (!Guid.TryParse(entry.anchor_uuid, out var uuid) || uuid == Guid.Empty) continue;
+            anchorLoader.SetPrefabForUuid(uuid, anchorManager != null
+                ? anchorManager.GetAnchorPrefabForColor(entry.color)
+                : null);
+        }
+        anchorLoader.LoadAnchorsByUuid(uuids, $"MANUAL_ACTIVE_SET:{setId}", true);
+        var lastHudRefresh = -1f;
+        var lastLocalizedCount = -1;
+        while (anchorLoader.IsReadOnlyLoadInProgress)
+        {
+            if (loadVersion != setLoadVersion) yield break;
+            RefreshManagedAnchorVisibility();
+            var localizedNow = anchorLoader.LocalizedRequestedCount;
+            if (localizedNow != lastLocalizedCount || Time.realtimeSinceStartup - lastHudRefresh >= 1f)
+            {
+                lastLocalizedCount = localizedNow;
+                lastHudRefresh = Time.realtimeSinceStartup;
+                operationMessage = $"Loading {setId}: {localizedNow} / {uuids.Count}...";
+                RefreshHud();
+            }
+            yield return null;
+        }
+        if (loadVersion != setLoadVersion) yield break;
+
+        var localized = uuids.Count(uuid => anchorLoader.TryGetLocalizedAnchor(uuid, out _)
+            && !anchorLoader.LocalizationFailuresReadOnly.ContainsKey(uuid));
+        missingEntries.Clear();
+        foreach (var entry in set.anchors)
+        {
+            if (!Guid.TryParse(entry.anchor_uuid, out var uuid)) continue;
+            if (anchorLoader.TryGetLocalizedAnchor(uuid, out _)
+                && !anchorLoader.LocalizationFailuresReadOnly.ContainsKey(uuid))
+            {
+                Debug.Log($"[AAG Manual Set] Loaded marker={entry.marker_id} uuid={uuid}");
+            }
+            else
+            {
+                missingEntries.Add(entry);
+                var reason = anchorLoader.LocalizationFailuresReadOnly.TryGetValue(uuid, out var failure)
+                    ? failure
+                    : "not returned";
+                Debug.LogError($"[AAG Manual Set] Failed marker={entry.marker_id} uuid={uuid} reason={reason}");
+            }
+        }
+        operationMessage = missingEntries.Count == 0
+            ? $"Loaded {localized} / {uuids.Count} REAL"
+            : $"Loaded {localized} / {uuids.Count}; aligning {missingEntries.Count} missing markers...";
+        RefreshLockedReferences();
+        if (missingEntries.Count > 0 && set.HasOffsetCapture)
+        {
+            var approximated = SpawnApproximatedMarkers(set);
+            if (approximated > 0)
+            {
+                operationMessage =
+                    $"READY {setId}: {localized} REAL + {approximated} APPROX = {localized + approximated}/{uuids.Count}";
+            }
+            else
+            {
+                operationMessage = $"LOAD FAILED: 0 localized reference anchors for {setId}";
+            }
+        }
+        else if (missingEntries.Count > 0)
+        {
+            operationMessage = $"LOAD FAILED: no reference layout in fixed manifest";
+        }
+        RefreshHud();
+        Debug.Log(
+            $"[AAG Manual Set] Load complete set={setId} loaded={localized}/{uuids.Count} " +
+            $"approximated={approximatedMarkers.Count} offsetCapture={set.HasOffsetCapture}");
+    }
+
+    /// <summary>
+    /// Spawns non-anchored marker objects for entries that failed to localize,
+    /// positioned relative to the nearest successfully localized anchor using
+    /// the offsets captured while the set was last 12/12 in one session.
+    /// </summary>
+    private int SpawnApproximatedMarkers(AagManualAnchorSetRecord set)
+    {
+        var references = new List<(AagManualAnchorEntry entry, Transform transform)>();
+        foreach (var entry in set.anchors)
+        {
+            if (Guid.TryParse(entry.anchor_uuid, out var uuid)
+                && anchorLoader.TryGetLocalizedAnchor(uuid, out var anchor)
+                && !anchorLoader.LocalizationFailuresReadOnly.ContainsKey(uuid))
+                references.Add((entry, anchor.transform));
+        }
+        if (references.Count == 0)
+        {
+            Debug.LogWarning($"[AAG Approx] No localized reference anchors set={set.set_id}; approximation skipped");
+            return 0;
+        }
+
+        var spawned = 0;
+        foreach (var failedEntry in missingEntries)
+        {
+            var capturedPosition = failedEntry.CapturedPosition;
+            var reference = references
+                .OrderBy(candidate => (candidate.entry.CapturedPosition - capturedPosition).sqrMagnitude)
+                .First();
+
+            // Transform the captured pose from the capture-session frame into the
+            // current session frame via the reference anchor's pose delta.
+            var deltaRotation = reference.transform.rotation * Quaternion.Inverse(reference.entry.CapturedRotation);
+            var position = reference.transform.position
+                + deltaRotation * (capturedPosition - reference.entry.CapturedPosition);
+            var rotation = deltaRotation * failedEntry.CapturedRotation;
+
+            var marker = InstantiateMarkerWithoutAnchor(
+                position,
+                rotation,
+                $"AAG Approx {failedEntry.marker_id}",
+                failedEntry.color);
+            if (marker == null) continue;
+            approximatedMarkers.Add(marker);
+            spawned++;
+            Debug.Log(
+                $"[AAG Approx] Spawned marker={failedEntry.marker_id} uuid={failedEntry.anchor_uuid} " +
+                $"ref={reference.entry.marker_id} refDistance={(reference.entry.CapturedPosition - capturedPosition).magnitude:F2}m " +
+                $"captureUtc={set.offsets_captured_utc}");
+        }
+        return spawned;
+    }
+
+    private GameObject InstantiateMarkerWithoutAnchor(
+        Vector3 position,
+        Quaternion rotation,
+        string name,
+        string color)
+    {
+        var prefab = anchorManager != null ? anchorManager.GetAnchorPrefabForColor(color) : null;
+        if (prefab == null) return null;
+
+        // Instantiate inactive so the OVRSpatialAnchor component can be removed
+        // before Awake/OnEnable would create a brand-new spatial anchor.
+        var prefabObject = prefab.gameObject;
+        var prefabWasActive = prefabObject.activeSelf;
+        GameObject instance;
+        try
+        {
+            prefabObject.SetActive(false);
+            instance = Instantiate(prefabObject, position, rotation);
+        }
+        finally
+        {
+            prefabObject.SetActive(prefabWasActive);
+        }
+
+        var anchorComponent = instance.GetComponent<OVRSpatialAnchor>();
+        if (anchorComponent != null) DestroyImmediate(anchorComponent);
+        instance.name = name;
+        instance.SetActive(true);
+        return instance;
+    }
+
+    private void ClearApproximatedMarkers()
+    {
+        foreach (var marker in approximatedMarkers)
+            if (marker != null) Destroy(marker);
+        approximatedMarkers.Clear();
     }
 
     private AagManualAnchorSetRecord GetSet(string setId)
@@ -312,15 +559,20 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         return set.anchors.Count(entry => string.Equals(entry.color, color, StringComparison.Ordinal));
     }
 
+    private static Guid SafeUuid(OVRSpatialAnchor anchor)
+    {
+        try { return anchor != null ? anchor.Uuid : Guid.Empty; }
+        catch (Exception) { return Guid.Empty; }
+    }
+
     private void RefreshHud()
     {
         if (statusText == null) return;
         var set = GetSet(activeSetId);
-        statusText.text = $"MANUAL ANCHOR SET AUTHORING\nACTIVE SET: {activeSetId} {(set.locked ? "[LOCKED]" : "[OPEN]")}\n"
-            + $"ACTIVE COLOR: {activeColor} {CountColor(set, activeColor)}/3\n"
-            + $"Red {CountColor(set, "Red")}/3   Blue {CountColor(set, "Blue")}/3   Green {CountColor(set, "Green")}/3   Yellow {CountColor(set, "Yellow")}/3\n"
-            + $"SET TOTAL: {set.anchors.Count}/12\nLAST UUID: {lastSavedUuid}\n{operationMessage}\n"
-            + "RIGHT TRIGGER=create  |  A=save\nWARNING: EXPORT SETS BEFORE APP UNINSTALL / CLEAR APP DATA";
+        statusText.text = $"FP1 OBJECT LOADER\nACTIVE SET: {activeSetId}\n"
+            + $"OBJECTS: {set.anchors.Count}/12\n{operationMessage}\n"
+            + "REAL = Quest anchor   APPROX = 013758 reference layout\n"
+            + "Select a set, then press LOAD ACTIVE SET.";
     }
 
     private void CreateHudAndControls()
@@ -346,24 +598,96 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         var background = root.AddComponent<Image>();
         background.color = new Color(0.02f, 0.03f, 0.05f, 0.9f);
 
-        statusText = CreateText(rect, "Status", new Vector2(0.03f, 0.43f), new Vector2(0.97f, 0.98f), 28f);
+        statusText = CreateText(rect, "Status", new Vector2(0.03f, 0.30f), new Vector2(0.97f, 0.98f), 32f);
         var setLabels = new[] { "FP1-S1", "FP1-S2", "FP1-S3", "NEXT SET" };
         for (var i = 0; i < setLabels.Length; i++)
         {
             var captured = setLabels[i];
-            CreateButton(rect, captured, new Vector2(0.03f + i * 0.24f, 0.33f), new Vector2(0.25f + i * 0.24f, 0.41f),
+            CreateButton(rect, captured, new Vector2(0.03f + i * 0.24f, 0.18f), new Vector2(0.25f + i * 0.24f, 0.28f),
                 () => { if (captured == "NEXT SET") NextSet(); else SelectSet(captured); }, new Color(0.1f, 0.3f, 0.65f, 0.95f));
         }
-        for (var i = 0; i < AagManualAnchorSetStore.Colors.Length; i++)
+        CreateButton(rect, "LOAD ACTIVE SET", new Vector2(0.03f, 0.04f), new Vector2(0.72f, 0.15f), ReloadActiveSet, new Color(0.1f, 0.5f, 0.25f));
+        CreateButton(rect, "EXPORT JSON", new Vector2(0.75f, 0.04f), new Vector2(0.97f, 0.15f), ExportSets, new Color(0.05f, 0.5f, 0.5f));
+    }
+
+    /// <summary>
+    /// Erases every historical anchor UUID recorded by this app except the 36
+    /// manifest anchors and the TEST-3 anchors. Days of testing left hundreds of
+    /// dead anchors in Quest local storage; they compete with the final 36 in the
+    /// device's limited anchor-discovery budget and cause random load failures.
+    /// </summary>
+    private void EraseJunkAnchors()
+    {
+        if (anchorManager == null)
         {
-            var captured = AagManualAnchorSetStore.Colors[i];
-            var tint = captured == "Red" ? Color.red : captured == "Blue" ? Color.blue : captured == "Green" ? new Color(0f, 0.65f, 0.15f) : new Color(0.85f, 0.7f, 0f);
-            CreateButton(rect, captured, new Vector2(0.03f + i * 0.24f, 0.23f), new Vector2(0.25f + i * 0.24f, 0.31f), () => SelectColor(captured), tint);
+            operationMessage = "ERASE JUNK unavailable";
+            RefreshHud();
+            return;
         }
-        CreateButton(rect, "UNDO LAST", new Vector2(0.03f, 0.12f), new Vector2(0.25f, 0.20f), UndoLast, new Color(0.55f, 0.2f, 0.1f));
-        CreateButton(rect, "LOCK SET", new Vector2(0.27f, 0.12f), new Vector2(0.49f, 0.20f), LockActiveSet, new Color(0.4f, 0.1f, 0.5f));
-        CreateButton(rect, "EXPORT SETS", new Vector2(0.51f, 0.12f), new Vector2(0.73f, 0.20f), ExportSets, new Color(0.05f, 0.5f, 0.5f));
-        CreateButton(rect, "SHOW/HIDE LOCKED", new Vector2(0.75f, 0.12f), new Vector2(0.97f, 0.20f), ToggleLockedReferences, new Color(0.3f, 0.3f, 0.3f));
+        if (anchorLoader != null && anchorLoader.IsReadOnlyLoadInProgress)
+        {
+            operationMessage = "ERASE JUNK blocked: load in progress";
+            RefreshHud();
+            return;
+        }
+        manifest = AagManualAnchorSetStore.LoadOrCreate();
+        var keep = new HashSet<Guid>();
+        foreach (var entry in manifest.sets.SelectMany(set => set.anchors))
+        {
+            if (Guid.TryParse(entry.anchor_uuid, out var uuid) && uuid != Guid.Empty) keep.Add(uuid);
+        }
+        if (tutorialTest != null)
+        {
+            foreach (var uuid in tutorialTest.StoredUuids) keep.Add(uuid);
+        }
+
+        operationMessage = $"ERASE JUNK starting (keeping {keep.Count})...";
+        RefreshHud();
+        anchorManager.EraseJunkAnchorsAsync(keep, status =>
+        {
+            operationMessage = status;
+            RefreshHud();
+        });
+    }
+
+    private void SaveTutorialTestAnchor()
+    {
+        if (tutorialTest == null)
+        {
+            operationMessage = "TEST-3 unavailable";
+            RefreshHud();
+            return;
+        }
+        setLoadVersion++;
+        missingEntries.Clear();
+        ClearApproximatedMarkers();
+        anchorLoader?.ClearLoadedAnchors();
+        tutorialTest.CreateAndSaveNextAnchor();
+    }
+
+    private void LoadTutorialTestAnchors()
+    {
+        if (tutorialTest == null)
+        {
+            operationMessage = "TEST-3 unavailable";
+            RefreshHud();
+            return;
+        }
+        setLoadVersion++;
+        missingEntries.Clear();
+        ClearApproximatedMarkers();
+        anchorLoader?.ClearLoadedAnchors();
+        tutorialTest.LoadStoredAnchors();
+    }
+
+    private void ResetTutorialTestList()
+    {
+        tutorialTest?.ResetTestList();
+    }
+
+    private void OnTutorialTestStatusChanged(string _)
+    {
+        RefreshHud();
     }
 
     private static TextMeshProUGUI CreateText(RectTransform parent, string name, Vector2 min, Vector2 max, float size)
@@ -552,26 +876,41 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         foreach (var marker in lockedReferenceMarkers)
             if (marker != null) Destroy(marker);
         lockedReferenceMarkers.Clear();
-        if (!showLockedReferences) return;
-        foreach (var set in manifest.sets.Where(value => value.locked && !string.Equals(value.set_id, activeSetId, StringComparison.Ordinal)))
+        foreach (var candidate in Resources.FindObjectsOfTypeAll<GameObject>())
+        {
+            if (candidate == null || !candidate.scene.IsValid()
+                || !candidate.name.StartsWith("AAG Locked Reference ", StringComparison.Ordinal)) continue;
+            Destroy(candidate);
+        }
+        RefreshManagedAnchorVisibility();
+    }
+
+    private void RefreshManagedAnchorVisibility()
+    {
+        if (manifest == null) return;
+        var managedUuids = new HashSet<Guid>();
+        var activeUuids = new HashSet<Guid>();
+        foreach (var set in manifest.sets)
         {
             foreach (var entry in set.anchors)
             {
-                var marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                marker.name = $"AAG Locked Reference {set.set_id} {entry.marker_id} {entry.anchor_uuid}";
-                marker.transform.SetPositionAndRotation(entry.WorldPosition, entry.WorldRotation);
-                marker.transform.localScale = Vector3.one * 0.09f;
-                var collider = marker.GetComponent<Collider>();
-                if (collider != null) Destroy(collider);
-                var renderer = marker.GetComponent<Renderer>();
-                var shader = Shader.Find("Unlit/Transparent") ?? Shader.Find("Sprites/Default") ?? Shader.Find("Universal Render Pipeline/Lit");
-                if (renderer != null && shader != null)
-                {
-                    var material = new Material(shader) { color = new Color(0.5f, 0.5f, 0.5f, 0.35f) };
-                    renderer.material = material;
-                }
-                lockedReferenceMarkers.Add(marker);
+                if (!Guid.TryParse(entry.anchor_uuid, out var uuid)) continue;
+                managedUuids.Add(uuid);
+                if (string.Equals(set.set_id, activeSetId, StringComparison.Ordinal)) activeUuids.Add(uuid);
             }
+        }
+
+        foreach (var anchor in Resources.FindObjectsOfTypeAll<OVRSpatialAnchor>())
+        {
+            if (anchor == null || !anchor.gameObject.scene.IsValid()) continue;
+            Guid uuid;
+            try { uuid = anchor.Uuid; }
+            catch (Exception) { continue; }
+            if (!managedUuids.Contains(uuid)) continue;
+            var visible = activeUuids.Contains(uuid);
+            foreach (var renderer in anchor.GetComponentsInChildren<Renderer>(true)) renderer.enabled = visible;
+            foreach (var canvas in anchor.GetComponentsInChildren<Canvas>(true)) canvas.enabled = visible;
+            foreach (var collider in anchor.GetComponentsInChildren<Collider>(true)) collider.enabled = visible;
         }
     }
 }

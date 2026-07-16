@@ -1,45 +1,53 @@
-# FP1 manual Spatial Anchor set authoring
+# FP1 Core Object Loader
 
-This mode reuses the existing right-controller Spatial Anchor workflow and does not run candidate generation, random placement, floor/distance/visibility validation, or procedural spawning.
+The runtime path is intentionally small:
 
-## Quest workflow
+1. Read one fixed manifest:
+   `Application.persistentDataPath/AagManualAnchorSets/fp1_manual_anchor_sets.json`
+2. Query the 12 UUIDs for the selected set once.
+3. Spawn every successfully localized anchor as `REAL`.
+4. Align the 013758 reference layout through the nearest `REAL` anchor and spawn every missing marker as `APPROX`.
 
-1. Select `FP1-S1` on the authoring panel.
-2. Select `Red`.
-3. Press the right index trigger to create an anchor, then press right `A` to save it. Only a successful Quest anchor-save callback appends the UUID to the set manifest.
-4. Save exactly 3 Red, 3 Blue, 3 Green, and 3 Yellow anchors.
-5. Press `LOCK SET` after the panel shows `12/12` and every color shows `3/3`.
-6. Press `NEXT SET` or explicitly select `FP1-S2`, repeat, then repeat for `FP1-S3`.
-7. Press `EXPORT SETS` after all three sets are complete.
+There is no progressive retry window and no required repair workflow.
 
-The former Grip-based set switching and automatic candidate authoring are disabled in this mode. Right-controller anchor creation/save is never rebound to set switching. Right Grip erase-all is also disabled; `UNDO LAST` erases only the most recently managed anchor in the active unlocked set. The original legacy anchors are never assigned to S1/S2/S3 or deleted.
+## Authoritative data
 
-Authoring UI uses Meta Interaction SDK's official left-controller chain (`OVRCameraRigRef`, `TrackingToWorldTransformerOVR`, `FromOVRControllerDataSource`, `IController.TryGetPointerPose`) and Meta trigger state. There is no grip-pose or guessed-pose fallback. The current authoring build is configured as `ControllersOnly`; hand tracking is disabled to prevent controller/hand pose switching.
+- UUID source: `fp1_manual_anchor_sets_20260716_092839.json`
+- Reference pose source: `fp1_manual_anchor_sets_20260716_013758.json`
+- Combined runtime file: `QuestAnchorBackup/fp1_manual_anchor_sets_CORE.json`
 
-Controller-only configuration also disables Android OpenXR `Hand Interaction Profile` and the scene roots `[BuildingBlock] Real Hands`, `[BuildingBlock] HandGrabInstallationRoutine`, and `[BuildingBlock] Hand Tracking left/right`. The core `OVRCameraRig` tracking transforms (`LeftHandAnchor`/`RightHandAnchor`) remain intact because Meta's controller data source uses that tracking space. MRUK and Spatial Anchor objects are not changed.
+The 013758 poses are never used as absolute Unity world coordinates. For a missing marker, the loader applies the pose delta between a localized reference anchor's captured pose and its current pose.
 
-## Manifest and export
+## Quest controls
 
-Runtime manifest:
+1. Select `FP1-S1`, `FP1-S2`, or `FP1-S3`.
+2. Press `LOAD ACTIVE SET` once.
+3. Read the result:
+   - `12 REAL`: all Quest anchors localized.
+   - `n REAL + m APPROX = 12/12`: missing anchors were restored from the reference layout.
+   - `LOAD FAILED: 0 localized reference anchors`: the set cannot be aligned because no UUID localized.
+4. Use `EXPORT JSON` to back up the combined manifest.
 
-`Application.persistentDataPath/AagManualAnchorSets/fp1_manual_anchor_sets.json`
+Do not uninstall the app or clear app data before exporting the JSON. The CSV export does not contain the captured reference-pose fields.
 
-Exports:
+## Changing marker prefabs later
 
-`Application.persistentDataPath/AagManualAnchorSets/Exports/fp1_manual_anchor_sets_<UTC>.json`
+The `SpatialAnchorManager` object in `AnchorSpawn` has four independent Inspector slots under
+`Marker Prefabs by Manifest Color`: Red, Blue, Green, and Yellow. Replace a slot with any prefab
+that contains an `OVRSpatialAnchor`; no loader code or JSON edit is required. Both `REAL` and
+`APPROX` markers use the same color slot. An empty slot safely falls back to `Anchor Prefab`.
 
-`Application.persistentDataPath/AagManualAnchorSets/Exports/fp1_manual_anchor_sets_<UTC>.csv`
+Current editable prefabs:
 
-Each entry records `floor_plan_id`, `set_id`, `marker_id`, color, anchor UUID, diagnostic save-time world pose, and UTC save time. JSON/CSV export paths are printed with `[AAG Manual Sets Export]` in logcat.
+- `Assets/Prefab/AnchorPrefabAnchor_Red.prefab`
+- `Assets/Prefab/AnchorPrefabAnchor_Blue.prefab`
+- `Assets/Prefab/AnchorPrefabAnchor_Green.prefab`
+- `Assets/Prefab/AnchorPrefabAnchor_Yellow.prefab`
 
-> WARNING: The runtime manifest, candidate/LOCKED state, and export copies inside the app data directory are deleted by app uninstall or Clear App Data. Press `EXPORT SETS` and copy the exported JSON/CSV to the PC before uninstalling or clearing data.
+## Files
 
-## Locked references
-
-When authoring S2/S3, `SHOW/HIDE LOCKED` displays prior locked-set poses as collider-free translucent gray spheres. These are authoring references only. They do not change or replace the Spatial Anchors and are not used as a world-pose fallback during experiment runtime.
-
-## Experiment runtime
-
-`PlacementSetManager` accepts a locked manifest set, requests its 12 UUIDs from `AnchorLoader`, and spawns the configured marker prefab only at successfully localized Spatial Anchor poses. It does not use the manifest's diagnostic world pose as placement data.
-
-`GuideManager` exposes only `PlacementSetManager.CurrentSet` and its read-only localized marker-pose list. It does not generate, move, or save marker positions.
+- Loader: `Assets/Script/AnchorLoader.cs`
+- Set UI and REAL/APPROX alignment: `Assets/Script/AagManualAnchorSetAuthoring.cs`
+- Manifest schema and fixed path: `Assets/Script/AagManualAnchorSetManifest.cs`
+- Color-to-prefab slots: `Assets/Script/SpatialAnchorManager.cs`
+- Android build helper: `Assets/Editor/AagCoreAndroidBuild.cs`

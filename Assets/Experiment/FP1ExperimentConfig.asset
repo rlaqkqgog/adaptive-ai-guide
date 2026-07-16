@@ -1,0 +1,73 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d87c13d74f54b3c9e286d9f7c6a1b02, type: 3}
+  m_Name: FP1ExperimentConfig
+  m_EditorClassIdentifier: 
+  participantIds:
+  - P01
+  - P02
+  setIds:
+  - FP1-S1
+  - FP1-S2
+  - FP1-S3
+  sessionTimeLimitSeconds: 1200
+  trackIntervalSeconds: 0.1
+  roomMinDwellSeconds: 0.5
+  logFlushIntervalSeconds: 10
+  aesWindowSeconds: 60
+  decisionIntervalSeconds: 5
+  aesMinimumDistanceMeters: 0
+  aesMinimumUniqueRooms: 0
+  aesMinimumHeadRotationDegrees: 0
+  proxyWindowSeconds: 60
+  proxyColdStartRatio: 0.5
+  proxyLowBoundary: 0.33
+  proxyHighBoundary: 0.66
+  minimumUtteranceGapSeconds: 20
+  coldStartLevel: 2
+  underloadLevel: 4
+  optimalLevel: 2
+  overloadLevel: 0
+  aagClips: []
+  rooms:
+  - roomUuid: 93ad5dfc-c2c2-aab8-e032-758172c5a70d
+    roomId: room1
+    displayName: 원우회실
+    tieOrder: 0
+  - roomUuid: 3342022d-32d9-c32f-cc67-a6993db345ef
+    roomId: room2
+    displayName: 스튜던트 라운지
+    tieOrder: 1
+  - roomUuid: 36f65d12-3dd9-957c-8535-9a774780e5f6
+    roomId: room3
+    displayName: 419강의실
+    tieOrder: 2
+  - roomUuid: 5768d95b-6710-cc01-1e25-cd03767ab1dd
+    roomId: hall1-1
+    displayName: 베란다 쪽 복도
+    tieOrder: 3
+  - roomUuid: 316e933e-d06d-5af0-8919-10578ccd3900
+    roomId: hall1-2
+    displayName: 라운지 앞 복도
+    tieOrder: 4
+  - roomUuid: cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6
+    roomId: hall1-3
+    displayName: 정수기 근처 복도
+    tieOrder: 5
+  - roomUuid: b887c5f7-5e25-95b0-b1d7-a2d13703e00a
+    roomId: hall2-1
+    displayName: 화장실 앞
+    tieOrder: 6
+  - roomUuid: 6ac2d59f-e9a6-5fc7-ecf7-3617f7bf7133
+    roomId: hall2-2
+    displayName: 계단 쪽
+    tieOrder: 7
