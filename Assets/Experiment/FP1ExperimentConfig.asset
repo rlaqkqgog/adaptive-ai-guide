@@ -25,19 +25,117 @@ MonoBehaviour:
   logFlushIntervalSeconds: 10
   aesWindowSeconds: 60
   decisionIntervalSeconds: 5
-  aesMinimumDistanceMeters: 0
-  aesMinimumUniqueRooms: 0
-  aesMinimumHeadRotationDegrees: 0
-  proxyWindowSeconds: 60
+  aesMinimumDistanceMeters: 12
+  aesMinimumUniqueRooms: 2
+  aesMinimumHeadRotationDegrees: 2800
+  proxyWindowSeconds: 30
   proxyColdStartRatio: 0.5
   proxyLowBoundary: 0.33
   proxyHighBoundary: 0.66
+  aagTextModeEnabled: 1
+  aagPlaybackEnabled: 0
+  captionVisibleSeconds: 3
   minimumUtteranceGapSeconds: 20
-  coldStartLevel: 2
-  underloadLevel: 4
-  optimalLevel: 2
-  overloadLevel: 0
-  aagClips: []
+  stalestRecencyFloorSeconds: 60
+  stalestMeaningfulDwellSeconds: 5
+  initialSupportLevel: 2
+  aagClips:
+  - clipId: GF-01
+    captionText: 좀 더 둘러보시겠어요?
+    clip: {fileID: 0}
+  - clipId: GF-02
+    captionText: 다른 곳도 자유롭게 다녀보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-room1
+    captionText: 아직 안 가보신 원우회실을 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-room2
+    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-room3
+    captionText: 아직 안 가보신 419강의실을 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-hall1-1
+    captionText: 아직 안 가보신 베란다 쪽 복도를 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-hall1-2
+    captionText: 아직 안 가보신 라운지 앞 복도를 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-hall1-3
+    captionText: 아직 안 가보신 정수기 근처 복도를 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-hall2-1
+    captionText: 아직 안 가보신 화장실 앞쪽을 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-U-hall2-2
+    captionText: 아직 안 가보신 계단 쪽을 확인해보세요.
+    clip: {fileID: 0}
+  - clipId: VE-V-room1
+    captionText: 원우회실은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-room2
+    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-room3
+    captionText: 419강의실은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-hall1-1
+    captionText: 베란다 쪽 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-hall1-2
+    captionText: 라운지 앞 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-hall1-3
+    captionText: 정수기 근처 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-hall2-1
+    captionText: 화장실 앞쪽은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: VE-V-hall2-2
+    captionText: 계단 쪽은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 0}
+  - clipId: E-room1
+    captionText: 원우회실 근처도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-room2
+    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-room3
+    captionText: 419강의실 근처도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-hall1-1
+    captionText: 베란다 쪽 복도도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-hall1-2
+    captionText: 라운지 앞 복도도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-hall1-3
+    captionText: 정수기 근처도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-hall2-1
+    captionText: 화장실 앞쪽도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: E-hall2-2
+    captionText: 계단 쪽도 한번 살펴보세요.
+    clip: {fileID: 0}
+  - clipId: N-01
+    captionText: 아직 찾지 못한 돌이 남아 있어요.
+    clip: {fileID: 0}
+  - clipId: N-02
+    captionText: 남은 돌이 아직 있어요.
+    clip: {fileID: 0}
+  - clipId: H-01
+    captionText: 아직 둘러보지 않은 공간이 남아 있어요.
+    clip: {fileID: 0}
+  - clipId: H-02
+    captionText: 가보지 않은 곳이 아직 있어요.
+    clip: {fileID: 0}
+  - clipId: VH-01
+    captionText: 계속 자유롭게 다녀보세요.
+    clip: {fileID: 0}
+  - clipId: VH-02
+    captionText: 편하신 대로 계속 진행하세요.
+    clip: {fileID: 0}
   rooms:
   - roomUuid: 93ad5dfc-c2c2-aab8-e032-758172c5a70d
     roomId: room1

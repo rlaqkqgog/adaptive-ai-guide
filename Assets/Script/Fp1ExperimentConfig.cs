@@ -31,6 +31,7 @@ public sealed class ExperimentRoomMapping
 public sealed class ExperimentAagClip
 {
     public string clipId = string.Empty;
+    [TextArea(2, 3)] public string captionText = string.Empty;
     public AudioClip clip;
 }
 
@@ -50,29 +51,38 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Header("AES")]
     [Min(1f)] public float aesWindowSeconds = 60f;
     [Min(0.5f)] public float decisionIntervalSeconds = 5f;
-    [Min(0f)] public float aesMinimumDistanceMeters;
-    [Min(0)] public int aesMinimumUniqueRooms;
-    [Min(0f)] public float aesMinimumHeadRotationDegrees;
+    [Tooltip("Passive boundary for the 60-second distance signal. The loose gate blocks only when all three AES signals are below their boundaries.")]
+    [Min(0f)] public float aesMinimumDistanceMeters = 12f;
+    [Tooltip("Passive boundary for unique rooms. Two means a one-room session can still be classified as clearly passive when the other signals are also low.")]
+    [Min(0)] public int aesMinimumUniqueRooms = 2;
+    [Tooltip("Passive boundary for accumulated head rotation in the AES window.")]
+    [Min(0f)] public float aesMinimumHeadRotationDegrees = 2800f;
 
     [Header("Empty-hand RevisitProxy")]
-    [Min(1f)] public float proxyWindowSeconds = 60f;
+    [Min(1f)] public float proxyWindowSeconds = 30f;
     [Range(0f, 1f)] public float proxyColdStartRatio = 0.5f;
     [Range(0f, 1f)] public float proxyLowBoundary = 0.33f;
     [Range(0f, 1f)] public float proxyHighBoundary = 0.66f;
 
     [Header("AAG")]
+    [Tooltip("Development-only output. Shows the configured utterance text through the same request path used by audio.")]
+    public bool aagTextModeEnabled = true;
+    [Tooltip("Production output. Keep text mode off during participant sessions when this is enabled.")]
+    public bool aagPlaybackEnabled;
+    [Min(0.1f)] public float captionVisibleSeconds = 3f;
     [Min(0f)] public float minimumUtteranceGapSeconds = 20f;
-    public AagSupportLevel coldStartLevel = AagSupportLevel.Normal;
-    public AagSupportLevel underloadLevel = AagSupportLevel.VeryHard;
-    public AagSupportLevel optimalLevel = AagSupportLevel.Normal;
-    public AagSupportLevel overloadLevel = AagSupportLevel.VeryEasy;
+    [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
+    [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
+    [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]
+    [Min(0f)] public float stalestMeaningfulDwellSeconds = 5f;
+    public AagSupportLevel initialSupportLevel = AagSupportLevel.Normal;
     public ExperimentAagClip[] aagClips = Array.Empty<ExperimentAagClip>();
 
     [Header("FP1 rooms")]
     public ExperimentRoomMapping[] rooms = Array.Empty<ExperimentRoomMapping>();
 
     private Dictionary<string, ExperimentRoomMapping> roomByUuid;
-    private Dictionary<string, AudioClip> clipById;
+    private Dictionary<string, ExperimentAagClip> aagClipById;
 
     public ExperimentRoomMapping FindRoom(string roomUuid)
     {
@@ -82,10 +92,12 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
             : mapping;
     }
 
-    public AudioClip FindClip(string clipId)
+    public ExperimentAagClip FindAagClip(string clipId)
     {
         EnsureLookups();
-        return string.IsNullOrEmpty(clipId) || !clipById.TryGetValue(clipId, out var clip) ? null : clip;
+        return string.IsNullOrEmpty(clipId) || !aagClipById.TryGetValue(clipId, out var binding)
+            ? null
+            : binding;
     }
 
     public void RebuildLookups()
@@ -97,17 +109,17 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
             roomByUuid[room.roomUuid.Trim()] = room;
         }
 
-        clipById = new Dictionary<string, AudioClip>(StringComparer.Ordinal);
+        aagClipById = new Dictionary<string, ExperimentAagClip>(StringComparer.Ordinal);
         foreach (var binding in aagClips ?? Array.Empty<ExperimentAagClip>())
         {
-            if (binding == null || string.IsNullOrWhiteSpace(binding.clipId) || binding.clip == null) continue;
-            clipById[binding.clipId.Trim()] = binding.clip;
+            if (binding == null || string.IsNullOrWhiteSpace(binding.clipId)) continue;
+            aagClipById[binding.clipId.Trim()] = binding;
         }
     }
 
     private void EnsureLookups()
     {
-        if (roomByUuid == null || clipById == null) RebuildLookups();
+        if (roomByUuid == null || aagClipById == null) RebuildLookups();
     }
 
     private void OnValidate()

@@ -1,19 +1,14 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO;
 using System.Linq;
-using System.Text;
-using Meta.XR.MRUtilityKit;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Single runtime owner for the FP1 pilot. It intentionally owns the complete
-/// session lifecycle so repeated Play runs cannot leave state in other managers.
-/// The proven AnchorLoader remains the only anchor-localization service.
+/// FP1 session coordinator. Measurement, AAG decisions, and file ownership live
+/// in their visible sibling managers under _Experiment.
 /// </summary>
 [DisallowMultipleComponent]
 public sealed class ExperimentMain : MonoBehaviour
@@ -39,100 +34,6 @@ public sealed class ExperimentMain : MonoBehaviour
         public bool delivered;
     }
 
-    private sealed class MetricSample
-    {
-        public float time;
-        public float distance;
-        public float headRotation;
-        public string roomUuid;
-    }
-
-    private sealed class AesSnapshot
-    {
-        public float distance;
-        public int uniqueRooms;
-        public float headRotation;
-        public float combinedScore;
-        public bool gatePassed;
-    }
-
-    private sealed class ProxySnapshot
-    {
-        public bool hasValue;
-        public float revisitSeconds;
-        public float emptyHandSeconds;
-        public float ratio;
-        public bool coldStart;
-    }
-
-    private sealed class RoomChoice
-    {
-        public string roomUuid;
-        public string roomId;
-        public int remainingCount;
-        public bool visited;
-        public float lastVisitedAt;
-        public int tieOrder;
-        public string selectionRule;
-    }
-
-    [Serializable]
-    private sealed class SessionStartLog
-    {
-        public string type = "session_start";
-        public float t;
-        public string schema = "fp1-pilot-jsonl/v1";
-        public string sessionId;
-        public string participantId;
-        public string setId;
-        public string guideMode;
-        public string startedAtUtc;
-        public string manifestPath;
-        public float trackIntervalSeconds;
-        public float roomMinDwellSeconds;
-        public float aesWindowSeconds;
-        public float aesMinimumDistanceMeters;
-        public int aesMinimumUniqueRooms;
-        public float aesMinimumHeadRotationDegrees;
-        public float proxyWindowSeconds;
-        public float proxyColdStartRatio;
-        public float proxyLowBoundary;
-        public float proxyHighBoundary;
-        public float decisionIntervalSeconds;
-        public float minimumUtteranceGapSeconds;
-        public float timeLimitSeconds;
-        public string coldStartLevel;
-        public string underloadLevel;
-        public string optimalLevel;
-        public string overloadLevel;
-    }
-
-    [Serializable]
-    private sealed class TrackLog
-    {
-        public string type = "track";
-        public float t;
-        public float x;
-        public float y;
-        public float z;
-        public float yaw;
-        public float pitch;
-        public int carrying;
-        public string roomUuid;
-        public string roomId;
-    }
-
-    [Serializable]
-    private sealed class RoomEventLog
-    {
-        public string type;
-        public float t;
-        public string roomUuid;
-        public string roomId;
-        public int carrying;
-        public bool revisitAtEntry;
-    }
-
     [Serializable]
     private sealed class ObjectEventLog
     {
@@ -151,62 +52,6 @@ public sealed class ExperimentMain : MonoBehaviour
     }
 
     [Serializable]
-    private sealed class AesLog
-    {
-        public string type = "aes";
-        public float t;
-        public float windowSeconds;
-        public float distanceMeters;
-        public int uniqueRooms;
-        public float headRotationDegrees;
-        public float combinedScore;
-        public bool gatePassed;
-        public string guideMode;
-    }
-
-    [Serializable]
-    private sealed class ProxyLog
-    {
-        public string type = "revisit_proxy";
-        public float t;
-        public float windowSeconds;
-        public float totalAccumulatedEmptyHandSeconds;
-        public float revisitEmptyHandSeconds;
-        public float windowEmptyHandSeconds;
-        public float proxyRatio;
-        public bool hasValue;
-        public bool coldStart;
-        public int carrying;
-        public string guideMode;
-    }
-
-    [Serializable]
-    private sealed class UtteranceLog
-    {
-        public string type = "utterance";
-        public float t;
-        public bool aesGatePassed;
-        public bool proxyHasValue;
-        public float proxyRatio;
-        public string level;
-        public string roomUuid;
-        public string roomId;
-        public string selectionRule;
-        public string clipId;
-        public bool played;
-        public string reason;
-    }
-
-    [Serializable]
-    private sealed class SystemLog
-    {
-        public string type = "system";
-        public float t;
-        public string eventName;
-        public string detail;
-    }
-
-    [Serializable]
     private sealed class SessionEndLog
     {
         public string type = "session_end";
@@ -218,53 +63,39 @@ public sealed class ExperimentMain : MonoBehaviour
         public float runningSeconds;
     }
 
-    [Header("Single configuration asset")]
+    [Header("Single Configuration Asset")]
     [SerializeField] private Fp1ExperimentConfig config;
 
-    [Header("Existing scene services")]
+    [Header("Existing Scene Services")]
     [SerializeField] private AnchorLoader anchorLoader;
     [SerializeField] private SpatialAnchorManager spatialAnchorManager;
     [SerializeField] private Transform headTransform;
 
-    private SessionState state = SessionState.Idle;
-    [Header("Scene-owned outputs")]
+    [Header("Visible Experiment Managers")]
+    [SerializeField] private BehaviorMetrics behaviorMetrics;
+    [SerializeField] private AAGGuide aagGuide;
+    [SerializeField] private LoggingManager loggingManager;
+
+    [Header("Scene-owned Outputs")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private GameObject hudRoot;
     [SerializeField] private GameObject lobbyPanel;
     [SerializeField] private RectTransform vgPanel;
 
+    private SessionState state = SessionState.Idle;
     private int participantIndex;
     private int setIndex;
     private int guideIndex;
-    private float sessionClockStart;
     private float runClockStart;
     private float sampleAccumulator;
     private float nextDecisionTime;
-    private float nextFlushTime;
-    private float lastUtteranceTime = float.NegativeInfinity;
-    private bool hasPreviousPose;
-    private Vector3 previousPosition;
-    private float previousYaw;
-    private float previousPitch;
-    private int carrying;
-    private string carriedObjectId = string.Empty;
-    private string currentRoomUuid = string.Empty;
-    private string currentRoomId = string.Empty;
-    private bool currentRoomIsRevisit;
-    private string candidateRoomUuid = string.Empty;
-    private float candidateRoomDwell;
     private string sessionId = string.Empty;
     private string currentSetId = string.Empty;
     private ExperimentGuideMode currentGuideMode;
-    private StreamWriter logWriter;
 
-    private readonly List<MetricSample> metricSamples = new List<MetricSample>();
     private readonly List<GameObject> approximatedObjects = new List<GameObject>();
     private readonly Dictionary<string, TargetState> targets = new Dictionary<string, TargetState>(StringComparer.Ordinal);
-    private readonly HashSet<string> visitedRooms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, float> lastVisitedAt = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, RectTransform> vgTargetMarkers = new Dictionary<string, RectTransform>(StringComparer.Ordinal);
-    private readonly EmptyHandRevisitWindow revisitWindow = new EmptyHandRevisitWindow();
 
     private TextMeshProUGUI operatorText;
     private RectTransform vgUserMarker;
@@ -272,7 +103,7 @@ public sealed class ExperimentMain : MonoBehaviour
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
     private string SelectedSetId => SafeChoice(config != null ? config.setIds : null, setIndex, AagExperimentSpaceCatalog.Fp1S1);
     private ExperimentGuideMode SelectedGuideMode => (ExperimentGuideMode)(guideIndex % 3);
-    private float SessionTime => string.IsNullOrEmpty(sessionId) ? 0f : Time.realtimeSinceStartup - sessionClockStart;
+    private float SessionTime => loggingManager != null ? loggingManager.SessionTime : 0f;
     private float RunningTime => state == SessionState.Running ? Time.realtimeSinceStartup - runClockStart : 0f;
 
     private void Awake()
@@ -280,7 +111,7 @@ public sealed class ExperimentMain : MonoBehaviour
         if (config == null)
         {
             config = ScriptableObject.CreateInstance<Fp1ExperimentConfig>();
-            Debug.LogWarning("[Experiment] FP1ExperimentConfig missing; using in-memory defaults.");
+            Debug.LogWarning("[ExperimentMain] FP1ExperimentConfig missing; using in-memory defaults.", this);
         }
         config.RebuildLookups();
 
@@ -292,18 +123,27 @@ public sealed class ExperimentMain : MonoBehaviour
             if (rig != null) headTransform = rig.centerEyeAnchor;
         }
 
-        if (audioSource == null) audioSource = GetComponentInChildren<AudioSource>(true);
-        if (audioSource == null)
+        var experimentRoot = transform.parent != null ? transform.parent : transform;
+        if (behaviorMetrics == null) behaviorMetrics = experimentRoot.GetComponentInChildren<BehaviorMetrics>(true);
+        if (aagGuide == null) aagGuide = experimentRoot.GetComponentInChildren<AAGGuide>(true);
+        if (loggingManager == null) loggingManager = experimentRoot.GetComponentInChildren<LoggingManager>(true);
+        if (audioSource == null) audioSource = experimentRoot.GetComponentInChildren<AudioSource>(true);
+
+        if (behaviorMetrics == null || aagGuide == null || loggingManager == null || audioSource == null)
         {
-            Debug.LogError("[Experiment] _Experiment/AudioSource reference is missing.", this);
+            Debug.LogError(
+                "[ExperimentMain] _Experiment must contain BehaviorMetrics, AAGGuide, LoggingManager, and AudioSource.",
+                this);
             enabled = false;
             return;
         }
+
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
-
         CreateHud();
-        ResetMeasurementState();
+        behaviorMetrics.ResetSession();
+        aagGuide.StopAndReset();
+        aagGuide.gameObject.SetActive(false);
         RefreshHud("Ready");
     }
 
@@ -315,7 +155,7 @@ public sealed class ExperimentMain : MonoBehaviour
             return;
         }
 
-        FlushIfDue();
+        loggingManager.Tick();
         if (state != SessionState.Running) return;
 
         sampleAccumulator += Time.unscaledDeltaTime;
@@ -323,13 +163,17 @@ public sealed class ExperimentMain : MonoBehaviour
         while (sampleAccumulator >= interval)
         {
             sampleAccumulator -= interval;
-            SampleRuntime(interval);
+            behaviorMetrics.Sample(interval, currentGuideMode);
+            if (currentGuideMode == ExperimentGuideMode.VG)
+                UpdateVg(behaviorMetrics.LatestHeadPosition);
         }
 
         if (SessionTime >= nextDecisionTime)
         {
             nextDecisionTime += Mathf.Max(0.5f, config.decisionIntervalSeconds);
-            EvaluateMetricsAndGuide();
+            var snapshot = behaviorMetrics.Evaluate(currentGuideMode);
+            if (currentGuideMode == ExperimentGuideMode.AAG)
+                aagGuide.Evaluate(snapshot, BuildAagTargets());
         }
 
         if (RunningTime >= config.sessionTimeLimitSeconds)
@@ -390,9 +234,15 @@ public sealed class ExperimentMain : MonoBehaviour
         currentSetId = SelectedSetId;
         currentGuideMode = SelectedGuideMode;
         sessionId = BuildSessionId(SelectedParticipantId, currentSetId, currentGuideMode);
-        sessionClockStart = Time.realtimeSinceStartup;
-        OpenLog();
-        WriteSessionStart();
+        if (!loggingManager.OpenSession(sessionId, SelectedParticipantId, currentSetId, currentGuideMode, config))
+        {
+            sessionId = string.Empty;
+            state = SessionState.Idle;
+            RefreshHud("START BLOCKED: log_open_failed");
+            yield break;
+        }
+        behaviorMetrics.BeginSession(config, headTransform, loggingManager);
+        aagGuide.BeginSession(config, behaviorMetrics, loggingManager);
         RefreshHud("Loading anchors...");
 
         if (anchorLoader == null || spatialAnchorManager == null)
@@ -476,31 +326,10 @@ public sealed class ExperimentMain : MonoBehaviour
     private void PrepareForNewSession()
     {
         StopGuideOutputs();
-        CloseLog();
+        loggingManager.CloseSession();
         ClearSpawnedObjects();
-        ResetMeasurementState();
-    }
-
-    private void ResetMeasurementState()
-    {
-        metricSamples.Clear();
-        revisitWindow.Reset();
-        visitedRooms.Clear();
-        lastVisitedAt.Clear();
-        ClearVgMarkers();
-        carrying = 0;
-        carriedObjectId = string.Empty;
-        currentRoomUuid = string.Empty;
-        currentRoomId = string.Empty;
-        currentRoomIsRevisit = false;
-        candidateRoomUuid = string.Empty;
-        candidateRoomDwell = 0f;
+        behaviorMetrics.ResetSession();
         sampleAccumulator = 0f;
-        hasPreviousPose = false;
-        previousPosition = Vector3.zero;
-        previousYaw = 0f;
-        previousPitch = 0f;
-        lastUtteranceTime = float.NegativeInfinity;
     }
 
     private void ClearSpawnedObjects()
@@ -509,6 +338,7 @@ public sealed class ExperimentMain : MonoBehaviour
             if (instance != null) Destroy(instance);
         approximatedObjects.Clear();
         targets.Clear();
+        ClearVgMarkers();
         if (anchorLoader != null)
         {
             anchorLoader.ClearPrefabOverrides();
@@ -522,7 +352,7 @@ public sealed class ExperimentMain : MonoBehaviour
         var visualCollider = targetTransform.GetComponentsInChildren<Collider>(true)
             .FirstOrDefault(candidate => candidate != null && !(candidate is MeshCollider mesh && !mesh.convex));
         var movableTransform = visualCollider != null ? visualCollider.transform : targetTransform;
-        var roomUuid = GetContainingRoomUuid(movableTransform.position);
+        var roomUuid = behaviorMetrics.ResolveRoomUuid(movableTransform.position);
         var mapping = config.FindRoom(roomUuid);
         var id = string.IsNullOrWhiteSpace(entry.marker_id) ? entry.anchor_uuid : entry.marker_id;
         var bridge = movableTransform.GetComponent<ExperimentObject>()
@@ -592,304 +422,32 @@ public sealed class ExperimentMain : MonoBehaviour
         }
     }
 
-    private void SampleRuntime(float sampleDelta)
+    private IReadOnlyCollection<AagGuideTarget> BuildAagTargets()
     {
-        if (headTransform == null)
+        return targets.Values.Select(target => new AagGuideTarget
         {
-            WriteSystem("tracking_lost", "headTransform_missing");
-            return;
-        }
-
-        var position = headTransform.position;
-        var euler = headTransform.eulerAngles;
-        var yaw = NormalizeAngle(euler.y);
-        var pitch = NormalizeAngle(euler.x);
-        var rawRoomUuid = GetContainingRoomUuid(position);
-        UpdateStableRoom(rawRoomUuid, sampleDelta);
-
-        var distance = 0f;
-        var rotation = 0f;
-        if (hasPreviousPose)
-        {
-            var delta = position - previousPosition;
-            distance = new Vector2(delta.x, delta.z).magnitude;
-            rotation = Mathf.Abs(Mathf.DeltaAngle(previousYaw, yaw)) + Mathf.Abs(Mathf.DeltaAngle(previousPitch, pitch));
-        }
-        previousPosition = position;
-        previousYaw = yaw;
-        previousPitch = pitch;
-        hasPreviousPose = true;
-
-        metricSamples.Add(new MetricSample
-        {
-            time = SessionTime,
-            distance = distance,
-            headRotation = rotation,
-            roomUuid = currentRoomUuid,
-        });
-        TrimMetricWindow();
-
-        // Critical invariant: this call advances neither time nor expiry while carrying.
-        revisitWindow.Sample(sampleDelta, carrying == 0, currentRoomIsRevisit);
-
-        WriteLog(new TrackLog
-        {
-            t = SessionTime,
-            x = position.x,
-            y = position.y,
-            z = position.z,
-            yaw = yaw,
-            pitch = pitch,
-            carrying = carrying,
-            roomUuid = currentRoomUuid,
-            roomId = currentRoomId,
-        });
-
-        if (currentGuideMode == ExperimentGuideMode.VG) UpdateVg(position);
-    }
-
-    private void UpdateStableRoom(string rawRoomUuid, float sampleDelta)
-    {
-        rawRoomUuid ??= string.Empty;
-        if (string.Equals(rawRoomUuid, currentRoomUuid, StringComparison.OrdinalIgnoreCase))
-        {
-            candidateRoomUuid = string.Empty;
-            candidateRoomDwell = 0f;
-            return;
-        }
-
-        if (!string.Equals(rawRoomUuid, candidateRoomUuid, StringComparison.OrdinalIgnoreCase))
-        {
-            candidateRoomUuid = rawRoomUuid;
-            candidateRoomDwell = sampleDelta;
-            return;
-        }
-
-        candidateRoomDwell += sampleDelta;
-        if (candidateRoomDwell < config.roomMinDwellSeconds) return;
-
-        if (!string.IsNullOrEmpty(currentRoomUuid))
-        {
-            WriteLog(new RoomEventLog
-            {
-                type = "room_exit",
-                t = SessionTime,
-                roomUuid = currentRoomUuid,
-                roomId = currentRoomId,
-                carrying = carrying,
-                revisitAtEntry = currentRoomIsRevisit,
-            });
-        }
-
-        currentRoomUuid = candidateRoomUuid;
-        var mapping = config.FindRoom(currentRoomUuid);
-        currentRoomId = mapping != null ? mapping.roomId : RoomFallbackId(currentRoomUuid);
-        currentRoomIsRevisit = !string.IsNullOrEmpty(currentRoomUuid) && visitedRooms.Contains(currentRoomUuid);
-        if (!string.IsNullOrEmpty(currentRoomUuid))
-        {
-            visitedRooms.Add(currentRoomUuid);
-            lastVisitedAt[currentRoomUuid] = SessionTime;
-            WriteLog(new RoomEventLog
-            {
-                type = "room_enter",
-                t = SessionTime,
-                roomUuid = currentRoomUuid,
-                roomId = currentRoomId,
-                carrying = carrying,
-                revisitAtEntry = currentRoomIsRevisit,
-            });
-        }
-        candidateRoomUuid = string.Empty;
-        candidateRoomDwell = 0f;
-    }
-
-    private void EvaluateMetricsAndGuide()
-    {
-        var aes = CalculateAes();
-        var proxy = CalculateProxy();
-        WriteLog(new AesLog
-        {
-            t = SessionTime,
-            windowSeconds = config.aesWindowSeconds,
-            distanceMeters = aes.distance,
-            uniqueRooms = aes.uniqueRooms,
-            headRotationDegrees = aes.headRotation,
-            combinedScore = aes.combinedScore,
-            gatePassed = aes.gatePassed,
-            guideMode = currentGuideMode.ToString(),
-        });
-        WriteLog(new ProxyLog
-        {
-            t = SessionTime,
-            windowSeconds = config.proxyWindowSeconds,
-            totalAccumulatedEmptyHandSeconds = revisitWindow.TotalAccumulatedEmptyHandSeconds,
-            revisitEmptyHandSeconds = proxy.revisitSeconds,
-            windowEmptyHandSeconds = proxy.emptyHandSeconds,
-            proxyRatio = proxy.ratio,
-            hasValue = proxy.hasValue,
-            coldStart = proxy.coldStart,
-            carrying = carrying,
-            guideMode = currentGuideMode.ToString(),
-        });
-
-        // AES/RevisitProxy are always computed above. Only output is conditional.
-        if (currentGuideMode == ExperimentGuideMode.AAG) RunAagDecision(aes, proxy);
-    }
-
-    private AesSnapshot CalculateAes()
-    {
-        var snapshot = new AesSnapshot();
-        var rooms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var sample in metricSamples)
-        {
-            snapshot.distance += sample.distance;
-            snapshot.headRotation += sample.headRotation;
-            if (!string.IsNullOrEmpty(sample.roomUuid)) rooms.Add(sample.roomUuid);
-        }
-        snapshot.uniqueRooms = rooms.Count;
-        snapshot.combinedScore = snapshot.distance + snapshot.uniqueRooms + snapshot.headRotation / 180f;
-        snapshot.gatePassed = snapshot.distance >= config.aesMinimumDistanceMeters
-            && snapshot.uniqueRooms >= config.aesMinimumUniqueRooms
-            && snapshot.headRotation >= config.aesMinimumHeadRotationDegrees;
-        return snapshot;
-    }
-
-    private ProxySnapshot CalculateProxy()
-    {
-        revisitWindow.GetWindow(config.proxyWindowSeconds, out var revisitSeconds, out var emptyHandSeconds);
-        var coldThreshold = config.proxyWindowSeconds * config.proxyColdStartRatio;
-        var hasValue = revisitWindow.TotalAccumulatedEmptyHandSeconds >= coldThreshold && emptyHandSeconds > 0f;
-        return new ProxySnapshot
-        {
-            hasValue = hasValue,
-            revisitSeconds = revisitSeconds,
-            emptyHandSeconds = emptyHandSeconds,
-            ratio = emptyHandSeconds > 0f ? revisitSeconds / emptyHandSeconds : 0f,
-            coldStart = !hasValue,
-        };
-    }
-
-    private void RunAagDecision(AesSnapshot aes, ProxySnapshot proxy)
-    {
-        var level = ResolveSupportLevel(proxy);
-        var choice = ChooseRemainingRoom();
-        var clipId = !aes.gatePassed ? "GF-01" : BuildClipId(level, choice);
-        var log = new UtteranceLog
-        {
-            t = SessionTime,
-            aesGatePassed = aes.gatePassed,
-            proxyHasValue = proxy.hasValue,
-            proxyRatio = proxy.ratio,
-            level = level.ToString(),
-            roomUuid = choice?.roomUuid ?? string.Empty,
-            roomId = choice?.roomId ?? string.Empty,
-            selectionRule = choice?.selectionRule ?? "none",
-            clipId = clipId,
-        };
-
-        if (SessionTime - lastUtteranceTime < config.minimumUtteranceGapSeconds)
-        {
-            log.reason = "minimum_gap";
-            WriteLog(log);
-            return;
-        }
-        if (audioSource.isPlaying)
-        {
-            log.reason = "audio_busy";
-            WriteLog(log);
-            return;
-        }
-        var clip = config.FindClip(clipId);
-        if (clip == null)
-        {
-            log.reason = "clip_missing";
-            WriteLog(log);
-            return;
-        }
-
-        audioSource.clip = clip;
-        audioSource.Play();
-        lastUtteranceTime = SessionTime;
-        log.played = true;
-        log.reason = "played";
-        WriteLog(log);
-    }
-
-    private AagSupportLevel ResolveSupportLevel(ProxySnapshot proxy)
-    {
-        if (!proxy.hasValue) return config.coldStartLevel;
-        if (proxy.ratio < config.proxyLowBoundary) return config.underloadLevel;
-        if (proxy.ratio < config.proxyHighBoundary) return config.optimalLevel;
-        return config.overloadLevel;
-    }
-
-    private RoomChoice ChooseRemainingRoom()
-    {
-        var choices = targets.Values
-            .Where(target => !target.delivered && !string.IsNullOrEmpty(target.roomUuid))
-            .GroupBy(target => target.roomUuid, StringComparer.OrdinalIgnoreCase)
-            .Select(group =>
-            {
-                var first = group.First();
-                var mapping = config.FindRoom(group.Key);
-                var visited = visitedRooms.Contains(group.Key);
-                return new RoomChoice
-                {
-                    roomUuid = group.Key,
-                    roomId = mapping != null ? mapping.roomId : first.roomId,
-                    remainingCount = group.Count(),
-                    visited = visited,
-                    lastVisitedAt = lastVisitedAt.TryGetValue(group.Key, out var time) ? time : float.NegativeInfinity,
-                    tieOrder = mapping?.tieOrder ?? int.MaxValue,
-                    selectionRule = visited ? "stalest_visited" : "unvisited_first",
-                };
-            })
-            .ToList();
-        if (choices.Count == 0) return null;
-
-        return choices
-            .OrderBy(choice => choice.visited ? 1 : 0)
-            .ThenBy(choice => choice.visited ? choice.lastVisitedAt : float.NegativeInfinity)
-            .ThenByDescending(choice => choice.remainingCount)
-            .ThenBy(choice => choice.tieOrder)
-            .First();
-    }
-
-    private static string BuildClipId(AagSupportLevel level, RoomChoice choice)
-    {
-        return level switch
-        {
-            AagSupportLevel.VeryEasy when choice != null && !choice.visited => $"VE-U-{choice.roomId}",
-            AagSupportLevel.VeryEasy when choice != null => $"VE-V-{choice.roomId}",
-            AagSupportLevel.Easy when choice != null => $"E-{choice.roomId}",
-            AagSupportLevel.Normal => "N-01",
-            AagSupportLevel.Hard when choice != null && !choice.visited => "H-01",
-            AagSupportLevel.Hard => "N-01",
-            _ => "VH-01",
-        };
+            objectId = target.objectId,
+            roomUuid = target.roomUuid,
+            roomId = target.roomId,
+            delivered = target.delivered,
+        }).ToArray();
     }
 
     public void NotifyObjectGrabbed(ExperimentObject experimentObject)
     {
         if (state != SessionState.Running || experimentObject == null) return;
-        if (carrying > 0 && !string.Equals(carriedObjectId, experimentObject.ObjectId, StringComparison.Ordinal))
+        if (!behaviorMetrics.TryBeginCarry(experimentObject.ObjectId, out var rejectionReason))
         {
-            WriteSystem("grab_rejected", $"object={experimentObject.ObjectId}; carrying={carriedObjectId}");
+            WriteSystem("grab_rejected", $"object={experimentObject.ObjectId}; reason={rejectionReason}");
             return;
         }
-        carrying = 1;
-        carriedObjectId = experimentObject.ObjectId;
         WriteObjectEvent("grab", experimentObject.ObjectId, string.Empty);
     }
 
     public void NotifyObjectDropped(ExperimentObject experimentObject)
     {
         if (state != SessionState.Running || experimentObject == null) return;
-        if (string.Equals(carriedObjectId, experimentObject.ObjectId, StringComparison.Ordinal))
-        {
-            carrying = 0;
-            carriedObjectId = string.Empty;
-        }
+        behaviorMetrics.EndCarry(experimentObject.ObjectId);
         WriteObjectEvent("drop", experimentObject.ObjectId, string.Empty);
     }
 
@@ -898,8 +456,7 @@ public sealed class ExperimentMain : MonoBehaviour
         if (state != SessionState.Running || experimentObject == null) return;
         if (!targets.TryGetValue(experimentObject.ObjectId, out var target) || target.delivered) return;
         target.delivered = true;
-        carrying = 0;
-        carriedObjectId = string.Empty;
+        behaviorMetrics.ForceClearCarry();
         WriteObjectEvent("delivered", experimentObject.ObjectId, towerId);
         if (targets.Values.All(value => value.delivered)) EndSession("all_targets_delivered");
     }
@@ -908,7 +465,7 @@ public sealed class ExperimentMain : MonoBehaviour
     {
         targets.TryGetValue(objectId, out var target);
         var position = target?.transform != null ? target.transform.position : Vector3.zero;
-        WriteLog(new ObjectEventLog
+        loggingManager.Write(new ObjectEventLog
         {
             type = eventType,
             t = SessionTime,
@@ -921,28 +478,20 @@ public sealed class ExperimentMain : MonoBehaviour
             x = position.x,
             y = position.y,
             z = position.z,
-            carrying = carrying,
-        });
+            carrying = behaviorMetrics.Carrying,
+        }, eventType);
     }
 
     public void EndSession(string reason)
     {
         if (state != SessionState.Running) return;
         state = SessionState.Ending;
-        var delivered = targets.Values.Count(target => target.delivered);
-        WriteLog(new SessionEndLog
-        {
-            t = SessionTime,
-            endedAtUtc = DateTime.UtcNow.ToString("O"),
-            reason = reason ?? "unknown",
-            deliveredCount = delivered,
-            targetCount = targets.Count,
-            runningSeconds = Time.realtimeSinceStartup - runClockStart,
-        });
-        CloseLog();
+        behaviorMetrics.EndSession();
+        WriteSessionEnd(reason, Time.realtimeSinceStartup - runClockStart);
+        loggingManager.CloseSession();
         StopGuideOutputs();
         ClearSpawnedObjects();
-        ResetMeasurementState();
+        behaviorMetrics.ResetSession();
         sessionId = string.Empty;
         state = SessionState.Idle;
         RefreshHud($"Previous session ended: {reason}");
@@ -951,146 +500,62 @@ public sealed class ExperimentMain : MonoBehaviour
     private void AbortLoading(string reason)
     {
         WriteSystem("session_aborted", reason);
-        WriteLog(new SessionEndLog
-        {
-            t = SessionTime,
-            endedAtUtc = DateTime.UtcNow.ToString("O"),
-            reason = reason,
-            deliveredCount = 0,
-            targetCount = targets.Count,
-        });
-        CloseLog();
+        behaviorMetrics.EndSession();
+        WriteSessionEnd(reason, 0f);
+        loggingManager.CloseSession();
         StopGuideOutputs();
         ClearSpawnedObjects();
-        ResetMeasurementState();
+        behaviorMetrics.ResetSession();
         sessionId = string.Empty;
         state = SessionState.Idle;
         RefreshHud($"START BLOCKED: {reason}");
     }
 
-    private void OpenLog()
+    private void WriteSessionEnd(string reason, float runningSeconds)
     {
-        var folder = Path.Combine(Application.persistentDataPath, "ExperimentLogs", SanitizePathPart(sessionId));
-        Directory.CreateDirectory(folder);
-        var path = Path.Combine(folder, "session.jsonl");
-        logWriter = new StreamWriter(path, false, new UTF8Encoding(false));
-        nextFlushTime = Time.realtimeSinceStartup + config.logFlushIntervalSeconds;
-        Debug.Log($"[Experiment] log={path}");
-    }
-
-    private void WriteSessionStart()
-    {
-        WriteLog(new SessionStartLog
+        loggingManager.Write(new SessionEndLog
         {
-            t = 0f,
-            sessionId = sessionId,
-            participantId = SelectedParticipantId,
-            setId = currentSetId,
-            guideMode = currentGuideMode.ToString(),
-            startedAtUtc = DateTime.UtcNow.ToString("O"),
-            manifestPath = AagManualAnchorSetStore.ManifestPath,
-            trackIntervalSeconds = config.trackIntervalSeconds,
-            roomMinDwellSeconds = config.roomMinDwellSeconds,
-            aesWindowSeconds = config.aesWindowSeconds,
-            aesMinimumDistanceMeters = config.aesMinimumDistanceMeters,
-            aesMinimumUniqueRooms = config.aesMinimumUniqueRooms,
-            aesMinimumHeadRotationDegrees = config.aesMinimumHeadRotationDegrees,
-            proxyWindowSeconds = config.proxyWindowSeconds,
-            proxyColdStartRatio = config.proxyColdStartRatio,
-            proxyLowBoundary = config.proxyLowBoundary,
-            proxyHighBoundary = config.proxyHighBoundary,
-            decisionIntervalSeconds = config.decisionIntervalSeconds,
-            minimumUtteranceGapSeconds = config.minimumUtteranceGapSeconds,
-            timeLimitSeconds = config.sessionTimeLimitSeconds,
-            coldStartLevel = config.coldStartLevel.ToString(),
-            underloadLevel = config.underloadLevel.ToString(),
-            optimalLevel = config.optimalLevel.ToString(),
-            overloadLevel = config.overloadLevel.ToString(),
-        });
-        logWriter?.Flush();
+            t = SessionTime,
+            endedAtUtc = DateTime.UtcNow.ToString("O"),
+            reason = reason ?? "unknown",
+            deliveredCount = targets.Values.Count(target => target.delivered),
+            targetCount = targets.Count,
+            runningSeconds = runningSeconds,
+        }, "session_end");
+        loggingManager.FlushNow();
     }
 
     private void WriteSystem(string eventName, string detail)
     {
-        WriteLog(new SystemLog { t = SessionTime, eventName = eventName, detail = detail ?? string.Empty });
-    }
-
-    private void WriteLog(object record)
-    {
-        if (logWriter == null || record == null) return;
-        try
-        {
-            logWriter.WriteLine(JsonUtility.ToJson(record));
-        }
-        catch (Exception exception)
-        {
-            Debug.LogError($"[Experiment] log write failed: {exception.Message}");
-        }
-    }
-
-    private void FlushIfDue()
-    {
-        if (logWriter == null || Time.realtimeSinceStartup < nextFlushTime) return;
-        try { logWriter.Flush(); }
-        catch (Exception exception) { Debug.LogError($"[Experiment] log flush failed: {exception.Message}"); }
-        nextFlushTime = Time.realtimeSinceStartup + config.logFlushIntervalSeconds;
-    }
-
-    private void CloseLog()
-    {
-        if (logWriter == null) return;
-        try
-        {
-            logWriter.Flush();
-            logWriter.Dispose();
-        }
-        catch (Exception exception)
-        {
-            Debug.LogError($"[Experiment] log close failed: {exception.Message}");
-        }
-        finally
-        {
-            logWriter = null;
-        }
+        loggingManager?.WriteSystem(eventName, detail);
     }
 
     private void OnApplicationPause(bool paused)
     {
-        if (paused && logWriter != null)
-        {
-            WriteSystem("application_pause", "paused=true");
-            try { logWriter.Flush(); } catch (Exception exception) { Debug.LogError(exception.Message); }
-        }
+        if (!paused || loggingManager == null || !loggingManager.WriterOpen) return;
+        WriteSystem("application_pause", "paused=true");
+        loggingManager.FlushNow();
     }
 
     private void OnApplicationQuit()
     {
-        if (logWriter != null)
-        {
-            WriteSystem("application_quit", "quit=true");
-            WriteLog(new SessionEndLog
-            {
-                t = SessionTime,
-                endedAtUtc = DateTime.UtcNow.ToString("O"),
-                reason = "application_quit",
-                deliveredCount = targets.Values.Count(target => target.delivered),
-                targetCount = targets.Count,
-                runningSeconds = state == SessionState.Running ? Time.realtimeSinceStartup - runClockStart : 0f,
-            });
-        }
-        CloseLog();
+        if (loggingManager == null || !loggingManager.WriterOpen) return;
+        WriteSystem("application_quit", "quit=true");
+        behaviorMetrics?.EndSession();
+        WriteSessionEnd("application_quit", RunningTime);
+        loggingManager.CloseSession();
     }
 
     private void OnDestroy()
     {
-        CloseLog();
+        if (loggingManager != null) loggingManager.CloseSession();
     }
 
     private void CreateHud()
     {
         if (headTransform == null || hudRoot == null || lobbyPanel == null || vgPanel == null)
         {
-            Debug.LogError("[Experiment] Scene hierarchy must contain ExperimentCanvas/LobbyPanel/VGPanel.", this);
+            Debug.LogError("[ExperimentMain] Scene hierarchy must contain ExperimentCanvas/LobbyPanel/VGPanel.", this);
             enabled = false;
             return;
         }
@@ -1100,7 +565,7 @@ public sealed class ExperimentMain : MonoBehaviour
         var scaler = hudRoot.GetComponent<CanvasScaler>();
         if (rootRect == null || canvas == null || scaler == null)
         {
-            Debug.LogError("[Experiment] ExperimentCanvas needs RectTransform, Canvas and CanvasScaler.", hudRoot);
+            Debug.LogError("[ExperimentMain] ExperimentCanvas needs RectTransform, Canvas and CanvasScaler.", hudRoot);
             enabled = false;
             return;
         }
@@ -1119,6 +584,11 @@ public sealed class ExperimentMain : MonoBehaviour
         lobbyImage.color = new Color(0.02f, 0.03f, 0.05f, 0.94f);
         var vgImage = vgPanel.GetComponent<Image>() ?? vgPanel.gameObject.AddComponent<Image>();
         vgImage.color = new Color(0.015f, 0.02f, 0.025f, 0.72f);
+        vgImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+        vgImage.type = Image.Type.Simple;
+        vgImage.preserveAspect = true;
+        var vgMask = vgPanel.GetComponent<Mask>() ?? vgPanel.gameObject.AddComponent<Mask>();
+        vgMask.showMaskGraphic = true;
 
         operatorText = lobbyPanel.GetComponentInChildren<TextMeshProUGUI>(true)
             ?? CreateText(lobbyPanel.GetComponent<RectTransform>(), "OperatorText", 36f, TextAlignmentOptions.Center);
@@ -1181,13 +651,18 @@ public sealed class ExperimentMain : MonoBehaviour
     private void ApplyGuideVisibility()
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(false);
+        if (aagGuide != null) aagGuide.gameObject.SetActive(currentGuideMode == ExperimentGuideMode.AAG);
         if (vgPanel != null) vgPanel.gameObject.SetActive(currentGuideMode == ExperimentGuideMode.VG);
         if (currentGuideMode == ExperimentGuideMode.VG) EnsureVgTargetMarkers();
     }
 
     private void StopGuideOutputs()
     {
-        if (audioSource != null) audioSource.Stop();
+        if (aagGuide != null)
+        {
+            aagGuide.StopAndReset();
+            aagGuide.gameObject.SetActive(false);
+        }
         if (vgPanel != null) vgPanel.gameObject.SetActive(false);
     }
 
@@ -1213,7 +688,7 @@ public sealed class ExperimentMain : MonoBehaviour
                 vgPanel,
                 $"Target {target.objectId}",
                 "●",
-                ColorForName(target.color),
+                new Color(0.82f, 0.82f, 0.82f, 1f),
                 22f);
         }
     }
@@ -1240,41 +715,6 @@ public sealed class ExperimentMain : MonoBehaviour
         vgTargetMarkers.Clear();
     }
 
-    private void TrimMetricWindow()
-    {
-        var minimumTime = SessionTime - config.aesWindowSeconds;
-        while (metricSamples.Count > 0 && metricSamples[0].time < minimumTime) metricSamples.RemoveAt(0);
-    }
-
-    private string GetContainingRoomUuid(Vector3 worldPosition)
-    {
-        if (MRUK.Instance == null) return string.Empty;
-        MRUKRoom containing = null;
-        foreach (var room in MRUK.Instance.Rooms)
-        {
-            var inside = false;
-            foreach (var floor in room.FloorAnchors)
-            {
-                if (floor == null || floor.PlaneBoundary2D == null || floor.PlaneBoundary2D.Count < 3) continue;
-                var local = floor.transform.InverseTransformPoint(worldPosition);
-                if (!floor.IsPositionInBoundary(new Vector2(local.x, local.y))) continue;
-                inside = true;
-                break;
-            }
-            if (!inside) continue;
-            if (containing != null) return string.Empty;
-            containing = room;
-        }
-        if (containing == null || containing.Anchor == null || containing.Anchor.Uuid == Guid.Empty) return string.Empty;
-        return containing.Anchor.Uuid.ToString();
-    }
-
-    private static void Encapsulate(ref Vector2 min, ref Vector2 max, Vector2 point)
-    {
-        min = Vector2.Min(min, point);
-        max = Vector2.Max(max, point);
-    }
-
     private static Color ColorForName(string color)
     {
         if (string.Equals(color, "Red", StringComparison.OrdinalIgnoreCase)) return new Color(1f, 0.15f, 0.1f);
@@ -1282,11 +722,6 @@ public sealed class ExperimentMain : MonoBehaviour
         if (string.Equals(color, "Green", StringComparison.OrdinalIgnoreCase)) return new Color(0.15f, 1f, 0.25f);
         if (string.Equals(color, "Yellow", StringComparison.OrdinalIgnoreCase)) return new Color(1f, 0.85f, 0.1f);
         return Color.white;
-    }
-
-    private static float NormalizeAngle(float angle)
-    {
-        return angle > 180f ? angle - 360f : angle;
     }
 
     private static int NextIndex(int current, Array values)
@@ -1303,13 +738,6 @@ public sealed class ExperimentMain : MonoBehaviour
     private static string BuildSessionId(string participant, string setId, ExperimentGuideMode guide)
     {
         return $"{participant}_{setId}_{guide}_{DateTime.Now:yyyyMMdd_HHmmss}";
-    }
-
-    private static string SanitizePathPart(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return "session";
-        var invalid = Path.GetInvalidFileNameChars();
-        return new string(value.Select(character => invalid.Contains(character) ? '_' : character).ToArray());
     }
 
     private static string RoomFallbackId(string roomUuid)

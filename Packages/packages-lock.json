@@ -37,7 +37,7 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.all": {
-      "version": "203.0.0",
+      "version": "203.0.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
@@ -46,7 +46,7 @@
         "com.meta.xr.sdk.voice": "85.0.0",
         "com.meta.xr.sdk.haptics": "203.0.0",
         "com.meta.xr.mrutilitykit": "203.0.0",
-        "com.meta.xr.sdk.platform": "203.0.0",
+        "com.meta.xr.sdk.platform": "203.0.1",
         "com.meta.xr.sdk.interaction": "203.0.0",
         "com.meta.xr.sdk.interaction.ovr": "203.0.0"
       },
@@ -104,7 +104,7 @@
       "url": "https://packages.unity.com"
     },
     "com.meta.xr.sdk.platform": {
-      "version": "203.0.0",
+      "version": "203.0.1",
       "depth": 1,
       "source": "registry",
       "dependencies": {
@@ -441,7 +441,7 @@
       "url": "https://packages.unity.com"
     },
     "com.unity.xr.meta-openxr": {
-      "version": "2.5.0",
+      "version": "2.5.1",
       "depth": 0,
       "source": "registry",
       "dependencies": {
