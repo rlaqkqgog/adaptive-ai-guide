@@ -35,6 +35,33 @@ public sealed class ExperimentAagClip
     public AudioClip clip;
 }
 
+[Serializable]
+public sealed class ExperimentTowerAnchor
+{
+    [Tooltip("Stable identifier written to delivery logs.")]
+    public string towerId = string.Empty;
+    [Tooltip("Only stones with this manifest color are accepted by this tower.")]
+    public string acceptedColor = string.Empty;
+    [Tooltip("UUID of the spatial anchor saved once at this tower location. This value is shared by S1, S2 and S3.")]
+    public string anchorUuid = string.Empty;
+    [HideInInspector] public bool hasFallbackPose;
+    [HideInInspector] public Vector3 fallbackWorldPosition;
+    [HideInInspector] public Quaternion fallbackWorldRotation = Quaternion.identity;
+    [Tooltip("Local offset of Stonepagoda.fbx from the localized spatial anchor.")]
+    public Vector3 visualLocalPosition = Vector3.zero;
+    public Vector3 visualLocalEulerAngles = Vector3.zero;
+    public Vector3 visualLocalScale = Vector3.one * 0.1f;
+    [Tooltip("World-space color/count label displayed above the pagoda.")]
+    public Vector3 labelLocalPosition = new Vector3(0f, 2f, 0f);
+    [Min(0.1f)] public float labelWidthMeters = 1.8f;
+    [Min(0.1f)] public float labelHeightMeters = 0.5f;
+    [Min(1)] public int requiredStoneCount = 3;
+    [Tooltip("Local center of the box where a carried stone is accepted after release.")]
+    public Vector3 deliveryZoneCenter = new Vector3(0f, 0.75f, 0f);
+    public Vector3 deliveryZoneSize = new Vector3(1.5f, 1.5f, 1.5f);
+    public bool requireGrabBeforeDelivery = true;
+}
+
 [CreateAssetMenu(fileName = "FP1ExperimentConfig", menuName = "AAG/FP1 Experiment Config")]
 public sealed class Fp1ExperimentConfig : ScriptableObject
 {
@@ -47,6 +74,19 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Min(0.02f)] public float trackIntervalSeconds = 0.1f;
     [Min(0.05f)] public float roomMinDwellSeconds = 0.5f;
     [Min(1f)] public float logFlushIntervalSeconds = 10f;
+
+    [Header("Shared fixed stone pagodas")]
+    [Tooltip("The same four spatial-anchor UUIDs are loaded for every S1/S2/S3 session.")]
+    public bool fixedTowersEnabled = true;
+    [Tooltip("Resources-relative wrapper prefab path. Resolves Assets/Resources/Prefabs/StonepagodaTower.prefab.")]
+    public string fixedTowerResourcesPath = "Prefabs/StonepagodaTower";
+    public ExperimentTowerAnchor[] fixedTowers =
+    {
+        new ExperimentTowerAnchor { towerId = "Tower-1", acceptedColor = "Red" },
+        new ExperimentTowerAnchor { towerId = "Tower-2", acceptedColor = "Blue" },
+        new ExperimentTowerAnchor { towerId = "Tower-3", acceptedColor = "Yellow" },
+        new ExperimentTowerAnchor { towerId = "Tower-4", acceptedColor = "Green" },
+    };
 
     [Header("AES")]
     [Min(1f)] public float aesWindowSeconds = 60f;

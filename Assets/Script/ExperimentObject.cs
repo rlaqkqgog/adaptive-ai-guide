@@ -10,21 +10,28 @@ using UnityEngine;
 public sealed class ExperimentObject : MonoBehaviour
 {
     [SerializeField] private string objectId = string.Empty;
+    [SerializeField] private string objectColor = string.Empty;
     [SerializeField] private bool incidental;
 
     private ExperimentMain owner;
     private Grabbable grabbable;
     private readonly HashSet<int> selectingPointers = new HashSet<int>();
     private bool subscribed;
+    private bool hasBeenGrabbed;
 
     public string ObjectId => objectId;
+    public string ObjectColor => objectColor;
     public bool IsIncidental => incidental;
+    public bool IsGrabbed => selectingPointers.Count > 0;
+    public bool HasBeenGrabbed => hasBeenGrabbed;
 
-    public void Initialize(ExperimentMain experimentMain, string id, bool isIncidental)
+    public void Initialize(ExperimentMain experimentMain, string id, bool isIncidental, string color = "")
     {
         owner = experimentMain;
         objectId = id ?? string.Empty;
+        objectColor = color ?? string.Empty;
         incidental = isIncidental;
+        hasBeenGrabbed = false;
         EnsureGrabSetup();
     }
 
@@ -105,7 +112,10 @@ public sealed class ExperimentObject : MonoBehaviour
         {
             case PointerEventType.Select:
                 if (selectingPointers.Add(pointerEvent.Identifier) && selectingPointers.Count == 1)
+                {
+                    hasBeenGrabbed = true;
                     NotifyGrabbed();
+                }
                 break;
 
             case PointerEventType.Unselect:

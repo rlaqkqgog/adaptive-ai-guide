@@ -163,6 +163,13 @@ public class SpatialAnchorManager : MonoBehaviour
         var localRotation = OVRInput.GetLocalControllerRotation(OVRInput.Controller.RTouch);
         var worldPosition = trackingSpace.TransformPoint(localPosition);
         var worldRotation = trackingSpace.rotation * localRotation;
+        if (manualSetAuthoring != null && manualSetAuthoring.IsFixedTowerMode)
+        {
+            var levelForward = Vector3.ProjectOnPlane(worldRotation * Vector3.forward, Vector3.up);
+            worldRotation = levelForward.sqrMagnitude > 0.0001f
+                ? Quaternion.LookRotation(levelForward.normalized, Vector3.up)
+                : Quaternion.identity;
+        }
         OVRSpatialAnchor workingAnchor = Instantiate(anchorPrefab, worldPosition, worldRotation);
         Debug.Log($"[Anchor] Create requested local=({localPosition.x:F3},{localPosition.y:F3},{localPosition.z:F3}) "
             + $"world=({worldPosition.x:F3},{worldPosition.y:F3},{worldPosition.z:F3}) trackingOrigin={OVRManager.instance?.trackingOriginType}");
@@ -221,7 +228,8 @@ public class SpatialAnchorManager : MonoBehaviour
         try
         {
             Debug.Log($"[AAG Anchor Save] Save start uuid={anchorToLog.Uuid} "
-                + $"mode={(saveContext.IsReplacement ? "REPAIR" : "NORMAL")} marker={saveContext.MarkerId}");
+                + $"mode={(saveContext.IsReplacement ? "REPAIR" : saveContext.IsFixedTower ? "FIXED_TOWER" : saveContext.IsIncidental ? "INCIDENTAL" : "NORMAL")} "
+                + $"marker={saveContext.MarkerId}");
             var localized = anchorToLog.Localized || await anchorToLog.WhenLocalizedAsync();
             if (anchorToLog == null)
             {
@@ -254,13 +262,18 @@ public class SpatialAnchorManager : MonoBehaviour
                 return;
             }
 
-            SaveUuidToPlayerPrefs(anchorToLog.Uuid);
-            PlayerPrefs.Save();
+            // Towers and incidental objects each have their own authoritative JSON.
+            // Neither is allowed into the stone-object PlayerPrefs list.
+            if (!saveContext.UsesSeparateStore)
+            {
+                SaveUuidToPlayerPrefs(anchorToLog.Uuid);
+                PlayerPrefs.Save();
+            }
             if (manualSetAuthoring != null)
             {
                 if (!manualSetAuthoring.RecordSuccessfulAnchor(anchorToLog, saveContext, out var manifestFailure))
                 {
-                    RemoveUuidFromPlayerPrefs(anchorToLog.Uuid);
+                    if (!saveContext.UsesSeparateStore) RemoveUuidFromPlayerPrefs(anchorToLog.Uuid);
                     Debug.LogError($"[AAG Manual Set] Failed uuid={anchorToLog.Uuid} reason=manifest update failed: {manifestFailure}; "
                         + "newUuidRemovedFromPlayerPrefs=true rawQuestAnchorOrphaned=true");
                     manualSetAuthoring.ReportBlockedSave($"MANIFEST update failed: {manifestFailure}");
@@ -277,7 +290,8 @@ public class SpatialAnchorManager : MonoBehaviour
 
             if (savedStatusText != null) savedStatusText.text = saveContext.IsReplacement ? "Repaired" : "Saved";
             Debug.Log($"[AAG Anchor Save] Saved uuid={anchorToLog.Uuid} status={saveResult.Status} "
-                + $"mode={(saveContext.IsReplacement ? "REPAIR" : "NORMAL")} marker={saveContext.MarkerId}");
+                + $"mode={(saveContext.IsReplacement ? "REPAIR" : saveContext.IsFixedTower ? "FIXED_TOWER" : saveContext.IsIncidental ? "INCIDENTAL" : "NORMAL")} "
+                + $"marker={saveContext.MarkerId}");
         }
         catch (Exception exception)
         {
@@ -449,6 +463,14 @@ public class SpatialAnchorManager : MonoBehaviour
         }
 
         StartCoroutine(LoadPreviousBuildAnchorAndErase(uuid, completed));
+    }
+
+    public bool TryEraseRuntimeAnchor(Guid uuid, Action<bool> completed)
+    {
+        var anchor = anchors.FirstOrDefault(value => value != null && SafeUuid(value) == uuid);
+        if (anchor == null) return false;
+        EraseResolvedAnchor(uuid, anchor, completed);
+        return true;
     }
 
     private IEnumerator LoadPreviousBuildAnchorAndErase(Guid uuid, Action<bool> completed)

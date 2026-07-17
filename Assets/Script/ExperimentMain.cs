@@ -2,6 +2,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using Oculus.Interaction;
+using Oculus.Interaction.HandGrab;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -13,7 +15,7 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public sealed class ExperimentMain : MonoBehaviour
 {
-    private const float VgMapHalfSpanMeters = 5f;
+    private const float VgMapHalfSpanMeters = 7f; // 40% wider view than the previous 5 m half-span.
 
     private enum SessionState
     {
@@ -75,12 +77,17 @@ public sealed class ExperimentMain : MonoBehaviour
     [SerializeField] private BehaviorMetrics behaviorMetrics;
     [SerializeField] private AAGGuide aagGuide;
     [SerializeField] private LoggingManager loggingManager;
+    [SerializeField] private FixedTowerManager fixedTowerManager;
+    [SerializeField] private FixedTowerAnchorLoader fixedTowerAnchorLoader;
+    [SerializeField] private IncidentalObjectManager incidentalObjectManager;
+    [SerializeField] private IncidentalAnchorLoader incidentalAnchorLoader;
 
     [Header("Scene-owned Outputs")]
     [SerializeField] private AudioSource audioSource;
     [SerializeField] private GameObject hudRoot;
     [SerializeField] private GameObject lobbyPanel;
     [SerializeField] private RectTransform vgPanel;
+    [SerializeField] private AudioClip correctDeliveryClip;
 
     private SessionState state = SessionState.Idle;
     private int participantIndex;
@@ -96,15 +103,20 @@ public sealed class ExperimentMain : MonoBehaviour
     private readonly List<GameObject> approximatedObjects = new List<GameObject>();
     private readonly Dictionary<string, TargetState> targets = new Dictionary<string, TargetState>(StringComparer.Ordinal);
     private readonly Dictionary<string, RectTransform> vgTargetMarkers = new Dictionary<string, RectTransform>(StringComparer.Ordinal);
+    private Coroutine spawnConfirmationRoutine;
 
     private TextMeshProUGUI operatorText;
     private RectTransform vgUserMarker;
+    private Sprite vgCircleSprite;
+    private Texture2D vgCircleTexture;
+    private bool ownsCorrectDeliveryClip;
 
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
     private string SelectedSetId => SafeChoice(config != null ? config.setIds : null, setIndex, AagExperimentSpaceCatalog.Fp1S1);
     private ExperimentGuideMode SelectedGuideMode => (ExperimentGuideMode)(guideIndex % 3);
     private float SessionTime => loggingManager != null ? loggingManager.SessionTime : 0f;
     private float RunningTime => state == SessionState.Running ? Time.realtimeSinceStartup - runClockStart : 0f;
+    public Fp1ExperimentConfig Configuration => config;
 
     private void Awake()
     {
@@ -128,6 +140,17 @@ public sealed class ExperimentMain : MonoBehaviour
         if (aagGuide == null) aagGuide = experimentRoot.GetComponentInChildren<AAGGuide>(true);
         if (loggingManager == null) loggingManager = experimentRoot.GetComponentInChildren<LoggingManager>(true);
         if (audioSource == null) audioSource = experimentRoot.GetComponentInChildren<AudioSource>(true);
+        if (fixedTowerManager == null)
+            fixedTowerManager = GetComponent<FixedTowerManager>() ?? gameObject.AddComponent<FixedTowerManager>();
+        if (fixedTowerAnchorLoader == null)
+            fixedTowerAnchorLoader = GetComponent<FixedTowerAnchorLoader>() ?? gameObject.AddComponent<FixedTowerAnchorLoader>();
+        if (incidentalObjectManager == null)
+            incidentalObjectManager = GetComponent<IncidentalObjectManager>() ?? gameObject.AddComponent<IncidentalObjectManager>();
+        if (incidentalAnchorLoader == null)
+            incidentalAnchorLoader = GetComponent<IncidentalAnchorLoader>() ?? gameObject.AddComponent<IncidentalAnchorLoader>();
+        fixedTowerAnchorLoader.Initialize(spatialAnchorManager != null ? spatialAnchorManager.anchorPrefab : null);
+        incidentalAnchorLoader.Initialize(spatialAnchorManager != null ? spatialAnchorManager.anchorPrefab : null);
+        fixedTowerManager.Initialize(config, this);
 
         if (behaviorMetrics == null || aagGuide == null || loggingManager == null || audioSource == null)
         {
@@ -140,6 +163,11 @@ public sealed class ExperimentMain : MonoBehaviour
 
         audioSource.playOnAwake = false;
         audioSource.spatialBlend = 0f;
+        if (correctDeliveryClip == null)
+        {
+            correctDeliveryClip = CreateCorrectDeliveryClip();
+            ownsCorrectDeliveryClip = correctDeliveryClip != null;
+        }
         CreateHud();
         behaviorMetrics.ResetSession();
         aagGuide.StopAndReset();
@@ -275,16 +303,45 @@ public sealed class ExperimentMain : MonoBehaviour
             entriesByUuid[uuid] = entry;
         }
 
+        if (!fixedTowerManager.TryBuildAnchorMap(out var towersByUuid, out var towerConfigurationFailure))
+        {
+            AbortLoading(towerConfigurationFailure);
+            yield break;
+        }
+        if (!incidentalObjectManager.TryBuildMap(
+                currentSetId,
+                out var incidentalsByUuid,
+                out var incidentalConfigurationFailure))
+        {
+            AbortLoading(incidentalConfigurationFailure);
+            yield break;
+        }
+
+        if (entriesByUuid.Keys.Any(towersByUuid.ContainsKey))
+        {
+            AbortLoading("fixed_tower_uuid_overlaps_target_uuid");
+            yield break;
+        }
+        if (entriesByUuid.Keys.Any(incidentalsByUuid.ContainsKey)
+            || towersByUuid.Keys.Any(incidentalsByUuid.ContainsKey))
+        {
+            AbortLoading("incidental_uuid_overlaps_stone_or_tower_uuid");
+            yield break;
+        }
+
         anchorLoader.ClearLoadedAnchors();
         anchorLoader.ClearPrefabOverrides();
         foreach (var pair in entriesByUuid)
             anchorLoader.SetPrefabForUuid(pair.Key, spatialAnchorManager.GetAnchorPrefabForColor(pair.Value.color));
 
-        WriteSystem("load_started", $"set={currentSetId}; requested={entriesByUuid.Count}; forceQuestStoreQuery=true");
-        anchorLoader.LoadAnchorsByUuid(entriesByUuid.Keys, $"EXPERIMENT:{currentSetId}", true);
+        var requestedUuids = entriesByUuid.Keys.ToArray();
+        WriteSystem("load_started",
+            $"set={currentSetId}; targets={entriesByUuid.Count}; requested={requestedUuids.Length}; " +
+            "loader=OBJECT_ONLY; forceQuestStoreQuery=true");
+        anchorLoader.LoadAnchorsByUuid(requestedUuids, $"EXPERIMENT:{currentSetId}", true);
         while (anchorLoader.IsReadOnlyLoadInProgress)
         {
-            RefreshHud($"Loading {anchorLoader.LocalizedRequestedCount}/{entriesByUuid.Count}...");
+            RefreshHud($"Loading {anchorLoader.LocalizedRequestedCount}/{requestedUuids.Length}...");
             yield return null;
         }
 
@@ -315,12 +372,79 @@ public sealed class ExperimentMain : MonoBehaviour
             yield break;
         }
 
+        WriteSystem("tower_load_started",
+            $"fixedTowers={towersByUuid.Count}; requested={towersByUuid.Count}; loader=TOWER_ONLY");
+        fixedTowerAnchorLoader.Load(towersByUuid);
+        while (fixedTowerAnchorLoader.IsLoading)
+        {
+            RefreshHud($"Loading towers {fixedTowerAnchorLoader.LoadedCount}/{towersByUuid.Count}...");
+            yield return null;
+        }
+
+        if (!fixedTowerManager.TrySpawnLocalizedTowers(fixedTowerAnchorLoader, towersByUuid, out var towerSpawnFailure))
+        {
+            foreach (var pair in towersByUuid)
+            {
+                if (!fixedTowerAnchorLoader.Failures.TryGetValue(pair.Key, out var reason)) continue;
+                WriteSystem("tower_anchor_missing",
+                    $"tower={pair.Value.towerId}; uuid={pair.Key}; reason={reason}");
+            }
+            AbortLoading(towerSpawnFailure);
+            yield break;
+        }
+
+        foreach (var pair in towersByUuid)
+        {
+            var sourceMode = fixedTowerAnchorLoader.ApproximateReasons.TryGetValue(pair.Key, out var reason)
+                ? $"APPROX; reason={reason}"
+                : "REAL";
+            WriteSystem("tower_loaded", $"tower={pair.Value.towerId}; mode={sourceMode}");
+        }
+
+        WriteSystem("incidental_load_started",
+            $"set={currentSetId}; objects={incidentalsByUuid.Count}; requested={incidentalsByUuid.Count}; loader=INCIDENTAL_ONLY");
+        incidentalAnchorLoader.Load(incidentalsByUuid);
+        while (incidentalAnchorLoader.IsLoading)
+        {
+            RefreshHud($"Loading incidental objects {incidentalAnchorLoader.LoadedCount}/{incidentalsByUuid.Count}...");
+            yield return null;
+        }
+        if (!incidentalObjectManager.TrySpawn(
+                incidentalAnchorLoader,
+                incidentalsByUuid,
+                out var incidentalSpawnFailure))
+        {
+            foreach (var pair in incidentalsByUuid)
+            {
+                if (!incidentalAnchorLoader.Failures.TryGetValue(pair.Key, out var reason)) continue;
+                WriteSystem("incidental_anchor_missing",
+                    $"object={pair.Value.object_id}; uuid={pair.Key}; reason={reason}");
+            }
+            AbortLoading(incidentalSpawnFailure);
+            yield break;
+        }
+        foreach (var pair in incidentalsByUuid)
+        {
+            var sourceMode = incidentalAnchorLoader.ApproximateReasons.TryGetValue(pair.Key, out var reason)
+                ? $"APPROX; reason={reason}"
+                : "REAL";
+            WriteSystem("incidental_loaded",
+                $"object={pair.Value.object_id}; prefab={pair.Value.prefab_resource_path}; mode={sourceMode}");
+        }
+
         runClockStart = Time.realtimeSinceStartup;
         sampleAccumulator = 0f;
         nextDecisionTime = SessionTime + Mathf.Max(0.5f, config.decisionIntervalSeconds);
         state = SessionState.Running;
         ApplyGuideVisibility();
-        WriteSystem("session_running", $"targets={targets.Count}; guide={currentGuideMode}");
+        ShowParticipantSpawnConfirmation(towersByUuid.Count);
+        WriteSystem(
+            "session_running",
+            $"targets={targets.Count}; fixedTowers={towersByUuid.Count}; " +
+            $"towerReal={fixedTowerAnchorLoader.RealLoadedCount}; towerApprox={fixedTowerAnchorLoader.ApproximateCount}; " +
+            $"incidentals={incidentalsByUuid.Count}; incidentalReal={incidentalAnchorLoader.RealLoadedCount}; " +
+            $"incidentalApprox={incidentalAnchorLoader.ApproximateCount}; " +
+            $"guide={currentGuideMode}");
     }
 
     private void PrepareForNewSession()
@@ -337,6 +461,10 @@ public sealed class ExperimentMain : MonoBehaviour
         foreach (var instance in approximatedObjects)
             if (instance != null) Destroy(instance);
         approximatedObjects.Clear();
+        fixedTowerManager?.ClearRuntimeContents();
+        fixedTowerAnchorLoader?.ClearLoadedAnchors();
+        incidentalObjectManager?.ClearRuntimeContents();
+        incidentalAnchorLoader?.ClearLoadedAnchors();
         targets.Clear();
         ClearVgMarkers();
         if (anchorLoader != null)
@@ -349,15 +477,13 @@ public sealed class ExperimentMain : MonoBehaviour
     private void RegisterTarget(AagManualAnchorEntry entry, Transform targetTransform, bool approximate)
     {
         if (entry == null || targetTransform == null) return;
-        var visualCollider = targetTransform.GetComponentsInChildren<Collider>(true)
-            .FirstOrDefault(candidate => candidate != null && !(candidate is MeshCollider mesh && !mesh.convex));
-        var movableTransform = visualCollider != null ? visualCollider.transform : targetTransform;
+        var movableTransform = ConfigureStoneInteraction(targetTransform);
         var roomUuid = behaviorMetrics.ResolveRoomUuid(movableTransform.position);
         var mapping = config.FindRoom(roomUuid);
         var id = string.IsNullOrWhiteSpace(entry.marker_id) ? entry.anchor_uuid : entry.marker_id;
         var bridge = movableTransform.GetComponent<ExperimentObject>()
             ?? movableTransform.gameObject.AddComponent<ExperimentObject>();
-        bridge.Initialize(this, id, false);
+        bridge.Initialize(this, id, false, entry.color);
 
         foreach (var canvas in targetTransform.GetComponentsInChildren<Canvas>(true)) canvas.enabled = false;
         targetTransform.name = $"{currentSetId} {id} {(approximate ? "APPROX" : "REAL")}";
@@ -372,6 +498,68 @@ public sealed class ExperimentMain : MonoBehaviour
         };
         WriteObjectEvent("target_loaded", id, string.Empty);
         WriteSystem("target_loaded", $"object={id}; mode={(approximate ? "APPROX" : "REAL")}; roomUuid={roomUuid}");
+    }
+
+    // The old Cube child remains in the anchor prefab for backwards compatibility.
+    // Select only the active, visible rock and reconnect every grab reference to it.
+    private static Transform ConfigureStoneInteraction(Transform targetRoot)
+    {
+        var grabbables = targetRoot.GetComponentsInChildren<Grabbable>(true);
+        var rockGrabbable = grabbables
+            .Where(candidate => candidate != null && candidate.gameObject.activeInHierarchy)
+            .OrderByDescending(candidate => candidate.GetComponent<Renderer>() != null)
+            .FirstOrDefault();
+
+        if (rockGrabbable == null)
+        {
+            var visibleCollider = targetRoot.GetComponentsInChildren<Collider>(true)
+                .FirstOrDefault(candidate => candidate != null && candidate.gameObject.activeInHierarchy);
+            return visibleCollider != null ? visibleCollider.transform : targetRoot;
+        }
+
+        var rockTransform = rockGrabbable.transform;
+        var rockBody = rockTransform.GetComponent<Rigidbody>()
+            ?? rockTransform.GetComponentInChildren<Rigidbody>(true);
+        if (rockBody != null)
+        {
+            rockBody.useGravity = false;
+            // Match the known-good blue stone: it moves only while selected and
+            // returns to kinematic state at the release pose.
+            rockBody.isKinematic = true;
+            rockGrabbable.InjectOptionalRigidbody(rockBody);
+            rockGrabbable.InjectOptionalTargetTransform(rockTransform);
+            rockGrabbable.InjectOptionalKinematicWhileSelected(true);
+            rockGrabbable.InjectOptionalThrowWhenUnselected(true);
+        }
+
+        foreach (var handGrab in targetRoot.GetComponentsInChildren<HandGrabInteractable>(true))
+        {
+            if (handGrab == null) continue;
+            var isRockInteractable = handGrab.transform == rockTransform;
+            handGrab.enabled = isRockInteractable;
+            if (isRockInteractable)
+            {
+                handGrab.InjectOptionalPointableElement(rockGrabbable);
+                if (rockBody != null) handGrab.InjectRigidbody(rockBody);
+            }
+        }
+
+        foreach (var grabbable in grabbables)
+        {
+            if (grabbable != null && grabbable != rockGrabbable) grabbable.enabled = false;
+        }
+
+        // Never render or collide with the legacy cube, even when an older prefab
+        // variant has it enabled.
+        foreach (var child in targetRoot.GetComponentsInChildren<Transform>(true))
+        {
+            if (!string.Equals(child.name, "Cube", StringComparison.OrdinalIgnoreCase)) continue;
+            foreach (var renderer in child.GetComponentsInChildren<Renderer>(true)) renderer.enabled = false;
+            foreach (var collider in child.GetComponentsInChildren<Collider>(true)) collider.enabled = false;
+        }
+
+        EnvironmentDepthOcclusion.ApplyToRenderers(rockTransform);
+        return rockTransform;
     }
 
     private void SpawnApproximateTargets(AagManualAnchorSetRecord set, IReadOnlyCollection<AagManualAnchorEntry> missing)
@@ -453,12 +641,26 @@ public sealed class ExperimentMain : MonoBehaviour
 
     public void NotifyObjectDelivered(ExperimentObject experimentObject, string towerId)
     {
+        TryNotifyObjectDelivered(experimentObject, towerId);
+    }
+
+    public void NotifyWrongTower(ExperimentObject experimentObject, string towerId)
+    {
         if (state != SessionState.Running || experimentObject == null) return;
-        if (!targets.TryGetValue(experimentObject.ObjectId, out var target) || target.delivered) return;
+        WriteObjectEvent("wrong_tower", experimentObject.ObjectId, towerId);
+    }
+
+    public bool TryNotifyObjectDelivered(ExperimentObject experimentObject, string towerId)
+    {
+        if (state != SessionState.Running || experimentObject == null) return false;
+        if (!targets.TryGetValue(experimentObject.ObjectId, out var target) || target.delivered) return false;
         target.delivered = true;
         behaviorMetrics.ForceClearCarry();
         WriteObjectEvent("delivered", experimentObject.ObjectId, towerId);
+        if (audioSource != null && correctDeliveryClip != null)
+            audioSource.PlayOneShot(correctDeliveryClip, 0.9f);
         if (targets.Values.All(value => value.delivered)) EndSession("all_targets_delivered");
+        return true;
     }
 
     private void WriteObjectEvent(string eventType, string objectId, string towerId)
@@ -549,6 +751,9 @@ public sealed class ExperimentMain : MonoBehaviour
     private void OnDestroy()
     {
         if (loggingManager != null) loggingManager.CloseSession();
+        if (vgCircleSprite != null) Destroy(vgCircleSprite);
+        if (vgCircleTexture != null) Destroy(vgCircleTexture);
+        if (ownsCorrectDeliveryClip && correctDeliveryClip != null) Destroy(correctDeliveryClip);
     }
 
     private void CreateHud()
@@ -584,7 +789,8 @@ public sealed class ExperimentMain : MonoBehaviour
         lobbyImage.color = new Color(0.02f, 0.03f, 0.05f, 0.94f);
         var vgImage = vgPanel.GetComponent<Image>() ?? vgPanel.gameObject.AddComponent<Image>();
         vgImage.color = new Color(0.015f, 0.02f, 0.025f, 0.72f);
-        vgImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
+        vgCircleSprite = CreateCircleSprite(128, out vgCircleTexture);
+        vgImage.sprite = vgCircleSprite;
         vgImage.type = Image.Type.Simple;
         vgImage.preserveAspect = true;
         var vgMask = vgPanel.GetComponent<Mask>() ?? vgPanel.gameObject.AddComponent<Mask>();
@@ -593,12 +799,12 @@ public sealed class ExperimentMain : MonoBehaviour
         operatorText = lobbyPanel.GetComponentInChildren<TextMeshProUGUI>(true)
             ?? CreateText(lobbyPanel.GetComponent<RectTransform>(), "OperatorText", 36f, TextAlignmentOptions.Center);
 
-        vgPanel.anchorMin = Vector2.one;
-        vgPanel.anchorMax = Vector2.one;
-        vgPanel.pivot = Vector2.one;
-        vgPanel.anchoredPosition = new Vector2(-18f, -18f);
-        vgPanel.sizeDelta = new Vector2(300f, 300f);
-        vgUserMarker = CreateMapSymbol(vgPanel, "CameraDirection", "▲", new Color(0.1f, 1f, 0.3f, 1f), 52f);
+        vgPanel.anchorMin = new Vector2(1f, 0f);
+        vgPanel.anchorMax = new Vector2(1f, 0f);
+        vgPanel.pivot = new Vector2(1f, 0f);
+        vgPanel.anchoredPosition = new Vector2(-18f, 18f);
+        vgPanel.sizeDelta = new Vector2(240f, 240f); // 80% of the previous 300 px map.
+        vgUserMarker = CreateMapSymbol(vgPanel, "CameraDirection", "▲", new Color(0.1f, 1f, 0.3f, 1f), 36.4f);
         vgPanel.gameObject.SetActive(false);
     }
 
@@ -648,6 +854,31 @@ public sealed class ExperimentMain : MonoBehaviour
             + "Keyboard: P / S / G / Enter";
     }
 
+    private void ShowParticipantSpawnConfirmation(int towerCount)
+    {
+        if (operatorText == null || lobbyPanel == null) return;
+        var realCount = targets.Values.Count(target => !target.approximate);
+        var approximateCount = targets.Values.Count(target => target.approximate);
+        lobbyPanel.SetActive(true);
+        if (vgPanel != null) vgPanel.gameObject.SetActive(false);
+        operatorText.text = "READY\n\n"
+            + $"OBJECTS SPAWNED  {targets.Count}/12\n"
+            + $"REAL {realCount}   APPROX {approximateCount}\n"
+            + $"PAGODAS SPAWNED  {towerCount}/4\n\n"
+            + "Carry each stone to the pagoda with the matching color.";
+        if (spawnConfirmationRoutine != null) StopCoroutine(spawnConfirmationRoutine);
+        spawnConfirmationRoutine = StartCoroutine(HideSpawnConfirmationAfterDelay());
+    }
+
+    private IEnumerator HideSpawnConfirmationAfterDelay()
+    {
+        yield return new WaitForSecondsRealtime(4f);
+        spawnConfirmationRoutine = null;
+        if (state != SessionState.Running) yield break;
+        if (lobbyPanel != null) lobbyPanel.SetActive(false);
+        if (vgPanel != null) vgPanel.gameObject.SetActive(currentGuideMode == ExperimentGuideMode.VG);
+    }
+
     private void ApplyGuideVisibility()
     {
         if (lobbyPanel != null) lobbyPanel.SetActive(false);
@@ -658,6 +889,11 @@ public sealed class ExperimentMain : MonoBehaviour
 
     private void StopGuideOutputs()
     {
+        if (spawnConfirmationRoutine != null)
+        {
+            StopCoroutine(spawnConfirmationRoutine);
+            spawnConfirmationRoutine = null;
+        }
         if (aagGuide != null)
         {
             aagGuide.StopAndReset();
@@ -670,12 +906,15 @@ public sealed class ExperimentMain : MonoBehaviour
     {
         if (vgPanel == null || headTransform == null) return;
         EnsureVgTargetMarkers();
-        SetMapMarker(vgUserMarker, headPosition, headPosition);
-        vgUserMarker.localRotation = Quaternion.Euler(0f, 0f, -headTransform.eulerAngles.y);
+        var userYaw = headTransform.eulerAngles.y;
+        SetMapMarker(vgUserMarker, headPosition, headPosition, userYaw);
+        // The player arrow always faces the map's north/up direction. The map
+        // content below is rotated by the player's current facing direction.
+        vgUserMarker.localRotation = Quaternion.identity;
         foreach (var pair in vgTargetMarkers)
         {
             if (targets.TryGetValue(pair.Key, out var target) && target.transform != null)
-                SetMapMarker(pair.Value, target.transform.position, headPosition);
+                SetMapMarker(pair.Value, target.transform.position, headPosition, userYaw);
         }
     }
 
@@ -693,11 +932,13 @@ public sealed class ExperimentMain : MonoBehaviour
         }
     }
 
-    private void SetMapMarker(RectTransform marker, Vector3 worldPosition, Vector3 centerPosition)
+    private void SetMapMarker(RectTransform marker, Vector3 worldPosition, Vector3 centerPosition, float userYaw)
     {
         if (marker == null) return;
-        var offset = new Vector2(worldPosition.x - centerPosition.x, worldPosition.z - centerPosition.z);
-        var visible = Mathf.Abs(offset.x) <= VgMapHalfSpanMeters && Mathf.Abs(offset.y) <= VgMapHalfSpanMeters;
+        var worldOffset = worldPosition - centerPosition;
+        var mapOffset = Quaternion.Euler(0f, -userYaw, 0f) * worldOffset;
+        var offset = new Vector2(mapOffset.x, mapOffset.z);
+        var visible = offset.sqrMagnitude <= VgMapHalfSpanMeters * VgMapHalfSpanMeters;
         marker.gameObject.SetActive(visible);
         if (!visible) return;
 
@@ -724,6 +965,64 @@ public sealed class ExperimentMain : MonoBehaviour
         return Color.white;
     }
 
+    private static Sprite CreateCircleSprite(int size, out Texture2D texture)
+    {
+        size = Mathf.Max(32, size);
+        texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            name = "VG Circular Background",
+            filterMode = FilterMode.Bilinear,
+            wrapMode = TextureWrapMode.Clamp,
+            hideFlags = HideFlags.HideAndDontSave,
+        };
+
+        var pixels = new Color32[size * size];
+        var center = (size - 1) * 0.5f;
+        var radius = center - 1f;
+        for (var y = 0; y < size; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                var distance = Vector2.Distance(new Vector2(x, y), new Vector2(center, center));
+                var alpha = (byte)Mathf.RoundToInt(Mathf.Clamp01(radius + 1f - distance) * 255f);
+                pixels[y * size + x] = new Color32(255, 255, 255, alpha);
+            }
+        }
+        texture.SetPixels32(pixels);
+        texture.Apply(false, true);
+
+        var sprite = Sprite.Create(
+            texture,
+            new Rect(0f, 0f, size, size),
+            new Vector2(0.5f, 0.5f),
+            100f,
+            0,
+            SpriteMeshType.FullRect);
+        sprite.name = "VG Circular Background";
+        sprite.hideFlags = HideFlags.HideAndDontSave;
+        return sprite;
+    }
+
+    private static AudioClip CreateCorrectDeliveryClip()
+    {
+        const int sampleRate = 24000;
+        const float durationSeconds = 0.28f;
+        var sampleCount = Mathf.CeilToInt(sampleRate * durationSeconds);
+        var samples = new float[sampleCount];
+        for (var index = 0; index < sampleCount; index++)
+        {
+            var time = index / (float)sampleRate;
+            var fadeIn = Mathf.Clamp01(time / 0.012f);
+            var envelope = fadeIn * Mathf.Exp(-8f * time);
+            var firstTone = Mathf.Sin(2f * Mathf.PI * 880f * time);
+            var secondTone = Mathf.Sin(2f * Mathf.PI * 1320f * time);
+            samples[index] = (firstTone * 0.65f + secondTone * 0.35f) * envelope * 0.5f;
+        }
+
+        var clip = AudioClip.Create("Correct Stone Delivery", sampleCount, 1, sampleRate, false);
+        return clip.SetData(samples, 0) ? clip : null;
+    }
+
     private static int NextIndex(int current, Array values)
     {
         return values == null || values.Length == 0 ? 0 : (current + 1) % values.Length;
@@ -743,5 +1042,66 @@ public sealed class ExperimentMain : MonoBehaviour
     private static string RoomFallbackId(string roomUuid)
     {
         return string.IsNullOrEmpty(roomUuid) ? string.Empty : roomUuid.Substring(0, Mathf.Min(8, roomUuid.Length));
+    }
+}
+
+/// <summary>
+/// Gives runtime-spawned task content the Meta Environment Depth shader while
+/// preserving its original texture and colour properties.
+/// </summary>
+public static class EnvironmentDepthOcclusion
+{
+    private const string ObjectShaderName = "Meta/Depth/URP/Occlusion Simple Lit";
+    private const string TextShaderName = "FP1/TextMeshPro/Environment Depth Mobile";
+
+    public static void ApplyToRenderers(Transform root)
+    {
+        if (root == null) return;
+        var occlusionShader = Shader.Find(ObjectShaderName);
+        if (occlusionShader == null)
+        {
+            Debug.LogWarning($"[EnvironmentDepthOcclusion] Missing shader: {ObjectShaderName}");
+            return;
+        }
+
+        foreach (var renderer in root.GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer == null || renderer is ParticleSystemRenderer) continue;
+            var sourceMaterials = renderer.sharedMaterials;
+            if (sourceMaterials == null || sourceMaterials.Length == 0) continue;
+
+            var occludedMaterials = new Material[sourceMaterials.Length];
+            for (var index = 0; index < sourceMaterials.Length; index++)
+            {
+                var source = sourceMaterials[index];
+                if (source == null || source.shader == occlusionShader)
+                {
+                    occludedMaterials[index] = source;
+                    continue;
+                }
+
+                var converted = new Material(source) { name = $"{source.name} (Environment Depth)" };
+                converted.shader = occlusionShader;
+                occludedMaterials[index] = converted;
+            }
+            renderer.sharedMaterials = occludedMaterials;
+        }
+    }
+
+    public static void ApplyToText(TMP_Text text)
+    {
+        if (text == null) return;
+        var occlusionShader = Shader.Find(TextShaderName);
+        if (occlusionShader == null)
+        {
+            Debug.LogWarning($"[EnvironmentDepthOcclusion] Missing shader: {TextShaderName}", text);
+            return;
+        }
+
+        var source = text.fontSharedMaterial;
+        if (source == null) return;
+        var converted = new Material(source) { name = $"{source.name} (Environment Depth)" };
+        converted.shader = occlusionShader;
+        text.fontMaterial = converted;
     }
 }
