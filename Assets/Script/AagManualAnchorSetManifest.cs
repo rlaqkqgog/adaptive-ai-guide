@@ -66,6 +66,7 @@ public static class AagManualAnchorSetStore
 {
     public const string FolderName = "AagManualAnchorSets";
     public const string ManifestFileName = "fp1_manual_anchor_sets.json";
+    public const float ApproximateOffsetScale = 0.5f;
     public static readonly string[] SetIds = { "FP1-S1", "FP1-S2", "FP1-S3" };
     public static readonly string[] Colors = { "Red", "Blue", "Green", "Yellow" };
 

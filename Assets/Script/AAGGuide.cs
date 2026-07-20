@@ -110,13 +110,13 @@ public sealed class AAGGuide : MonoBehaviour
         config = sessionConfig;
         behaviorMetrics = metrics;
         loggingManager = logger;
-        if (utterancePlayer != null) utterancePlayer.BeginSession(sessionConfig);
+        if (utterancePlayer != null) utterancePlayer.BeginSession(sessionConfig, logger);
         StopAndReset();
     }
 
-    public void StopAndReset()
+    public void StopAndReset(string interruptionReason = "guide_reset")
     {
-        if (utterancePlayer != null) utterancePlayer.StopAndReset();
+        if (utterancePlayer != null) utterancePlayer.StopAndReset(interruptionReason);
         lastUtteranceTime = float.NegativeInfinity;
         lastAdaptationTime = float.NegativeInfinity;
         recentZoneVotes.Clear();

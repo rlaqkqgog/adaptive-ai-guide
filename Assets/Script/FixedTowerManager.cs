@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Oculus.Interaction;
 using TMPro;
 using UnityEngine;
@@ -14,12 +15,23 @@ using UnityEngine.UI;
 public sealed class FixedTowerManager : MonoBehaviour
 {
     public const int RequiredTowerCount = 4;
+    public const float TowerDwellMaximumDistanceMeters = 0.9f;
+
+    private sealed class PocketDestination
+    {
+        public string towerId;
+        public string color;
+        public Transform deliveryZone;
+        public TowerColorLabel colorLabel;
+    }
 
     private Fp1ExperimentConfig config;
     private ExperimentMain experimentMain;
     private readonly List<GameObject> spawnedTowerContents = new List<GameObject>();
+    private readonly List<PocketDestination> pocketDestinations = new List<PocketDestination>();
 
     public bool IsConfigured { get; private set; }
+    public string ActiveColorAssignment { get; private set; } = string.Empty;
 
     public void Initialize(
         Fp1ExperimentConfig experimentConfig,
@@ -30,14 +42,18 @@ public sealed class FixedTowerManager : MonoBehaviour
     }
 
     public bool TryBuildAnchorMap(
+        string sessionId,
+        bool randomizeColors,
         out Dictionary<Guid, ExperimentTowerAnchor> towersByUuid,
         out string failure)
     {
         towersByUuid = new Dictionary<Guid, ExperimentTowerAnchor>();
         failure = string.Empty;
         IsConfigured = false;
+        ActiveColorAssignment = string.Empty;
 
         if (config != null && !config.fixedTowersEnabled) return true;
+        var sessionColors = BuildSessionColorMap(sessionId, randomizeColors);
 
         var storedManifest = AagFixedTowerAnchorStore.LoadOrCreate();
         var storedTowers = storedManifest.towers ?? new List<AagFixedTowerAnchorEntry>();
@@ -63,7 +79,7 @@ public sealed class FixedTowerManager : MonoBehaviour
                     return false;
                 }
 
-                towersByUuid.Add(uuid, BuildRuntimeDefinition(towerId, stored));
+                towersByUuid.Add(uuid, BuildRuntimeDefinition(towerId, stored, sessionColors));
             }
 
             IsConfigured = true;
@@ -118,7 +134,7 @@ public sealed class FixedTowerManager : MonoBehaviour
                 failure = $"fixed_tower_duplicate_uuid_{towerId}";
                 return false;
             }
-            towersByUuid.Add(uuid, definition);
+            towersByUuid.Add(uuid, BuildConfiguredRuntimeDefinition(definition, sessionColors));
         }
 
         IsConfigured = true;
@@ -167,7 +183,40 @@ public sealed class FixedTowerManager : MonoBehaviour
         foreach (var instance in spawnedTowerContents)
             if (instance != null) Destroy(instance);
         spawnedTowerContents.Clear();
+        pocketDestinations.Clear();
     }
+
+    public bool TryGetDwellTower(
+        Vector3 headPosition,
+        out string towerId,
+        out string color)
+    {
+        towerId = string.Empty;
+        color = string.Empty;
+        var destination = pocketDestinations
+            .Where(value => value != null
+                && value.deliveryZone != null)
+            .OrderBy(value => HorizontalDistance(headPosition, value.deliveryZone.position))
+            .FirstOrDefault();
+        if (destination == null
+            || HorizontalDistance(headPosition, destination.deliveryZone.position) > TowerDwellMaximumDistanceMeters)
+            return false;
+
+        towerId = destination.towerId;
+        color = destination.color;
+        return true;
+    }
+
+    public void RecordPocketDeliveries(string towerId, int count)
+    {
+        if (count <= 0) return;
+        var destination = pocketDestinations.FirstOrDefault(value => value != null
+            && string.Equals(value.towerId, towerId, StringComparison.Ordinal));
+        for (var index = 0; index < count; index++) destination?.colorLabel?.RecordDelivery();
+    }
+
+    private static float HorizontalDistance(Vector3 first, Vector3 second) =>
+        Vector2.Distance(new Vector2(first.x, first.z), new Vector2(second.x, second.z));
 
     private void SpawnTowerContents(
         Transform anchorTransform,
@@ -206,6 +255,13 @@ public sealed class FixedTowerManager : MonoBehaviour
             definition.acceptedColor,
             definition.requireGrabBeforeDelivery,
             colorLabel);
+        pocketDestinations.Add(new PocketDestination
+        {
+            towerId = definition.towerId,
+            color = definition.acceptedColor,
+            deliveryZone = deliveryObject.transform,
+            colorLabel = colorLabel,
+        });
     }
 
     private static TowerColorLabel CreateColorLabel(Transform parent, ExperimentTowerAnchor definition)
@@ -279,7 +335,10 @@ public sealed class FixedTowerManager : MonoBehaviour
             Mathf.Max(0.01f, Mathf.Abs(size.z)));
     }
 
-    private ExperimentTowerAnchor BuildRuntimeDefinition(string towerId, AagFixedTowerAnchorEntry stored)
+    private ExperimentTowerAnchor BuildRuntimeDefinition(
+        string towerId,
+        AagFixedTowerAnchorEntry stored,
+        IReadOnlyDictionary<string, string> sessionColors)
     {
         ExperimentTowerAnchor configured = null;
         if (config?.fixedTowers != null)
@@ -291,8 +350,8 @@ public sealed class FixedTowerManager : MonoBehaviour
         return new ExperimentTowerAnchor
         {
             towerId = towerId,
-            acceptedColor = !string.IsNullOrWhiteSpace(configured?.acceptedColor)
-                ? configured.acceptedColor
+            acceptedColor = sessionColors.TryGetValue(towerId, out var sessionColor)
+                ? sessionColor
                 : AagFixedTowerAnchorStore.ColorForTowerId(towerId),
             anchorUuid = stored.anchor_uuid,
             hasFallbackPose = stored.has_fallback_pose,
@@ -313,5 +372,87 @@ public sealed class FixedTowerManager : MonoBehaviour
             deliveryZoneSize = configured?.deliveryZoneSize ?? new Vector3(1.5f, 1.5f, 1.5f),
             requireGrabBeforeDelivery = configured?.requireGrabBeforeDelivery ?? true,
         };
+    }
+
+    private ExperimentTowerAnchor BuildConfiguredRuntimeDefinition(
+        ExperimentTowerAnchor configured,
+        IReadOnlyDictionary<string, string> sessionColors)
+    {
+        return new ExperimentTowerAnchor
+        {
+            towerId = configured.towerId,
+            acceptedColor = sessionColors.TryGetValue(configured.towerId, out var sessionColor)
+                ? sessionColor
+                : configured.acceptedColor,
+            anchorUuid = configured.anchorUuid,
+            hasFallbackPose = configured.hasFallbackPose,
+            fallbackWorldPosition = configured.fallbackWorldPosition,
+            fallbackWorldRotation = configured.fallbackWorldRotation,
+            visualLocalPosition = configured.visualLocalPosition,
+            visualLocalEulerAngles = configured.visualLocalEulerAngles,
+            visualLocalScale = configured.visualLocalScale,
+            labelLocalPosition = configured.labelLocalPosition,
+            labelWidthMeters = configured.labelWidthMeters,
+            labelHeightMeters = configured.labelHeightMeters,
+            requiredStoneCount = configured.requiredStoneCount,
+            deliveryZoneCenter = configured.deliveryZoneCenter,
+            deliveryZoneSize = configured.deliveryZoneSize,
+            requireGrabBeforeDelivery = configured.requireGrabBeforeDelivery,
+        };
+    }
+
+    private Dictionary<string, string> BuildSessionColorMap(string sessionId, bool randomizeColors)
+    {
+        var colors = (string[])AagFixedTowerAnchorStore.TowerColors.Clone();
+        if (randomizeColors && (config == null || config.randomizeTowerColorsPerSession))
+        {
+            var random = new System.Random(StableHash(sessionId));
+            var deranged = false;
+            for (var attempt = 0; attempt < 32 && !deranged; attempt++)
+            {
+                for (var index = colors.Length - 1; index > 0; index--)
+                {
+                    var swapIndex = random.Next(index + 1);
+                    (colors[index], colors[swapIndex]) = (colors[swapIndex], colors[index]);
+                }
+                deranged = true;
+                for (var index = 0; index < colors.Length; index++)
+                {
+                    if (!string.Equals(colors[index], AagFixedTowerAnchorStore.TowerColors[index], StringComparison.Ordinal))
+                        continue;
+                    deranged = false;
+                    break;
+                }
+            }
+            if (!deranged)
+            {
+                var shift = 1 + (StableHash(sessionId) & 1);
+                var fallback = AagFixedTowerAnchorStore.TowerColors;
+                for (var index = 0; index < colors.Length; index++)
+                    colors[index] = fallback[(index + shift) % fallback.Length];
+            }
+        }
+
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = 0; index < AagFixedTowerAnchorStore.TowerIds.Length; index++)
+            result[AagFixedTowerAnchorStore.TowerIds[index]] = colors[index];
+        ActiveColorAssignment = string.Join("|", AagFixedTowerAnchorStore.TowerIds.Select(
+            towerId => $"{towerId}={result[towerId]}"));
+        Debug.Log($"[FixedTower] colorAssignment={ActiveColorAssignment}", this);
+        return result;
+    }
+
+    private static int StableHash(string value)
+    {
+        unchecked
+        {
+            var hash = 2166136261u;
+            foreach (var character in value ?? string.Empty)
+            {
+                hash ^= character;
+                hash *= 16777619u;
+            }
+            return (int)hash;
+        }
     }
 }

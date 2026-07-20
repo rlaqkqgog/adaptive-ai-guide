@@ -50,19 +50,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -3741536570373228448, guid: 4ec34ea338bbdf54ca867769dc1e7110, type: 3}
       propertyPath: m_IsActive
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -2377818851767970600, guid: 4ec34ea338bbdf54ca867769dc1e7110, type: 3}
       propertyPath: m_LocalScale.x
-      value: 30
+      value: 24
       objectReference: {fileID: 0}
     - target: {fileID: -2377818851767970600, guid: 4ec34ea338bbdf54ca867769dc1e7110, type: 3}
       propertyPath: m_LocalScale.y
-      value: 30
+      value: 24
       objectReference: {fileID: 0}
     - target: {fileID: -2377818851767970600, guid: 4ec34ea338bbdf54ca867769dc1e7110, type: 3}
       propertyPath: m_LocalScale.z
-      value: 30
+      value: 24
       objectReference: {fileID: 0}
     - target: {fileID: -2377818851767970600, guid: 4ec34ea338bbdf54ca867769dc1e7110, type: 3}
       propertyPath: m_ConstrainProportionsScale

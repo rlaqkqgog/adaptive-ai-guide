@@ -26,8 +26,8 @@ public sealed partial class AagFp1PlacementAuthoring
     private const string SpatialAnchorLocalizedSource = "SPATIAL_ANCHOR_LOCALIZED";
     private const string RoomLocalRecoverySource = "MRUK_ROOM_LOCAL_RECOVERY";
     private const string UnavailableRecoverySource = "UNAVAILABLE";
-    private static readonly Guid Room2Uuid = Guid.Parse("3342022d-32d9-c32f-cc67-a6993db345ef");
-    private static readonly Guid Room3Uuid = Guid.Parse("36f65d12-3dd9-957c-8535-9a774780e5f6");
+    private static readonly Guid Room2Uuid = AagExperimentSpaceCatalog.Fp1Room2Uuid;
+    private static readonly Guid Room3Uuid = AagExperimentSpaceCatalog.Fp1Room3Uuid;
 
     [Header("PROVISIONAL manual hotspot persistence")]
     [SerializeField, Min(0.01f)] private float manualHotspotAdjacencyMeters = 0.75f;
@@ -780,10 +780,10 @@ public sealed partial class AagFp1PlacementAuthoring
             }
             result[room.Anchor.Uuid] = zones[0];
         }
-        if (!result.TryGetValue(Room2Uuid, out var room2Zone) || room2Zone != "ZG-02"
-            || !result.TryGetValue(Room3Uuid, out var room3Zone) || room3Zone != "ZG-03")
+        if (!result.TryGetValue(Room2Uuid, out var room2Zone) || room2Zone != "ZG-01"
+            || !result.TryGetValue(Room3Uuid, out var room3Zone) || room3Zone != "ZG-04")
         {
-            failure = $"ROOM_CAP_MAPPING_REQUIRED Room2={Room2Uuid}:ZG-02 Room3={Room3Uuid}:ZG-03";
+            failure = $"ROOM_CAP_MAPPING_REQUIRED Room2={Room2Uuid}:ZG-01 Room3={Room3Uuid}:ZG-04";
             return false;
         }
         failure = string.Empty;

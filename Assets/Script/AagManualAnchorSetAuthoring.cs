@@ -922,7 +922,11 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
             ?? gameObject.AddComponent<FixedTowerManager>();
         var experimentMain = FindFirstObjectByType<ExperimentMain>();
         fixedTowerManager.Initialize(experimentMain?.Configuration, experimentMain);
-        if (!fixedTowerManager.TryBuildAnchorMap(out var towersByUuid, out var configurationFailure))
+        if (!fixedTowerManager.TryBuildAnchorMap(
+                "AUTHORING_FIXED_COLORS",
+                false,
+                out var towersByUuid,
+                out var configurationFailure))
         {
             ReportBlockedSave($"LOAD TOWERS blocked: {configurationFailure}");
             return;
@@ -1119,7 +1123,8 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
             // current session frame via the reference anchor's pose delta.
             var deltaRotation = reference.transform.rotation * Quaternion.Inverse(reference.entry.CapturedRotation);
             var position = reference.transform.position
-                + deltaRotation * (capturedPosition - reference.entry.CapturedPosition);
+                + deltaRotation * ((capturedPosition - reference.entry.CapturedPosition)
+                    * AagManualAnchorSetStore.ApproximateOffsetScale);
             var rotation = deltaRotation * failedEntry.CapturedRotation;
 
             var marker = InstantiateMarkerWithoutAnchor(

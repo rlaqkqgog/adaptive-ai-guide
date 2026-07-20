@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Meta.XR.MRUtilityKit;
 using Oculus.Interaction;
 using Oculus.Interaction.HandGrab;
 using UnityEngine;
@@ -10,6 +11,8 @@ using UnityEngine;
 public sealed class IncidentalObjectManager : MonoBehaviour
 {
     private readonly List<GameObject> spawnedContents = new List<GameObject>();
+    private readonly Dictionary<string, GameObject> spawnedByObjectId =
+        new Dictionary<string, GameObject>(StringComparer.Ordinal);
 
     public bool TryBuildMap(
         string setId,
@@ -116,8 +119,70 @@ public sealed class IncidentalObjectManager : MonoBehaviour
             EnvironmentDepthOcclusion.ApplyToRenderers(instance.transform);
             instance.SetActive(true);
             spawnedContents.Add(instance);
+            spawnedByObjectId[pair.Value.object_id] = instance;
         }
         return true;
+    }
+
+    public int ResolveHorizontalWallPenetrations(Action<string, string> writeCorrection)
+    {
+        const float minimumCorrectionMeters = 0.005f;
+        const float clearanceMeters = 0.01f;
+        const float maximumTotalCorrectionMeters = 0.35f;
+        const int maximumPasses = 6;
+
+        var correctedCount = 0;
+        Physics.SyncTransforms();
+        foreach (var pair in spawnedByObjectId.OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var instance = pair.Value;
+            if (instance == null) continue;
+            var start = instance.transform.position;
+            var totalCorrection = Vector3.zero;
+
+            for (var pass = 0; pass < maximumPasses; pass++)
+            {
+                if (!TryFindLargestHorizontalWallPenetration(
+                        instance, minimumCorrectionMeters, out var direction, out var distance))
+                    break;
+
+                var remaining = maximumTotalCorrectionMeters - totalCorrection.magnitude;
+                if (remaining <= 0f) break;
+                direction.y = 0f;
+                if (direction.sqrMagnitude < 0.0001f) break;
+                direction.Normalize();
+                var correction = direction * Mathf.Min(distance + clearanceMeters, remaining);
+                var candidate = instance.transform.position + correction;
+                if (!AagRecoveryPlacementValidator.TryValidate(candidate, out _, out _)) break;
+
+                instance.transform.position = candidate;
+                totalCorrection += correction;
+                Physics.SyncTransforms();
+            }
+
+            if (totalCorrection.sqrMagnitude < minimumCorrectionMeters * minimumCorrectionMeters) continue;
+            correctedCount++;
+            writeCorrection?.Invoke(
+                pair.Key,
+                $"distance={totalCorrection.magnitude:F4}; "
+                + $"from=({start.x:F4},{start.y:F4},{start.z:F4}); "
+                + $"to=({instance.transform.position.x:F4},{instance.transform.position.y:F4},"
+                + $"{instance.transform.position.z:F4})");
+        }
+        return correctedCount;
+    }
+
+    public bool TryGetSpawnedTransform(string objectId, out Transform result)
+    {
+        if (!string.IsNullOrEmpty(objectId)
+            && spawnedByObjectId.TryGetValue(objectId, out var instance)
+            && instance != null)
+        {
+            result = instance.transform;
+            return true;
+        }
+        result = null;
+        return false;
     }
 
     public void ClearRuntimeContents()
@@ -125,6 +190,74 @@ public sealed class IncidentalObjectManager : MonoBehaviour
         foreach (var instance in spawnedContents)
             if (instance != null) Destroy(instance);
         spawnedContents.Clear();
+        spawnedByObjectId.Clear();
+    }
+
+    private static bool TryFindLargestHorizontalWallPenetration(
+        GameObject instance,
+        float minimumDistance,
+        out Vector3 bestDirection,
+        out float bestDistance)
+    {
+        bestDirection = Vector3.zero;
+        bestDistance = 0f;
+        var renderers = instance.GetComponentsInChildren<Renderer>(true)
+            .Where(value => value != null && value.enabled && value.gameObject.activeInHierarchy)
+            .ToArray();
+        foreach (var renderer in renderers)
+        {
+            var probe = new GameObject("IncidentalWallProbe")
+            {
+                hideFlags = HideFlags.HideAndDontSave,
+                layer = 2,
+            };
+            try
+            {
+                probe.transform.SetPositionAndRotation(renderer.transform.position, renderer.transform.rotation);
+                var scale = renderer.transform.lossyScale;
+                probe.transform.localScale = new Vector3(
+                    Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
+                var box = probe.AddComponent<BoxCollider>();
+                box.center = renderer.localBounds.center;
+                box.size = renderer.localBounds.size;
+                Physics.SyncTransforms();
+
+                var nearby = Physics.OverlapBox(
+                    box.bounds.center,
+                    box.bounds.extents + Vector3.one * 0.01f,
+                    Quaternion.identity,
+                    Physics.AllLayers,
+                    QueryTriggerInteraction.Ignore);
+                foreach (var environmentCollider in nearby)
+                {
+                    if (environmentCollider == null
+                        || environmentCollider == box
+                        || environmentCollider.transform.IsChildOf(instance.transform)
+                        || environmentCollider.GetComponentInParent<MRUKAnchor>() == null
+                        || !Physics.ComputePenetration(
+                            box,
+                            box.transform.position,
+                            box.transform.rotation,
+                            environmentCollider,
+                            environmentCollider.transform.position,
+                            environmentCollider.transform.rotation,
+                            out var direction,
+                            out var distance)
+                        || distance < minimumDistance
+                        || Mathf.Abs(direction.y) >= 0.55f
+                        || distance <= bestDistance)
+                        continue;
+
+                    bestDirection = direction;
+                    bestDistance = distance;
+                }
+            }
+            finally
+            {
+                DestroyImmediate(probe);
+            }
+        }
+        return bestDistance >= minimumDistance;
     }
 
     private static void PrepareInvisibleAnchorShell(GameObject root)

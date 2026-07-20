@@ -80,6 +80,7 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     public bool fixedTowersEnabled = true;
     [Tooltip("Resources-relative wrapper prefab path. Resolves Assets/Resources/Prefabs/StonepagodaTower.prefab.")]
     public string fixedTowerResourcesPath = "Prefabs/StonepagodaTower";
+    public bool randomizeTowerColorsPerSession = true;
     public ExperimentTowerAnchor[] fixedTowers =
     {
         new ExperimentTowerAnchor { towerId = "Tower-1", acceptedColor = "Red" },
@@ -89,9 +90,9 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     };
 
     [Header("AES")]
-    [Min(1f)] public float aesWindowSeconds = 60f;
-    [Min(0.5f)] public float decisionIntervalSeconds = 5f;
-    [Tooltip("Passive boundary for the 60-second distance signal. The loose gate blocks only when all three AES signals are below their boundaries.")]
+    [Min(1f)] public float aesWindowSeconds = 24f;
+    [Min(0.5f)] public float decisionIntervalSeconds = 2f;
+    [Tooltip("Passive boundary for the configured AES distance window. The loose gate blocks only when all three AES signals are below their boundaries.")]
     [Min(0f)] public float aesMinimumDistanceMeters = 12f;
     [Tooltip("Passive boundary for unique rooms. Two means a one-room session can still be classified as clearly passive when the other signals are also low.")]
     [Min(0)] public int aesMinimumUniqueRooms = 2;
@@ -99,7 +100,7 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Min(0f)] public float aesMinimumHeadRotationDegrees = 2800f;
 
     [Header("Empty-hand RevisitProxy")]
-    [Min(1f)] public float proxyWindowSeconds = 30f;
+    [Min(1f)] public float proxyWindowSeconds = 12f;
     [Range(0f, 1f)] public float proxyColdStartRatio = 0.5f;
     [Range(0f, 1f)] public float proxyLowBoundary = 0.33f;
     [Range(0f, 1f)] public float proxyHighBoundary = 0.66f;
@@ -110,7 +111,7 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Tooltip("Production output. Keep text mode off during participant sessions when this is enabled.")]
     public bool aagPlaybackEnabled;
     [Min(0.1f)] public float captionVisibleSeconds = 3f;
-    [Min(0f)] public float minimumUtteranceGapSeconds = 20f;
+    [Min(0f)] public float minimumUtteranceGapSeconds = 8f;
     [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
     [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
     [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]

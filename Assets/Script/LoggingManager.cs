@@ -12,10 +12,19 @@ using UnityEngine;
 public sealed class LoggingManager : MonoBehaviour
 {
     [Serializable]
+    private sealed class ConfiguredClipLog
+    {
+        public string clipId;
+        public float durationSeconds;
+        public bool hasAudioClip;
+    }
+
+    [Serializable]
     private sealed class ConfigSnapshotLog
     {
         public string type = "config_snapshot";
         public string schema = "fp1-pilot-jsonl/v2";
+        public float t;
         public string sessionId;
         public string participantId;
         public string setId;
@@ -50,6 +59,7 @@ public sealed class LoggingManager : MonoBehaviour
         public string roomTieOrder;
         public string configuredClipIds;
         public string configuredCaptions;
+        public ConfiguredClipLog[] configuredClips;
     }
 
     [Serializable]
@@ -123,6 +133,7 @@ public sealed class LoggingManager : MonoBehaviour
             var startedAtUtc = DateTime.UtcNow.ToString("O");
             Write(new ConfigSnapshotLog
             {
+                t = 0f,
                 sessionId = currentSessionId,
                 participantId = participantId ?? string.Empty,
                 setId = setId ?? string.Empty,
@@ -160,6 +171,15 @@ public sealed class LoggingManager : MonoBehaviour
                 configuredCaptions = string.Join("|", (config.aagClips ?? Array.Empty<ExperimentAagClip>())
                     .Where(binding => binding != null)
                     .Select(binding => $"{binding.clipId}={binding.captionText}")),
+                configuredClips = (config.aagClips ?? Array.Empty<ExperimentAagClip>())
+                    .Where(binding => binding != null)
+                    .Select(binding => new ConfiguredClipLog
+                    {
+                        clipId = binding.clipId ?? string.Empty,
+                        durationSeconds = binding.clip != null ? binding.clip.length : 0f,
+                        hasAudioClip = binding.clip != null,
+                    })
+                    .ToArray(),
             }, "config_snapshot");
 
             Write(new SessionStartLog

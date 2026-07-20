@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using Oculus.Interaction;
+using Oculus.Interaction.HandGrab;
+using Oculus.Interaction.Input;
 using UnityEngine;
 
 /// <summary>
@@ -18,6 +20,14 @@ public sealed class ExperimentObject : MonoBehaviour
     private readonly HashSet<int> selectingPointers = new HashSet<int>();
     private bool subscribed;
     private bool hasBeenGrabbed;
+    private IHand leftSelectingHand;
+    private int leftSelectingPointerId;
+    private float inventoryPinchHoldStartedAt = -1f;
+    private bool inventoryPinchHoldAnnounced;
+    private bool inventoryPinchHoldCompleted;
+
+    private const float InventoryPinchHoldSeconds = 1.2f;
+    private const float MaximumLeftIndexDistanceMeters = 0.45f;
 
     public string ObjectId => objectId;
     public string ObjectColor => objectColor;
@@ -42,6 +52,7 @@ public sealed class ExperimentObject : MonoBehaviour
 
     private void OnDisable()
     {
+        ResetInventoryPinchHold(true, "object_disabled");
         Unsubscribe();
         selectingPointers.Clear();
     }
@@ -49,6 +60,11 @@ public sealed class ExperimentObject : MonoBehaviour
     private void OnDestroy()
     {
         Unsubscribe();
+    }
+
+    private void Update()
+    {
+        UpdateInventoryPinchHold();
     }
 
     public void NotifyGrabbed()
@@ -111,7 +127,14 @@ public sealed class ExperimentObject : MonoBehaviour
         switch (pointerEvent.Type)
         {
             case PointerEventType.Select:
-                if (selectingPointers.Add(pointerEvent.Identifier) && selectingPointers.Count == 1)
+                var firstSelection = selectingPointers.Add(pointerEvent.Identifier)
+                    && selectingPointers.Count == 1;
+                var leftHand = ResolveLeftSelectingHand(pointerEvent.Identifier, out var resolution);
+                ResolveOwner()?.NotifyInventoryHandResolution(
+                    this, pointerEvent.Identifier, leftHand != null, resolution);
+                if (leftHand != null)
+                    BeginInventoryPinchHold(pointerEvent.Identifier, leftHand);
+                if (firstSelection)
                 {
                     hasBeenGrabbed = true;
                     NotifyGrabbed();
@@ -120,9 +143,133 @@ public sealed class ExperimentObject : MonoBehaviour
 
             case PointerEventType.Unselect:
             case PointerEventType.Cancel:
+                if (pointerEvent.Identifier == leftSelectingPointerId)
+                    ResetInventoryPinchHold(true, pointerEvent.Type == PointerEventType.Cancel
+                        ? "selection_cancelled"
+                        : "selection_released");
                 if (selectingPointers.Remove(pointerEvent.Identifier) && selectingPointers.Count == 0)
                     NotifyDropped();
                 break;
         }
+    }
+
+    private IHand ResolveLeftSelectingHand(int pointerIdentifier, out string resolution)
+    {
+        // PointerEvent.Data has no stable type contract in Interaction SDK.
+        // Resolve the originating interactor from the event's guaranteed ID.
+        object interactor = null;
+        if (UniqueIdentifier.TryGetInstanceFromIdentifier(
+                Context.Global.GetInstance(), pointerIdentifier, out interactor))
+        {
+            IHand interactorHand = null;
+            if (interactor is HandGrabInteractor nearHandGrab)
+                interactorHand = nearHandGrab.Hand;
+            else if (interactor is DistanceHandGrabInteractor distanceHandGrab)
+                interactorHand = distanceHandGrab.Hand;
+
+            if (interactorHand != null && interactorHand.Handedness == Handedness.Left)
+            {
+                resolution = $"pointer_id:{interactor.GetType().Name}";
+                return interactorHand;
+            }
+        }
+
+        // Some prefab forwarding paths originate from a generic GrabInteractor,
+        // even when a tracked hand performed the pinch. In that case, require an
+        // actively pinching left index tip to be physically close to this stone.
+        IHand closestHand = null;
+        var closestDistance = float.PositiveInfinity;
+        foreach (var behaviour in FindObjectsByType<MonoBehaviour>(
+                     FindObjectsInactive.Exclude, FindObjectsSortMode.None))
+        {
+            if (!(behaviour is IHand candidate)
+                || candidate.Handedness != Handedness.Left
+                || !candidate.IsConnected
+                || !candidate.GetIndexFingerIsPinching())
+                continue;
+
+            Pose handPose;
+            if (!candidate.GetJointPose(HandJointId.HandIndexTip, out handPose)
+                && !candidate.GetPointerPose(out handPose))
+                continue;
+            var distance = Vector3.Distance(handPose.position, transform.position);
+            if (distance >= closestDistance) continue;
+            closestDistance = distance;
+            closestHand = candidate;
+        }
+
+        if (closestHand != null && closestDistance <= MaximumLeftIndexDistanceMeters)
+        {
+            resolution = $"left_index_proximity:{closestDistance:F3}m; "
+                + $"pointerType={interactor?.GetType().Name ?? "unresolved"}";
+            return closestHand;
+        }
+
+        resolution = $"unresolved; pointerType={interactor?.GetType().Name ?? "not_found"}; "
+            + $"nearestLeftIndex={(float.IsPositiveInfinity(closestDistance) ? "none" : $"{closestDistance:F3}m")}";
+        return null;
+    }
+
+    private void BeginInventoryPinchHold(int pointerIdentifier, IHand hand)
+    {
+        if (incidental || hand == null) return;
+        if (leftSelectingHand != null && leftSelectingPointerId != pointerIdentifier)
+            ResetInventoryPinchHold(true, "left_interactor_changed");
+        leftSelectingHand = hand;
+        leftSelectingPointerId = pointerIdentifier;
+        inventoryPinchHoldStartedAt = -1f;
+        inventoryPinchHoldAnnounced = false;
+        inventoryPinchHoldCompleted = false;
+    }
+
+    private void UpdateInventoryPinchHold()
+    {
+        if (incidental
+            || inventoryPinchHoldCompleted
+            || leftSelectingHand == null
+            || !selectingPointers.Contains(leftSelectingPointerId))
+            return;
+
+        var pinching = leftSelectingHand.IsConnected
+            && leftSelectingHand.GetIndexFingerIsPinching();
+        if (!pinching)
+        {
+            if (inventoryPinchHoldStartedAt >= 0f)
+                ResetInventoryPinchTimer("pinch_released");
+            return;
+        }
+
+        if (inventoryPinchHoldStartedAt < 0f)
+        {
+            inventoryPinchHoldStartedAt = Time.unscaledTime;
+            inventoryPinchHoldAnnounced = true;
+            ResolveOwner()?.NotifyInventoryStoreHoldStarted(this, InventoryPinchHoldSeconds);
+        }
+
+        var elapsed = Mathf.Max(0f, Time.unscaledTime - inventoryPinchHoldStartedAt);
+        ResolveOwner()?.NotifyInventoryStoreHoldProgress(this, elapsed, InventoryPinchHoldSeconds);
+        if (elapsed < InventoryPinchHoldSeconds) return;
+
+        inventoryPinchHoldCompleted = true;
+        ResolveOwner()?.NotifyInventoryStoreHoldCompleted(this, InventoryPinchHoldSeconds);
+    }
+
+    private void ResetInventoryPinchTimer(string reason)
+    {
+        if (inventoryPinchHoldAnnounced)
+            ResolveOwner()?.NotifyInventoryStoreHoldCancelled(this, reason);
+        inventoryPinchHoldStartedAt = -1f;
+        inventoryPinchHoldAnnounced = false;
+    }
+
+    private void ResetInventoryPinchHold(bool notifyOwner, string reason)
+    {
+        if (notifyOwner && inventoryPinchHoldAnnounced && !inventoryPinchHoldCompleted)
+            ResolveOwner()?.NotifyInventoryStoreHoldCancelled(this, reason);
+        leftSelectingHand = null;
+        leftSelectingPointerId = 0;
+        inventoryPinchHoldStartedAt = -1f;
+        inventoryPinchHoldAnnounced = false;
+        inventoryPinchHoldCompleted = false;
     }
 }

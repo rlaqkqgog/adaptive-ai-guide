@@ -15,6 +15,24 @@ MonoBehaviour:
   participantIds:
   - P01
   - P02
+  - P03
+  - P04
+  - P05
+  - P06
+  - P07
+  - P08
+  - P09
+  - P10
+  - P11
+  - P12
+  - P13
+  - P14
+  - P15
+  - P16
+  - P17
+  - P18
+  - P19
+  - P20
   setIds:
   - FP1-S1
   - FP1-S2
@@ -25,6 +43,7 @@ MonoBehaviour:
   logFlushIntervalSeconds: 10
   fixedTowersEnabled: 1
   fixedTowerResourcesPath: Prefabs/StonepagodaTower
+  randomizeTowerColorsPerSession: 1
   fixedTowers:
   - towerId: Tower-1
     acceptedColor: Red
@@ -78,19 +97,19 @@ MonoBehaviour:
     deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
     deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
     requireGrabBeforeDelivery: 1
-  aesWindowSeconds: 60
-  decisionIntervalSeconds: 5
+  aesWindowSeconds: 24
+  decisionIntervalSeconds: 2
   aesMinimumDistanceMeters: 12
   aesMinimumUniqueRooms: 2
   aesMinimumHeadRotationDegrees: 2800
-  proxyWindowSeconds: 30
+  proxyWindowSeconds: 12
   proxyColdStartRatio: 0.5
   proxyLowBoundary: 0.33
   proxyHighBoundary: 0.66
   aagTextModeEnabled: 0
   aagPlaybackEnabled: 1
   captionVisibleSeconds: 3
-  minimumUtteranceGapSeconds: 20
+  minimumUtteranceGapSeconds: 8
   stalestRecencyFloorSeconds: 60
   stalestMeaningfulDwellSeconds: 5
   initialSupportLevel: 2
@@ -193,34 +212,34 @@ MonoBehaviour:
     clip: {fileID: 8300000, guid: c86245494dee457428153de1a2226bab, type: 3}
   rooms:
   - roomUuid: 93ad5dfc-c2c2-aab8-e032-758172c5a70d
-    roomId: room1
-    displayName: 원우회실
-    tieOrder: 0
-  - roomUuid: 3342022d-32d9-c32f-cc67-a6993db345ef
-    roomId: room2
-    displayName: 스튜던트 라운지
-    tieOrder: 1
-  - roomUuid: 36f65d12-3dd9-957c-8535-9a774780e5f6
-    roomId: room3
-    displayName: 419강의실
-    tieOrder: 2
-  - roomUuid: 5768d95b-6710-cc01-1e25-cd03767ab1dd
-    roomId: hall1-1
-    displayName: 베란다 쪽 복도
-    tieOrder: 3
-  - roomUuid: 316e933e-d06d-5af0-8919-10578ccd3900
-    roomId: hall1-2
-    displayName: 라운지 앞 복도
-    tieOrder: 4
-  - roomUuid: cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6
-    roomId: hall1-3
-    displayName: 정수기 근처 복도
-    tieOrder: 5
-  - roomUuid: b887c5f7-5e25-95b0-b1d7-a2d13703e00a
-    roomId: hall2-1
-    displayName: 화장실 앞
-    tieOrder: 6
-  - roomUuid: 6ac2d59f-e9a6-5fc7-ecf7-3617f7bf7133
     roomId: hall2-2
     displayName: 계단 쪽
     tieOrder: 7
+  - roomUuid: 3342022d-32d9-c32f-cc67-a6993db345ef
+    roomId: hall1-3
+    displayName: 정수기 근처 복도
+    tieOrder: 5
+  - roomUuid: 36f65d12-3dd9-957c-8535-9a774780e5f6
+    roomId: hall2-1
+    displayName: 화장실 앞
+    tieOrder: 6
+  - roomUuid: 5768d95b-6710-cc01-1e25-cd03767ab1dd
+    roomId: room3
+    displayName: 419강의실
+    tieOrder: 2
+  - roomUuid: 316e933e-d06d-5af0-8919-10578ccd3900
+    roomId: room2
+    displayName: 스튜던트 라운지
+    tieOrder: 1
+  - roomUuid: cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6
+    roomId: room1
+    displayName: 원우회실
+    tieOrder: 0
+  - roomUuid: b887c5f7-5e25-95b0-b1d7-a2d13703e00a
+    roomId: hall1-2
+    displayName: 라운지 앞 복도
+    tieOrder: 4
+  - roomUuid: 6ac2d59f-e9a6-5fc7-ecf7-3617f7bf7133
+    roomId: hall1-1
+    displayName: 베란다 쪽 복도
+    tieOrder: 3

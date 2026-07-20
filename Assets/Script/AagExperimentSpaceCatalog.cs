@@ -45,14 +45,16 @@ public static class AagExperimentSpaceCatalog
     public const string Fp1S1 = "FP1-S1";
     public const string Fp1S2 = "FP1-S2";
     public const string Fp1S3 = "FP1-S3";
+    public static readonly Guid Fp1Room2Uuid = Guid.Parse("316e933e-d06d-5af0-8919-10578ccd3900");
+    public static readonly Guid Fp1Room3Uuid = Guid.Parse("5768d95b-6710-cc01-1e25-cd03767ab1dd");
 
     public static readonly AagFloorPlanDefinition Fp1 = new AagFloorPlanDefinition(
         Fp1Id,
         new[]
         {
             Guid.Parse("cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6"),
-            Guid.Parse("316e933e-d06d-5af0-8919-10578ccd3900"),
-            Guid.Parse("5768d95b-6710-cc01-1e25-cd03767ab1dd"),
+            Fp1Room2Uuid,
+            Fp1Room3Uuid,
             Guid.Parse("6ac2d59f-e9a6-5fc7-ecf7-3617f7bf7133"),
             Guid.Parse("b887c5f7-5e25-95b0-b1d7-a2d13703e00a"),
             Guid.Parse("3342022d-32d9-c32f-cc67-a6993db345ef"),
