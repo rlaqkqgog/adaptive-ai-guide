@@ -228,6 +228,11 @@ public sealed class AAGGuide : MonoBehaviour
             FinishSuppressed(decision, "decision_only");
             return;
         }
+        if (loggingManager.SessionTime < config.aesWindowSeconds)
+        {
+            FinishSuppressed(decision, "aes_cold_start");
+            return;
+        }
         if (!outputDue)
         {
             FinishSuppressed(decision, "minimum_gap");

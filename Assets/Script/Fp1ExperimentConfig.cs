@@ -97,13 +97,13 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Tooltip("Passive boundary for unique rooms. Two means a one-room session can still be classified as clearly passive when the other signals are also low.")]
     [Min(0)] public int aesMinimumUniqueRooms = 2;
     [Tooltip("Passive boundary for accumulated head rotation in the AES window.")]
-    [Min(0f)] public float aesMinimumHeadRotationDegrees = 2800f;
+    [Min(0f)] public float aesMinimumHeadRotationDegrees = 500f;
 
     [Header("Empty-hand RevisitProxy")]
-    [Min(1f)] public float proxyWindowSeconds = 12f;
+    [Min(1f)] public float proxyWindowSeconds = 48f;
     [Range(0f, 1f)] public float proxyColdStartRatio = 0.5f;
-    [Range(0f, 1f)] public float proxyLowBoundary = 0.33f;
-    [Range(0f, 1f)] public float proxyHighBoundary = 0.66f;
+    [Range(0f, 1f)] public float proxyLowBoundary = 0.25f;
+    [Range(0f, 1f)] public float proxyHighBoundary = 0.71f;
 
     [Header("AAG")]
     [Tooltip("Development-only output. Shows the configured utterance text through the same request path used by audio.")]
