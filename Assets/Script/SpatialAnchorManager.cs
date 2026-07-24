@@ -21,7 +21,7 @@ public class SpatialAnchorManager : MonoBehaviour
     [Tooltip("Prefab used by entries whose JSON color is Yellow. Falls back to Anchor Prefab when empty.")]
     public OVRSpatialAnchor yellowAnchorPrefab;
 
-    public const string NumUuidsPlayerPref = "numUuids";
+    public static string NumUuidsPlayerPref => ExperimentSpaceRuntime.PlayerPrefsCountKey;
     [SerializeField] private bool enableManualSetAuthoring = true;
 
     private Canvas canvas;
@@ -43,10 +43,18 @@ public class SpatialAnchorManager : MonoBehaviour
     private int objectIndex = 0;
     private string sessionId;
     private List<AnchorRecord> records = new List<AnchorRecord>();
-    private string LogPath => Path.Combine(Application.persistentDataPath, "anchor_log.json");
+    private static string CurrentLogPath => Path.Combine(
+        Application.persistentDataPath,
+        ExperimentSpaceRuntime.UsesLegacyFp1Storage
+            ? "anchor_log.json"
+            : ExperimentSpaceRuntime.NamespacedFileName("anchor_log"));
+    private string LogPath => CurrentLogPath;
 
     private void Awake()
     {
+        var experimentMain = FindFirstObjectByType<ExperimentMain>();
+        if (experimentMain != null)
+            ExperimentSpaceRuntime.Configure(experimentMain.Configuration);
         anchorLoader = GetComponent<AnchorLoader>();
         cameraRig = FindFirstObjectByType<OVRCameraRig>();
         fp1PlacementAuthoring = GetComponent<AagFp1PlacementAuthoring>();
@@ -360,7 +368,7 @@ public class SpatialAnchorManager : MonoBehaviour
             PlayerPrefs.SetInt(NumUuidsPlayerPref, 0);
 
         int playerNumUuids = PlayerPrefs.GetInt(NumUuidsPlayerPref);
-        PlayerPrefs.SetString("uuid" + playerNumUuids, uuid.ToString());
+        PlayerPrefs.SetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(playerNumUuids), uuid.ToString());
         PlayerPrefs.SetInt(NumUuidsPlayerPref, ++playerNumUuids);
     }
 
@@ -398,7 +406,7 @@ public class SpatialAnchorManager : MonoBehaviour
         {
             int playerNumUuids = PlayerPrefs.GetInt(NumUuidsPlayerPref);
             for (int i = 0; i < playerNumUuids; i++)
-                PlayerPrefs.DeleteKey("uuid" + i);
+                PlayerPrefs.DeleteKey(ExperimentSpaceRuntime.PlayerPrefsUuidKey(i));
             PlayerPrefs.DeleteKey(NumUuidsPlayerPref);
             PlayerPrefs.Save();
         }
@@ -408,7 +416,7 @@ public class SpatialAnchorManager : MonoBehaviour
     {
         Debug.LogWarning(
             "[Anchor] Legacy PlayerPrefs load is disabled. Use LOAD ACTIVE SET; " +
-            "the only set source is AagManualAnchorSets/fp1_manual_anchor_sets.json.");
+            $"the only set source is {AagManualAnchorSetStore.ManifestPath}.");
     }
 
     public List<Guid> GetSavedAnchorUuidsReadOnly()
@@ -417,7 +425,8 @@ public class SpatialAnchorManager : MonoBehaviour
         var count = Mathf.Max(0, PlayerPrefs.GetInt(NumUuidsPlayerPref, 0));
         for (var index = 0; index < count; index++)
         {
-            if (Guid.TryParse(PlayerPrefs.GetString("uuid" + index, string.Empty), out var uuid))
+            if (Guid.TryParse(PlayerPrefs.GetString(
+                    ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), string.Empty), out var uuid))
             {
                 result.Add(uuid);
             }
@@ -623,13 +632,14 @@ public class SpatialAnchorManager : MonoBehaviour
         var count = Mathf.Max(0, PlayerPrefs.GetInt(NumUuidsPlayerPref, 0));
         for (var index = 0; index < count; index++)
         {
-            if (Guid.TryParse(PlayerPrefs.GetString("uuid" + index, string.Empty), out var uuid) && uuid != Guid.Empty)
+            if (Guid.TryParse(PlayerPrefs.GetString(
+                    ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), string.Empty), out var uuid) && uuid != Guid.Empty)
                 uuids.Add(uuid);
         }
         Debug.Log($"[AAG Junk Erase] PlayerPrefs uuids={uuids.Count}");
 
         var textSources = new List<string>();
-        var legacyLog = Path.Combine(Application.persistentDataPath, "anchor_log.json");
+        var legacyLog = CurrentLogPath;
         if (File.Exists(legacyLog)) textSources.Add(legacyLog);
         foreach (var folder in new[]
         {
@@ -686,11 +696,12 @@ public class SpatialAnchorManager : MonoBehaviour
         var remaining = new List<string>();
         for (var index = 0; index < count; index++)
         {
-            var value = PlayerPrefs.GetString("uuid" + index, string.Empty);
+            var value = PlayerPrefs.GetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), string.Empty);
             if (Guid.TryParse(value, out var uuid) && keepUuids.Contains(uuid)) remaining.Add(value);
-            PlayerPrefs.DeleteKey("uuid" + index);
+            PlayerPrefs.DeleteKey(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index));
         }
-        for (var index = 0; index < remaining.Count; index++) PlayerPrefs.SetString("uuid" + index, remaining[index]);
+        for (var index = 0; index < remaining.Count; index++)
+            PlayerPrefs.SetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), remaining[index]);
         PlayerPrefs.SetInt(NumUuidsPlayerPref, remaining.Count);
         PlayerPrefs.Save();
         Debug.Log($"[AAG Junk Erase] PlayerPrefs rewritten remaining={remaining.Count}");
@@ -702,12 +713,13 @@ public class SpatialAnchorManager : MonoBehaviour
         var remaining = new List<string>();
         for (var index = 0; index < count; index++)
         {
-            var value = PlayerPrefs.GetString("uuid" + index, string.Empty);
+            var value = PlayerPrefs.GetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), string.Empty);
             if (!string.Equals(value, uuid.ToString(), StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(value))
                 remaining.Add(value);
-            PlayerPrefs.DeleteKey("uuid" + index);
+            PlayerPrefs.DeleteKey(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index));
         }
-        for (var index = 0; index < remaining.Count; index++) PlayerPrefs.SetString("uuid" + index, remaining[index]);
+        for (var index = 0; index < remaining.Count; index++)
+            PlayerPrefs.SetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), remaining[index]);
         PlayerPrefs.SetInt(NumUuidsPlayerPref, remaining.Count);
         PlayerPrefs.Save();
     }
@@ -719,7 +731,7 @@ public class SpatialAnchorManager : MonoBehaviour
         var newUuidWritten = false;
         for (var index = 0; index < count; index++)
         {
-            var key = "uuid" + index;
+            var key = ExperimentSpaceRuntime.PlayerPrefsUuidKey(index);
             var value = PlayerPrefs.GetString(key, string.Empty);
             if (Guid.TryParse(value, out var parsed) && (parsed == replacedUuid || parsed == newUuid))
             {
@@ -738,7 +750,7 @@ public class SpatialAnchorManager : MonoBehaviour
 
         if (!newUuidWritten) rewritten.Add(newUuid.ToString());
         for (var index = 0; index < rewritten.Count; index++)
-            PlayerPrefs.SetString("uuid" + index, rewritten[index]);
+            PlayerPrefs.SetString(ExperimentSpaceRuntime.PlayerPrefsUuidKey(index), rewritten[index]);
         PlayerPrefs.SetInt(NumUuidsPlayerPref, rewritten.Count);
         PlayerPrefs.Save();
         Debug.Log($"[AAG Repair] PlayerPrefs UUID replaced oldUuid={replacedUuid} newUuid={newUuid} total={rewritten.Count}");

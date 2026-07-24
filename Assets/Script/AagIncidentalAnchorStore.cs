@@ -48,7 +48,8 @@ public sealed class AagIncidentalAnchorEntry
 
 public static class AagIncidentalAnchorStore
 {
-    public const string ManifestFileName = "fp1_incidental_anchor_sets.json";
+    public static string ManifestFileName =>
+        ExperimentSpaceRuntime.NamespacedFileName("incidental_anchor_sets");
     public const string ResourceRoot = "IncidentalObjects";
     public const int RequiredObjectsPerSet = 5;
 
@@ -69,6 +70,8 @@ public static class AagIncidentalAnchorStore
         }
 
         manifest ??= new AagIncidentalAnchorManifest();
+        manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-incidental-anchor-sets/v1";
+        manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
         manifest.sets ??= new List<AagIncidentalAnchorSet>();
         foreach (var setId in AagManualAnchorSetStore.SetIds)
         {
@@ -95,6 +98,8 @@ public static class AagIncidentalAnchorStore
         try
         {
             Directory.CreateDirectory(AagManualAnchorSetStore.FolderPath);
+            manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-incidental-anchor-sets/v1";
+            manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
             manifest.updated_at_utc = DateTime.UtcNow.ToString("O");
             var temporaryPath = ManifestPath + ".tmp";
             File.WriteAllText(temporaryPath, JsonUtility.ToJson(manifest, true), Encoding.UTF8);
@@ -117,7 +122,7 @@ public static class AagIncidentalAnchorStore
         {
             Directory.CreateDirectory(ExportFolderPath);
             path = Path.Combine(ExportFolderPath,
-                $"fp1_incidental_anchor_sets_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
+                $"{ExperimentSpaceRuntime.StorageKey}_incidental_anchor_sets_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json");
             File.WriteAllText(path, JsonUtility.ToJson(manifest, true), Encoding.UTF8);
             failure = string.Empty;
             return true;
@@ -129,7 +134,8 @@ public static class AagIncidentalAnchorStore
         }
     }
 
-    public static string ResourceFolderForSet(string setId) => $"{ResourceRoot}/{setId}";
+    public static string ResourceFolderForSet(string setId) =>
+        $"{ResourceRoot}/{ExperimentSpaceRuntime.ResolveAssetSetId(setId)}";
 
     /// <summary>
     /// FBX model assets and their editable prefab wrappers live in the same

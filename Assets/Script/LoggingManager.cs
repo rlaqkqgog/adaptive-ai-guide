@@ -106,7 +106,7 @@ public sealed class LoggingManager : MonoBehaviour
         string participantId,
         string setId,
         ExperimentGuideMode guideMode,
-        Fp1ExperimentConfig config)
+        ExperimentConfig config)
     {
         CloseSession();
         if (config == null)
@@ -118,7 +118,10 @@ public sealed class LoggingManager : MonoBehaviour
         try
         {
             currentSessionId = sessionId ?? string.Empty;
-            var folder = Path.Combine(Application.persistentDataPath, "FP1Logs", SanitizePathPart(currentSessionId));
+            var folder = Path.Combine(
+                Application.persistentDataPath,
+                ExperimentSpaceRuntime.LogFolderName,
+                SanitizePathPart(currentSessionId));
             Directory.CreateDirectory(folder);
             currentLogPath = Path.Combine(folder, "session.jsonl");
             writer = new StreamWriter(currentLogPath, false, new UTF8Encoding(false));

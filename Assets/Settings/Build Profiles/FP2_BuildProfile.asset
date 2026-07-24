@@ -19,8 +19,11 @@ MonoBehaviour:
   m_PlatformBuildProfile:
     rid: 6017197774921269248
   m_OverrideGlobalSceneList: 1
-  m_Scenes: []
-  m_ScriptingDefines: []
+  m_Scenes:
+  - m_enabled: 1
+    m_path: Assets/Scenes/MainTest_FP2.unity
+  m_ScriptingDefines:
+  - AAG_SPACE_FP2
   m_PlayerSettingsYaml:
     m_Settings: []
   references:

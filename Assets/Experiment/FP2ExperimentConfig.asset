@@ -10,11 +10,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1d87c13d74f54b3c9e286d9f7c6a1b02, type: 3}
-  m_Name: FP1ExperimentConfig
+  m_Name: FP2ExperimentConfig
   m_EditorClassIdentifier: 
-  spaceId: FP1
-  floorPlanId: FP1
-  storageNamespace: fp1
+  spaceId: FP2
+  floorPlanId: FP2
+  storageNamespace: fp2
   startRoomId: room3
   participantIds:
   - P01
@@ -38,9 +38,9 @@ MonoBehaviour:
   - P19
   - P20
   setIds:
-  - FP1-S1
-  - FP1-S2
-  - FP1-S3
+  - FP2-S1
+  - FP2-S2
+  - FP2-S3
   assetSetIds:
   - FP1-S1
   - FP1-S2
@@ -240,40 +240,4 @@ MonoBehaviour:
   - clipId: VH-02
     captionText: 편하신 대로 계속 진행하세요.
     clip: {fileID: 8300000, guid: c86245494dee457428153de1a2226bab, type: 3}
-  rooms:
-  - roomUuid: ce00a9e3-c3dc-48cd-a503-e928584055f2
-    roomId: hall2-2
-    displayName: 계단 쪽
-    tieOrder: 8
-  - roomUuid: 7423d1c6-d1e7-3316-6714-6a9b282a396e
-    roomId: hall1-3
-    displayName: 정수기 근처 복도
-    tieOrder: 6
-  - roomUuid: 880b5e63-6438-a8d5-c156-2ddffc48a6d4
-    roomId: hall2-1
-    displayName: 화장실 앞
-    tieOrder: 7
-  - roomUuid: 0d537c33-3e47-2606-3ea9-897c2bc9f1ce
-    roomId: room3
-    displayName: 419강의실
-    tieOrder: 3
-  - roomUuid: 5faa1907-d2e2-7605-7b01-5149a34a4c6d
-    roomId: room2-1
-    displayName: 스튜던트 라운지
-    tieOrder: 1
-  - roomUuid: ad306342-a794-cffd-be87-d9aea02c5823
-    roomId: room2-2
-    displayName: Student Lounge 2
-    tieOrder: 2
-  - roomUuid: 98332012-20ba-e0ba-78ec-8440113270cd
-    roomId: room1
-    displayName: 원우회실
-    tieOrder: 0
-  - roomUuid: b4131884-79b1-7db8-5529-4875ea40bdd5
-    roomId: hall1-2
-    displayName: 라운지 앞 복도
-    tieOrder: 5
-  - roomUuid: 7e4d3e1f-3247-602b-3822-c21df384e947
-    roomId: hall1-1
-    displayName: 베란다 쪽 복도
-    tieOrder: 4
+  rooms: []

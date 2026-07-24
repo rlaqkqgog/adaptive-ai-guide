@@ -17,7 +17,11 @@ public class TrackLogger : MonoBehaviour
     private float sessionStart = 0f;
     private string sessionId;
     private List<TrackPoint> points = new List<TrackPoint>();
-    private string LogPath => Path.Combine(Application.persistentDataPath, "track_log.json");
+    private string LogPath => Path.Combine(
+        Application.persistentDataPath,
+        ExperimentSpaceRuntime.UsesLegacyFp1Storage
+            ? "track_log.json"
+            : ExperimentSpaceRuntime.NamespacedFileName("track_log"));
 
     private void Awake()
     {

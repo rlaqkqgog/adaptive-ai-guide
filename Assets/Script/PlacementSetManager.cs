@@ -32,6 +32,9 @@ public sealed class PlacementSetManager : MonoBehaviour
     private void Awake()
     {
         anchorLoader = GetComponent<AnchorLoader>();
+        if (!ExperimentSpaceRuntime.SetIds.Contains(initialSet)
+            && ExperimentSpaceRuntime.SetIds.Count > 0)
+            initialSet = ExperimentSpaceRuntime.SetIds[0];
     }
 
     private IEnumerator Start()

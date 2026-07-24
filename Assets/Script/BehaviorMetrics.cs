@@ -100,7 +100,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     }
 
     [Header("Scene References")]
-    [SerializeField] private Fp1ExperimentConfig config;
+    [SerializeField] private ExperimentConfig config;
     [SerializeField] private Transform headTransform;
     [SerializeField] private LoggingManager loggingManager;
 
@@ -166,7 +166,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         physicalRoomProvider = provider;
     }
 
-    public void BeginSession(Fp1ExperimentConfig sessionConfig, Transform trackedHead, LoggingManager logger)
+    public void BeginSession(ExperimentConfig sessionConfig, Transform trackedHead, LoggingManager logger)
     {
         config = sessionConfig;
         headTransform = trackedHead;

@@ -245,7 +245,7 @@ public sealed class ExperimentMain : MonoBehaviour
     }
 
     [Header("Single Configuration Asset")]
-    [SerializeField] private Fp1ExperimentConfig config;
+    [SerializeField] private ExperimentConfig config;
 
     [Header("Existing Scene Services")]
     [SerializeField] private AnchorLoader anchorLoader;
@@ -333,11 +333,20 @@ public sealed class ExperimentMain : MonoBehaviour
     private string lastFiducialHudStatus = string.Empty;
 
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
-    private string SelectedSetId => SafeChoice(config != null ? config.setIds : null, setIndex, AagExperimentSpaceCatalog.Fp1S1);
+    private string SelectedSetId => SafeChoice(
+        config != null ? config.setIds : null,
+        setIndex,
+        ExperimentSpaceRuntime.SetIds.Count > 0
+            ? ExperimentSpaceRuntime.SetIds[0]
+            : AagExperimentSpaceCatalog.Fp1S1);
     private ExperimentGuideMode SelectedGuideMode => (ExperimentGuideMode)(guideIndex % 3);
     private float SessionTime => loggingManager != null ? loggingManager.SessionTime : 0f;
     private float RunningTime => state == SessionState.Running ? Time.realtimeSinceStartup - runClockStart : 0f;
-    public Fp1ExperimentConfig Configuration => config;
+    public ExperimentConfig Configuration => config;
+    private Guid ExpectedStartRoomUuid =>
+        config != null && config.TryGetStartRoomUuid(out var roomUuid)
+            ? roomUuid
+            : Guid.Empty;
 
     private void Awake()
     {
@@ -347,11 +356,13 @@ public sealed class ExperimentMain : MonoBehaviour
             Debug.LogWarning("[ExperimentMain] FP1ExperimentConfig missing; using in-memory defaults.", this);
         }
         config.RebuildLookups();
+        ExperimentSpaceRuntime.Configure(config);
 
         if (anchorLoader == null) anchorLoader = FindFirstObjectByType<AnchorLoader>();
         if (spatialAnchorManager == null) spatialAnchorManager = FindFirstObjectByType<SpatialAnchorManager>();
         if (experimentSpaceValidator == null)
             experimentSpaceValidator = FindFirstObjectByType<AagExperimentSpaceValidator>();
+        experimentSpaceValidator?.Configure(config.floorPlanId);
         if (headTransform == null)
         {
             var rig = FindFirstObjectByType<OVRCameraRig>();
@@ -1050,7 +1061,7 @@ public sealed class ExperimentMain : MonoBehaviour
             }
             else if (experimentSpaceValidator.TryValidateSessionStart(
                 headTransform,
-                AagExperimentSpaceCatalog.Fp1Room3Uuid,
+                ExpectedStartRoomUuid,
                 fiducialStartGatePassed,
                 out var failure))
             {
@@ -1570,7 +1581,7 @@ public sealed class ExperimentMain : MonoBehaviour
         if (experimentSpaceValidator == null
             || !experimentSpaceValidator.TryValidateSessionStart(
                 headTransform,
-                AagExperimentSpaceCatalog.Fp1Room3Uuid,
+                ExpectedStartRoomUuid,
                 fiducialStartGatePassed,
                 out finalSpaceFailure))
         {
@@ -3725,7 +3736,8 @@ public static class AagRecoveryPlacementValidator
         foreach (var room in MRUK.Instance.Rooms)
         {
             if (room == null || room.Anchor == null || room.Anchor.Uuid == Guid.Empty
-                || !AagExperimentSpaceCatalog.Fp1.ContainsRoom(room.Anchor.Uuid))
+                || ExperimentSpaceRuntime.FloorPlan == null
+                || !ExperimentSpaceRuntime.FloorPlan.ContainsRoom(room.Anchor.Uuid))
                 continue;
 
             foreach (var floor in room.FloorAnchors)

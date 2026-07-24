@@ -12,16 +12,18 @@ using UnityEngine;
 /// </summary>
 public static class AagFiducialMarkerStore
 {
-    public const string SchemaVersion = "aag-fp1-fiducial-zones/v1";
-    public const string PayloadPrefix = "AAG-FP1-ZONE:";
+    public static string SchemaVersion =>
+        $"aag-{ExperimentSpaceRuntime.StorageKey}-fiducial-zones/v1";
+    public static string PayloadPrefix => $"AAG-{ExperimentSpaceRuntime.SpaceId}-ZONE:";
     public const string DirectoryName = "AagFiducialMarkers";
-    public const string FileName = "fp1_fiducial_zone_calibrations.json";
+    public static string FileName =>
+        ExperimentSpaceRuntime.NamespacedFileName("fiducial_zone_calibrations");
 
     [Serializable]
     public sealed class Catalog
     {
         public string schemaVersion = SchemaVersion;
-        public string floorPlanId = AagExperimentSpaceCatalog.Fp1Id;
+        public string floorPlanId = ExperimentSpaceRuntime.FloorPlanId;
         public string updatedAtUtc = string.Empty;
         public List<ZoneCalibration> zones = new List<ZoneCalibration>();
     }
@@ -200,7 +202,7 @@ public static class AagFiducialMarkerStore
     {
         if (catalog == null
             || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
-            || !string.Equals(catalog.floorPlanId, AagExperimentSpaceCatalog.Fp1Id, StringComparison.Ordinal)
+            || !string.Equals(catalog.floorPlanId, ExperimentSpaceRuntime.FloorPlanId, StringComparison.Ordinal)
             || catalog.zones == null)
             return false;
 

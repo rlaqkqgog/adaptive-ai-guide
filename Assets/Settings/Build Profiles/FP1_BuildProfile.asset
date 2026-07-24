@@ -22,7 +22,8 @@ MonoBehaviour:
   m_Scenes:
   - m_enabled: 1
     m_path: Assets/Scenes/MainTest_FP1.unity
-  m_ScriptingDefines: []
+  m_ScriptingDefines:
+  - AAG_SPACE_FP1
   m_PlayerSettingsYaml:
     m_Settings: []
   references:

@@ -33,16 +33,42 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
         ValidateLoadedRooms();
     }
 
+    public void Configure(string configuredFloorPlanId)
+    {
+        floorPlanId = string.IsNullOrWhiteSpace(configuredFloorPlanId)
+            ? AagExperimentSpaceCatalog.Fp1Id
+            : configuredFloorPlanId.Trim().ToUpperInvariant();
+        IsValidationComplete = false;
+        IsValidationPassed = false;
+        ValidatedFloorPlan = null;
+        LastValidationSummary = "not_validated";
+    }
+
     public void ValidateLoadedRooms()
     {
         IsValidationComplete = false;
         IsValidationPassed = false;
         ValidatedFloorPlan = null;
 
-        if (!AagExperimentSpaceCatalog.TryGetFloorPlan(floorPlanId, out var floorPlan))
+        var floorPlan = string.Equals(
+                ExperimentSpaceRuntime.FloorPlan?.FloorPlanId,
+                floorPlanId,
+                StringComparison.Ordinal)
+            ? ExperimentSpaceRuntime.FloorPlan
+            : null;
+        if (floorPlan == null
+            && !AagExperimentSpaceCatalog.TryGetFloorPlan(floorPlanId, out floorPlan))
         {
             LastValidationSummary = $"unknown_floor_plan_{floorPlanId}";
             Debug.LogError($"[AAG Space] Unknown floor plan '{floorPlanId}'.");
+            IsValidationComplete = true;
+            return;
+        }
+
+        if (floorPlan.RoomIds.Count == 0)
+        {
+            LastValidationSummary = $"floor_plan_unconfigured_{floorPlan.FloorPlanId}";
+            Debug.LogError($"[AAG Space] {floorPlan.FloorPlanId} has no registered Room UUIDs.");
             IsValidationComplete = true;
             return;
         }

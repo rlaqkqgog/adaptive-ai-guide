@@ -92,7 +92,7 @@ public class AnchorLoader : MonoBehaviour
     {
         Debug.LogWarning(
             "[AnchorLoader] Legacy parameterless/PlayerPrefs load is disabled. " +
-            "Use LOAD ACTIVE SET, which reads only AagManualAnchorSets/fp1_manual_anchor_sets.json.");
+            $"Use LOAD ACTIVE SET, which reads only {AagManualAnchorSetStore.ManifestPath}.");
     }
 
     public void LoadAnchorsByUuid(IEnumerable<Guid> requestedUuids, string source)

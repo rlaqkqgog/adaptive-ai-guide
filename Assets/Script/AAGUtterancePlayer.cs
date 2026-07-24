@@ -29,7 +29,7 @@ public sealed class AAGUtterancePlayer : MonoBehaviour
     [SerializeField] private string lastClipId = string.Empty;
     [SerializeField, TextArea(2, 3)] private string lastCaption = string.Empty;
 
-    private Fp1ExperimentConfig config;
+    private ExperimentConfig config;
     private LoggingManager loggingManager;
     private bool outputActive;
     private string activeClipId = string.Empty;
@@ -38,7 +38,7 @@ public sealed class AAGUtterancePlayer : MonoBehaviour
     private float activeDurationSeconds;
     private float activeExpectedEndAt;
 
-    public void BeginSession(Fp1ExperimentConfig sessionConfig, LoggingManager logger)
+    public void BeginSession(ExperimentConfig sessionConfig, LoggingManager logger)
     {
         config = sessionConfig;
         loggingManager = logger;

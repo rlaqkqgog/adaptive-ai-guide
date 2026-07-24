@@ -95,7 +95,7 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
     private IncidentalObjectManager incidentalObjectManager;
     private bool fixedTowerMode;
     private bool incidentalMode;
-    private string activeSetId = "FP1-S1";
+    private string activeSetId = AagExperimentSpaceCatalog.Fp1S1;
     private string activeColor = "Red";
     private string lastSavedUuid = "NONE";
     private string operationMessage = "READY - PRESS LOAD ACTIVE SET";
@@ -129,6 +129,8 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
 
     private void Awake()
     {
+        if (AagManualAnchorSetStore.SetIds.Length > 0)
+            activeSetId = AagManualAnchorSetStore.SetIds[0];
         DisableHandTrackingRootsForControllerOnly();
         anchorManager = GetComponent<SpatialAnchorManager>();
         anchorLoader = GetComponent<AnchorLoader>();
@@ -401,7 +403,7 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         var rotation = anchor.transform.rotation;
         var entry = new AagManualAnchorEntry
         {
-            floor_plan_id = "FP1",
+            floor_plan_id = ExperimentSpaceRuntime.FloorPlanId,
             set_id = context.SetId,
             marker_id = $"{context.Color.ToLowerInvariant()}_{colorOrdinal}",
             color = context.Color,
@@ -1258,7 +1260,9 @@ public sealed class AagManualAnchorSetAuthoring : MonoBehaviour
         background.color = new Color(0.02f, 0.03f, 0.05f, 0.9f);
 
         statusText = CreateText(rect, "Status", new Vector2(0.03f, 0.42f), new Vector2(0.97f, 0.98f), 32f);
-        var setLabels = new[] { "FP1-S1", "FP1-S2", "FP1-S3", "NEXT SET" };
+        var setLabels = AagManualAnchorSetStore.SetIds
+            .Concat(new[] { "NEXT SET" })
+            .ToArray();
         for (var i = 0; i < setLabels.Length; i++)
         {
             var captured = setLabels[i];

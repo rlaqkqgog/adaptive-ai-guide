@@ -9,8 +9,10 @@ using UnityEngine;
 
 public static class AagRoomUuidScannerBuild
 {
-    private const string ScenePath = "Assets/Scenes/RoomUUIDScan.unity";
-    private const string OutputPath = "Builds/room_uuid_scanner.apk";
+    private const string Fp1ScenePath = "Assets/Scenes/RoomUUIDScan.unity";
+    private const string Fp2ScenePath = "Assets/Scenes/RoomUUIDScan_FP2.unity";
+    private const string Fp1OutputPath = "Builds/fp1_room_uuid_scanner.apk";
+    private const string Fp2OutputPath = "Builds/fp2_room_uuid_scanner.apk";
     private const string BuildRequestPath = "Temp/AagRoomUuidScannerBuild.request";
 
     [InitializeOnLoadMethod]
@@ -25,22 +27,33 @@ public static class AagRoomUuidScannerBuild
         EditorApplication.delayCall += BuildFromCommandLine;
     }
 
-    [MenuItem("AAG/Build Room UUID Scanner APK")]
+    [MenuItem("AAG/Build FP1 Room UUID Scanner APK")]
     public static void BuildFromCommandLine()
     {
-        ValidateScene();
-        Directory.CreateDirectory(Path.GetDirectoryName(OutputPath) ?? "Builds");
+        Build(Fp1ScenePath, Fp1OutputPath, "FP1");
+    }
+
+    [MenuItem("AAG/Build FP2 Room UUID Scanner APK")]
+    public static void BuildFp2()
+    {
+        Build(Fp2ScenePath, Fp2OutputPath, "FP2");
+    }
+
+    private static void Build(string scenePath, string outputPath, string spaceId)
+    {
+        ValidateScene(scenePath, spaceId);
+        Directory.CreateDirectory(Path.GetDirectoryName(outputPath) ?? "Builds");
 
         var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
         {
-            scenes = new[] { ScenePath },
-            locationPathName = OutputPath,
+            scenes = new[] { scenePath },
+            locationPathName = outputPath,
             target = BuildTarget.Android,
             options = BuildOptions.None,
         });
 
-        Debug.Log($"[AAG Room UUID Build] result={report.summary.result}; " +
-                  $"errors={report.summary.totalErrors}; output={OutputPath}");
+        Debug.Log($"[AAG Room UUID Build] space={spaceId}; result={report.summary.result}; " +
+                  $"errors={report.summary.totalErrors}; output={outputPath}");
 
         if (report.summary.result != BuildResult.Succeeded)
         {
@@ -48,10 +61,21 @@ public static class AagRoomUuidScannerBuild
         }
     }
 
-    [MenuItem("AAG/Validate Room UUID Scanner Scene")]
+    [MenuItem("AAG/Validate FP1 Room UUID Scanner Scene")]
     public static void ValidateScene()
     {
-        var scene = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+        ValidateScene(Fp1ScenePath, "FP1");
+    }
+
+    [MenuItem("AAG/Validate FP2 Room UUID Scanner Scene")]
+    public static void ValidateFp2Scene()
+    {
+        ValidateScene(Fp2ScenePath, "FP2");
+    }
+
+    private static void ValidateScene(string scenePath, string expectedSpaceId)
+    {
+        var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
         var manager = FindExactlyOne<OVRManager>(scene.path);
         Require(manager.isInsightPassthroughEnabled, "OVRManager Insight Passthrough must be enabled.");
@@ -72,10 +96,18 @@ public static class AagRoomUuidScannerBuild
         Require(scanner != null, "RoomUUIDScanner GameObject is missing.");
         Require(scanner.GetComponent<AagCurrentRoomDisplay>() != null,
             "RoomUUIDScanner requires AagCurrentRoomDisplay.");
-        Require(scanner.GetComponent<AagRoomCoordinateExporter>() != null,
+        var exporter = scanner.GetComponent<AagRoomCoordinateExporter>();
+        Require(exporter != null,
             "RoomUUIDScanner requires AagRoomCoordinateExporter.");
 
-        Debug.Log("[AAG Room UUID Build] Scene validation passed.");
+        var serializedExporter = new SerializedObject(exporter);
+        Require(string.Equals(
+                serializedExporter.FindProperty("exportSpaceId")?.stringValue,
+                expectedSpaceId,
+                StringComparison.Ordinal),
+            $"Room UUID exporter must target {expectedSpaceId}.");
+
+        Debug.Log($"[AAG Room UUID Build] {expectedSpaceId} scene validation passed.");
     }
 
     private static T FindExactlyOne<T>(string scenePath) where T : UnityEngine.Object

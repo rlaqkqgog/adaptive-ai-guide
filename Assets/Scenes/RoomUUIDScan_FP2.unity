@@ -1426,8 +1426,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c9e15d8eabf04c1b95e2288ac6f3d4a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  exportSpaceId: FP1
-  storageNamespace: fp1
+  exportSpaceId: FP2
+  storageNamespace: fp2
   exportOnStart: 1
   waitForMrukSeconds: 30
   showRuntimeDiagnostics: 1

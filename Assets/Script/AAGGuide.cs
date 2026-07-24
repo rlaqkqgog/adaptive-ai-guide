@@ -80,7 +80,7 @@ public sealed class AAGGuide : MonoBehaviour
     }
 
     [Header("Scene References")]
-    [SerializeField] private Fp1ExperimentConfig config;
+    [SerializeField] private ExperimentConfig config;
     [SerializeField] private BehaviorMetrics behaviorMetrics;
     [SerializeField] private LoggingManager loggingManager;
     [SerializeField] private AAGUtterancePlayer utterancePlayer;
@@ -104,7 +104,7 @@ public sealed class AAGGuide : MonoBehaviour
     private readonly Queue<string> recentZoneVotes = new Queue<string>(4);
 
     public void BeginSession(
-        Fp1ExperimentConfig sessionConfig,
+        ExperimentConfig sessionConfig,
         BehaviorMetrics metrics,
         LoggingManager logger)
     {

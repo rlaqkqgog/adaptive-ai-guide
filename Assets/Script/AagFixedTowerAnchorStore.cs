@@ -38,7 +38,8 @@ public sealed class AagFixedTowerAnchorEntry
 public static class AagFixedTowerAnchorStore
 {
     public const int RequiredTowerCount = 4;
-    public const string ManifestFileName = "fp1_fixed_tower_anchors.json";
+    public static string ManifestFileName =>
+        ExperimentSpaceRuntime.NamespacedFileName("fixed_tower_anchors");
     public static readonly string[] TowerIds = { "Tower-1", "Tower-2", "Tower-3", "Tower-4" };
     public static readonly string[] TowerColors = { "Red", "Blue", "Yellow", "Green" };
 
@@ -68,8 +69,8 @@ public static class AagFixedTowerAnchorStore
         }
 
         manifest ??= new AagFixedTowerAnchorManifest();
-        manifest.schema_version = "aag-fp1-fixed-tower-anchors/v3";
-        manifest.floor_plan_id = "FP1";
+        manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-fixed-tower-anchors/v3";
+        manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
         manifest.towers ??= new List<AagFixedTowerAnchorEntry>();
         return manifest;
     }
@@ -79,6 +80,8 @@ public static class AagFixedTowerAnchorStore
         try
         {
             Directory.CreateDirectory(AagManualAnchorSetStore.FolderPath);
+            manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-fixed-tower-anchors/v3";
+            manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
             manifest.updated_at_utc = DateTime.UtcNow.ToString("O");
             var temporaryPath = ManifestPath + ".tmp";
             File.WriteAllText(temporaryPath, JsonUtility.ToJson(manifest, true), Encoding.UTF8);
@@ -106,8 +109,10 @@ public static class AagFixedTowerAnchorStore
         {
             Directory.CreateDirectory(AagManualAnchorSetStore.ExportFolderPath);
             var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            jsonPath = Path.Combine(AagManualAnchorSetStore.ExportFolderPath, $"fp1_fixed_tower_anchors_{stamp}.json");
-            csvPath = Path.Combine(AagManualAnchorSetStore.ExportFolderPath, $"fp1_fixed_tower_anchors_{stamp}.csv");
+            jsonPath = Path.Combine(AagManualAnchorSetStore.ExportFolderPath,
+                $"{ExperimentSpaceRuntime.StorageKey}_fixed_tower_anchors_{stamp}.json");
+            csvPath = Path.Combine(AagManualAnchorSetStore.ExportFolderPath,
+                $"{ExperimentSpaceRuntime.StorageKey}_fixed_tower_anchors_{stamp}.csv");
             File.WriteAllText(jsonPath, JsonUtility.ToJson(manifest, true), Encoding.UTF8);
             File.WriteAllText(csvPath, BuildCsv(manifest), Encoding.UTF8);
             failure = string.Empty;
@@ -126,7 +131,7 @@ public static class AagFixedTowerAnchorStore
             "floor_plan_id,tower_id,anchor_uuid,has_fallback_pose,fallback_x,fallback_y,fallback_z,fallback_rotation_x,fallback_rotation_y,fallback_rotation_z,fallback_rotation_w\n");
         foreach (var tower in manifest.towers.OrderBy(value => value.tower_id, StringComparer.Ordinal))
         {
-            builder.Append("FP1,").Append(tower.tower_id).Append(',')
+            builder.Append(manifest.floor_plan_id).Append(',').Append(tower.tower_id).Append(',')
                 .Append(tower.anchor_uuid).Append(',')
                 .Append(tower.has_fallback_pose).Append(',')
                 .Append(tower.fallback_x.ToString(System.Globalization.CultureInfo.InvariantCulture)).Append(',')

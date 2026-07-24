@@ -85,7 +85,11 @@ public class SceneJsonExporter : MonoBehaviour
         }
 
         // 파일 저장
-        string path = Path.Combine(Application.persistentDataPath, "scene_log.txt");
+        string path = Path.Combine(
+            Application.persistentDataPath,
+            ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                ? "scene_log.txt"
+                : ExperimentSpaceRuntime.NamespacedFileName("scene_log", "txt"));
         try { File.WriteAllText(path, log.ToString()); Debug.Log($"[Scene] saved: {path}"); }
         catch (System.Exception e) { Debug.LogError("[Scene] write fail: " + e.Message); }
     }

@@ -56,7 +56,7 @@ public sealed class AagFiducialZoneAlignment : MonoBehaviour
         public float LastAppliedAt = -1f;
     }
 
-    private Fp1ExperimentConfig config;
+    private ExperimentConfig config;
     private AagFiducialMarkerStore.Catalog catalog;
     private Action<string, string> writeEvent;
     private readonly Dictionary<string, ZoneState> zones =
@@ -87,7 +87,7 @@ public sealed class AagFiducialZoneAlignment : MonoBehaviour
     public string GetCurrentPhysicalRoomUuid() =>
         Enabled && sessionActive ? currentPhysicalRoomUuid : string.Empty;
 
-    public void Initialize(Fp1ExperimentConfig experimentConfig, Action<string, string> eventWriter)
+    public void Initialize(ExperimentConfig experimentConfig, Action<string, string> eventWriter)
     {
         config = experimentConfig;
         writeEvent = eventWriter;

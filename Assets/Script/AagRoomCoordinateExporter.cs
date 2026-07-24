@@ -17,6 +17,10 @@ public class AagRoomCoordinateExporter : MonoBehaviour
     private const string ExportFolderName = "AagRoomExports";
     private const string SchemaVersion = "aag-room-coordinate-export/v1";
 
+    [Header("Experiment space")]
+    [SerializeField] private string exportSpaceId = AagExperimentSpaceCatalog.Fp1Id;
+    [SerializeField] private string storageNamespace = "fp1";
+
     [Serializable]
     public class RoomMappingEntry
     {
@@ -47,9 +51,21 @@ public class AagRoomCoordinateExporter : MonoBehaviour
     private string diagnosticDetail = string.Empty;
     private int lastObservedRoomCount = int.MinValue;
     private float lastWaitingLogTime = float.NegativeInfinity;
+    private static string ExportFolderPath
+    {
+        get
+        {
+            var root = Path.Combine(Application.persistentDataPath, ExportFolderName);
+            return ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                ? root
+                : Path.Combine(root, ExperimentSpaceRuntime.SpaceId);
+        }
+    }
 
     private void Awake()
     {
+        if (FindFirstObjectByType<ExperimentMain>() == null)
+            ExperimentSpaceRuntime.ConfigureTool(exportSpaceId, storageNamespace);
         SetDiagnostic("Exporter Awake", $"active={gameObject.activeInHierarchy}, enabled={enabled}, path={Application.persistentDataPath}");
     }
 
@@ -118,7 +134,7 @@ public class AagRoomCoordinateExporter : MonoBehaviour
         {
             SetDiagnostic("Exporting", $"MRUK SceneLoadedEvent complete; room count={MRUK.Instance.Rooms.Count}");
             WriteExport(MRUK.Instance.Rooms);
-            SetDiagnostic("Export succeeded", $"rooms={MRUK.Instance.Rooms.Count}; files written under {ExportFolderName}");
+            SetDiagnostic("Export succeeded", $"rooms={MRUK.Instance.Rooms.Count}; files written under {ExportFolderPath}");
         }
         catch (Exception exception)
         {
@@ -146,12 +162,15 @@ public class AagRoomCoordinateExporter : MonoBehaviour
             export.rooms.Add(BuildRoomRecord(room, export.validationWarnings));
         }
 
-        var folderPath = Path.Combine(Application.persistentDataPath, ExportFolderName);
+        var folderPath = ExportFolderPath;
         Directory.CreateDirectory(folderPath);
 
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture);
-        var jsonPath = Path.Combine(folderPath, $"aag_room_coordinates_{timestamp}.json");
-        var csvPath = Path.Combine(folderPath, $"aag_room_coordinates_{timestamp}.csv");
+        var filePrefix = ExperimentSpaceRuntime.UsesLegacyFp1Storage
+            ? "aag_room_coordinates"
+            : $"{ExperimentSpaceRuntime.StorageKey}_room_coordinates";
+        var jsonPath = Path.Combine(folderPath, $"{filePrefix}_{timestamp}.json");
+        var csvPath = Path.Combine(folderPath, $"{filePrefix}_{timestamp}.csv");
 
         File.WriteAllText(jsonPath, JsonUtility.ToJson(export, true), Encoding.UTF8);
         File.WriteAllText(csvPath, BuildCsv(export), Encoding.UTF8);
@@ -323,12 +342,30 @@ public class AagRoomCoordinateExporter : MonoBehaviour
         return new PersistentLogStatus
         {
             persistentDataPath = Application.persistentDataPath,
-            anchorLogPath = Path.Combine(Application.persistentDataPath, "anchor_log.json"),
-            anchorLogExists = File.Exists(Path.Combine(Application.persistentDataPath, "anchor_log.json")),
-            trackLogPath = Path.Combine(Application.persistentDataPath, "track_log.json"),
-            trackLogExists = File.Exists(Path.Combine(Application.persistentDataPath, "track_log.json")),
-            sceneLogPath = Path.Combine(Application.persistentDataPath, "scene_log.txt"),
-            sceneLogExists = File.Exists(Path.Combine(Application.persistentDataPath, "scene_log.txt")),
+            anchorLogPath = Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "anchor_log.json"
+                    : ExperimentSpaceRuntime.NamespacedFileName("anchor_log")),
+            anchorLogExists = File.Exists(Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "anchor_log.json"
+                    : ExperimentSpaceRuntime.NamespacedFileName("anchor_log"))),
+            trackLogPath = Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "track_log.json"
+                    : ExperimentSpaceRuntime.NamespacedFileName("track_log")),
+            trackLogExists = File.Exists(Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "track_log.json"
+                    : ExperimentSpaceRuntime.NamespacedFileName("track_log"))),
+            sceneLogPath = Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "scene_log.txt"
+                    : ExperimentSpaceRuntime.NamespacedFileName("scene_log", "txt")),
+            sceneLogExists = File.Exists(Path.Combine(Application.persistentDataPath,
+                ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                    ? "scene_log.txt"
+                    : ExperimentSpaceRuntime.NamespacedFileName("scene_log", "txt"))),
         };
     }
 

@@ -45,6 +45,10 @@ public static class AagExperimentSpaceCatalog
     public const string Fp1S1 = "FP1-S1";
     public const string Fp1S2 = "FP1-S2";
     public const string Fp1S3 = "FP1-S3";
+    public const string Fp2Id = "FP2";
+    public const string Fp2S1 = "FP2-S1";
+    public const string Fp2S2 = "FP2-S2";
+    public const string Fp2S3 = "FP2-S3";
     public static readonly Guid Fp1Room2Part1Uuid = Guid.Parse("5faa1907-d2e2-7605-7b01-5149a34a4c6d");
     public static readonly Guid Fp1Room2Part2Uuid = Guid.Parse("ad306342-a794-cffd-be87-d9aea02c5823");
     public static readonly Guid Fp1Room3Uuid = Guid.Parse("0d537c33-3e47-2606-3ea9-897c2bc9f1ce");
@@ -74,9 +78,24 @@ public static class AagExperimentSpaceCatalog
     public static bool IsFp1Room2(Guid roomId) =>
         roomId == Fp1Room2Part1Uuid || roomId == Fp1Room2Part2Uuid;
 
+    // FP2 deliberately starts with no UUIDs. The validator rejects an empty
+    // definition, so a FP2 build cannot silently run against FP1's Meta scene.
+    // Register the confirmed Room UUIDs here after the FP2 Room UUID scan.
+    public static readonly AagFloorPlanDefinition Fp2 = new AagFloorPlanDefinition(
+        Fp2Id,
+        Array.Empty<Guid>(),
+        Array.Empty<Guid>(),
+        new[]
+        {
+            Fp2S1,
+            Fp2S2,
+            Fp2S3,
+        });
+
     private static readonly AagFloorPlanDefinition[] FloorPlans =
     {
         Fp1,
+        Fp2,
     };
 
     public static bool TryGetFloorPlan(string floorPlanId, out AagFloorPlanDefinition floorPlan)

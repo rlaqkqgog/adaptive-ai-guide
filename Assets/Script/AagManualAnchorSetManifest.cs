@@ -65,12 +65,22 @@ public sealed class AagManualAnchorEntry
 public static class AagManualAnchorSetStore
 {
     public const string FolderName = "AagManualAnchorSets";
-    public const string ManifestFileName = "fp1_manual_anchor_sets.json";
     public const float ApproximateOffsetScale = 0.5f;
-    public static readonly string[] SetIds = { "FP1-S1", "FP1-S2", "FP1-S3" };
     public static readonly string[] Colors = { "Red", "Blue", "Green", "Yellow" };
 
-    public static string FolderPath => Path.Combine(Application.persistentDataPath, FolderName);
+    public static string ManifestFileName =>
+        ExperimentSpaceRuntime.NamespacedFileName("manual_anchor_sets");
+    public static string[] SetIds => ExperimentSpaceRuntime.SetIds.ToArray();
+    public static string FolderPath
+    {
+        get
+        {
+            var root = Path.Combine(Application.persistentDataPath, FolderName);
+            return ExperimentSpaceRuntime.UsesLegacyFp1Storage
+                ? root
+                : Path.Combine(root, ExperimentSpaceRuntime.SpaceId);
+        }
+    }
     public static string ManifestPath => Path.Combine(FolderPath, ManifestFileName);
     public static string ExportFolderPath => Path.Combine(FolderPath, "Exports");
     public static string BackupFolderPath => Path.Combine(FolderPath, "Backups");
@@ -91,6 +101,8 @@ public static class AagManualAnchorSetStore
         }
 
         manifest ??= new AagManualAnchorSetManifest();
+        manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-manual-anchor-sets/v1";
+        manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
         manifest.sets ??= new List<AagManualAnchorSetRecord>();
         foreach (var setId in SetIds)
         {
@@ -113,6 +125,8 @@ public static class AagManualAnchorSetStore
         try
         {
             Directory.CreateDirectory(FolderPath);
+            manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-manual-anchor-sets/v1";
+            manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
             manifest.updated_at_utc = DateTime.UtcNow.ToString("O");
             var json = JsonUtility.ToJson(manifest, true);
             var temporaryPath = ManifestPath + ".tmp";
@@ -163,8 +177,10 @@ public static class AagManualAnchorSetStore
         {
             Directory.CreateDirectory(ExportFolderPath);
             var stamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
-            jsonPath = Path.Combine(ExportFolderPath, $"fp1_manual_anchor_sets_{stamp}.json");
-            csvPath = Path.Combine(ExportFolderPath, $"fp1_manual_anchor_sets_{stamp}.csv");
+            jsonPath = Path.Combine(ExportFolderPath,
+                $"{ExperimentSpaceRuntime.StorageKey}_manual_anchor_sets_{stamp}.json");
+            csvPath = Path.Combine(ExportFolderPath,
+                $"{ExperimentSpaceRuntime.StorageKey}_manual_anchor_sets_{stamp}.csv");
             File.WriteAllText(jsonPath, JsonUtility.ToJson(manifest, true), Encoding.UTF8);
             File.WriteAllText(csvPath, BuildCsv(manifest), Encoding.UTF8);
             failure = string.Empty;

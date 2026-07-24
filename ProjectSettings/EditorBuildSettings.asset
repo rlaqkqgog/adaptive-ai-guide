@@ -12,8 +12,14 @@ EditorBuildSettings:
     path: Assets/Scenes/MainTest_FP1.unity
     guid: 73b7d04f2d9249f48c77d9f174ad98d3
   - enabled: 0
+    path: Assets/Scenes/MainTest_FP2.unity
+    guid: b4632096c2b3498d8993596844ee5d7b
+  - enabled: 0
     path: Assets/Scenes/RoomUUIDScan.unity
     guid: 7a0c1c928baf84a44b2678f3e967ba9e
+  - enabled: 0
+    path: Assets/Scenes/RoomUUIDScan_FP2.unity
+    guid: 9a76af03532e4039912cd48dbf38991c
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
     com.unity.xr.arfoundation.simulation_settings: {fileID: 11400000, guid: 9a850c800c6bded4cb92cf20aec12b68, type: 2}

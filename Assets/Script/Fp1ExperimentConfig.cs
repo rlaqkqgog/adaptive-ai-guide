@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 public enum ExperimentGuideMode
@@ -62,12 +63,23 @@ public sealed class ExperimentTowerAnchor
     public bool requireGrabBeforeDelivery = true;
 }
 
-[CreateAssetMenu(fileName = "FP1ExperimentConfig", menuName = "AAG/FP1 Experiment Config")]
-public sealed class Fp1ExperimentConfig : ScriptableObject
+public class ExperimentConfig : ScriptableObject
 {
+    [Header("Experiment space identity")]
+    [Tooltip("Stable experiment-space identifier written to sessions and UI, for example FP1 or FP2.")]
+    public string spaceId = AagExperimentSpaceCatalog.Fp1Id;
+    [Tooltip("MRUK room UUID catalog selected for fail-closed space validation.")]
+    public string floorPlanId = AagExperimentSpaceCatalog.Fp1Id;
+    [Tooltip("Lower-case prefix used for persistent files. FP1 intentionally preserves its legacy paths.")]
+    public string storageNamespace = "fp1";
+    [Tooltip("Stable roomId where the participant must stand before a session starts.")]
+    public string startRoomId = "room3";
+
     [Header("Pilot choices")]
     public string[] participantIds = { "P01", "P02" };
     public string[] setIds = { "FP1-S1", "FP1-S2", "FP1-S3" };
+    [Tooltip("Optional shared Resources set folders. FP2 can reuse FP1 prefabs while keeping FP2 UUID manifests.")]
+    public string[] assetSetIds = { "FP1-S1", "FP1-S2", "FP1-S3" };
 
     [Header("Session")]
     [Min(1f)] public float sessionTimeLimitSeconds = 1200f;
@@ -145,6 +157,22 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
             : mapping;
     }
 
+    public ExperimentRoomMapping FindRoomById(string roomId)
+    {
+        if (string.IsNullOrWhiteSpace(roomId)) return null;
+        return (rooms ?? Array.Empty<ExperimentRoomMapping>()).FirstOrDefault(room =>
+            room != null && string.Equals(room.roomId, roomId.Trim(), StringComparison.Ordinal));
+    }
+
+    public bool TryGetStartRoomUuid(out Guid roomUuid)
+    {
+        roomUuid = Guid.Empty;
+        var mapping = FindRoomById(startRoomId);
+        return mapping != null
+            && Guid.TryParse(mapping.roomUuid, out roomUuid)
+            && roomUuid != Guid.Empty;
+    }
+
     public ExperimentAagClip FindAagClip(string clipId)
     {
         EnsureLookups();
@@ -175,9 +203,29 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
         if (roomByUuid == null || aagClipById == null) RebuildLookups();
     }
 
-    private void OnValidate()
+    protected virtual void OnValidate()
     {
+        spaceId = string.IsNullOrWhiteSpace(spaceId)
+            ? AagExperimentSpaceCatalog.Fp1Id
+            : spaceId.Trim().ToUpperInvariant();
+        floorPlanId = string.IsNullOrWhiteSpace(floorPlanId)
+            ? spaceId
+            : floorPlanId.Trim().ToUpperInvariant();
+        storageNamespace = string.IsNullOrWhiteSpace(storageNamespace)
+            ? spaceId.ToLowerInvariant()
+            : storageNamespace.Trim().ToLowerInvariant();
+        startRoomId = string.IsNullOrWhiteSpace(startRoomId) ? "room3" : startRoomId.Trim();
         if (proxyHighBoundary < proxyLowBoundary) proxyHighBoundary = proxyLowBoundary;
         RebuildLookups();
     }
+}
+
+/// <summary>
+/// Serialization-compatible legacy MonoScript. Existing FP1 assets keep their
+/// GUID while runtime systems consume the space-neutral ExperimentConfig base.
+/// New space assets may safely reuse this script without sharing their data.
+/// </summary>
+[CreateAssetMenu(fileName = "ExperimentConfig", menuName = "AAG/Experiment Space Config")]
+public sealed class Fp1ExperimentConfig : ExperimentConfig
+{
 }

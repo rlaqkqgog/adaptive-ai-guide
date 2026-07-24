@@ -14,8 +14,10 @@ public static class MrukRoomLocalPlacementStore
 {
     public const string SchemaVersion = "aag-fp1-floor-anchor-local-placements/v3-space-20260721";
     private const string DirectoryName = "AagRoomLocalPlacements";
-    private const string FileName = "fp1_floor_anchor_local_placements.json";
-    private const string SeedResourcePath = "AAG/fp1_floor_anchor_local_placements";
+    private static string FileName =>
+        ExperimentSpaceRuntime.NamespacedFileName("floor_anchor_local_placements");
+    private static string SeedResourcePath =>
+        $"AAG/{ExperimentSpaceRuntime.StorageKey}_floor_anchor_local_placements";
 
     [Serializable]
     public sealed class Catalog
@@ -211,7 +213,10 @@ public static class MrukRoomLocalPlacementStore
     public static bool TryValidateSet(SetRecord set, out string failure)
     {
         failure = string.Empty;
+        var floorPlan = ExperimentSpaceRuntime.FloorPlan;
         if (set == null || string.IsNullOrWhiteSpace(set.setId)
+            || floorPlan == null
+            || !floorPlan.SupportsSet(set.setId)
             || set.placements == null || set.placements.Count != 12)
         {
             failure = $"invalid_set_or_count_{set?.placements?.Count ?? 0}";
@@ -226,8 +231,8 @@ public static class MrukRoomLocalPlacementStore
             if (placement == null || string.IsNullOrWhiteSpace(placement.objectId)
                 || !objectIds.Add(placement.objectId)
                 || !Guid.TryParse(placement.roomUuid, out var roomUuid)
-                || !AagExperimentSpaceCatalog.Fp1.ContainsRoom(roomUuid)
-                || AagExperimentSpaceCatalog.Fp1.IsExcludedRoom(roomUuid)
+                || !floorPlan.ContainsRoom(roomUuid)
+                || floorPlan.IsExcludedRoom(roomUuid)
                 || !Guid.TryParse(placement.floorAnchorUuid, out var floorUuid)
                 || floorUuid == Guid.Empty
                 || !AagRigidPoseRecovery.IsFinite(placement.LocalPosition)
@@ -274,11 +279,17 @@ public static class MrukRoomLocalPlacementStore
         selectedFloor = null;
         failure = string.Empty;
         var bestPlaneDistance = float.PositiveInfinity;
+        var floorPlan = ExperimentSpaceRuntime.FloorPlan;
+        if (floorPlan == null)
+        {
+            failure = "experiment_floor_plan_unavailable";
+            return false;
+        }
         foreach (var room in MRUK.Instance.Rooms)
         {
             if (room == null || room.Anchor == null || room.Anchor.Uuid == Guid.Empty
-                || !AagExperimentSpaceCatalog.Fp1.ContainsRoom(room.Anchor.Uuid)
-                || AagExperimentSpaceCatalog.Fp1.IsExcludedRoom(room.Anchor.Uuid))
+                || !floorPlan.ContainsRoom(room.Anchor.Uuid)
+                || floorPlan.IsExcludedRoom(room.Anchor.Uuid))
                 continue;
 
             foreach (var floor in room.FloorAnchors)
@@ -312,7 +323,7 @@ public static class MrukRoomLocalPlacementStore
                 if (catalog != null
                     && string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
                     && catalog.sets != null
-                    && catalog.sets.Count == 3
+                    && catalog.sets.Count == ExperimentSpaceRuntime.SetIds.Count
                     && catalog.sets.All(value => TryValidateSet(value, out _)))
                     return true;
             }
@@ -325,7 +336,7 @@ public static class MrukRoomLocalPlacementStore
             if (catalog == null
                 || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
                 || catalog.sets == null
-                || catalog.sets.Count != 3
+                || catalog.sets.Count != ExperimentSpaceRuntime.SetIds.Count
                 || catalog.sets.Any(value => !TryValidateSet(value, out _)))
             {
                 failure = "catalog_and_bundled_seed_invalid";

@@ -25,7 +25,7 @@ public sealed class FixedTowerManager : MonoBehaviour
         public TowerColorLabel colorLabel;
     }
 
-    private Fp1ExperimentConfig config;
+    private ExperimentConfig config;
     private ExperimentMain experimentMain;
     private readonly List<GameObject> spawnedTowerContents = new List<GameObject>();
     private readonly List<PocketDestination> pocketDestinations = new List<PocketDestination>();
@@ -34,7 +34,7 @@ public sealed class FixedTowerManager : MonoBehaviour
     public string ActiveColorAssignment { get; private set; } = string.Empty;
 
     public void Initialize(
-        Fp1ExperimentConfig experimentConfig,
+        ExperimentConfig experimentConfig,
         ExperimentMain owner)
     {
         config = experimentConfig;
