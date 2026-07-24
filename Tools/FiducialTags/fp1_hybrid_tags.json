@@ -1,0 +1,8 @@
+{
+  "spaceId": "FP1",
+  "referenceTag": {
+    "roomId": "room3",
+    "aprilTagId": 0,
+    "qrPayload": "AAG-FP1-ZONE:room3"
+  }
+}

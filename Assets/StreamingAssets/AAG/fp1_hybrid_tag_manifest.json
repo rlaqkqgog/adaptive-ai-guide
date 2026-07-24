@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "aag-fiducial-hybrid-tags/v1",
+  "spaceId": "FP1",
+  "printScalePercent": 100,
+  "pageSizeMillimeters": {
+    "width": 297.0,
+    "height": 210.0
+  },
+  "referenceTag": {
+    "role": "startupGlobalTranslationReference",
+    "roomId": "room3",
+    "aprilTagFamily": "tagStandard41h12",
+    "aprilTagId": 0,
+    "aprilTagSource": "https://github.com/AprilRobotics/apriltag-imgs/blob/master/tagStandard41h12/tag41_12_00000.png",
+    "aprilTagSourceBlobSha": "cdbeebd32c17c99c2aa4791537379bf01dd994cd",
+    "aprilTagFamilyDefinition": "https://github.com/AprilRobotics/apriltag/blob/master/tagStandard41h12.c",
+    "aprilTagTotalModuleCount": 9,
+    "aprilTagWidthAtBorderModules": 5,
+    "aprilTagModuleSizeMeters": 0.019,
+    "tagSizeMeters": 0.095,
+    "tagSizeDefinition": "distance between AprilTag detection corners at the black-white border boundary",
+    "printedAprilTagBitmapExtentMeters": 0.171,
+    "aprilTagQuietZoneModules": 1,
+    "qrPayload": "AAG-FP1-ZONE:room3",
+    "qrRole": "referencePayloadValidation",
+    "qrRoomAssociation": "applicationValidatedNotAutomatic",
+    "qrVersion": 2,
+    "qrErrorCorrection": "Q",
+    "qrCoreSizeMeters": 0.05,
+    "qrQuietZoneModules": 4,
+    "qrCenterOffsetFromAprilTagCenterOnPrintMeters": {
+      "right": 0.1505,
+      "up": 0.0
+    },
+    "poseFusionPolicy": "useAprilTagPoseOnly",
+    "qrPosePolicy": "crossValidationOnlyDoNotAverage",
+    "hybridBoardFile": "aag_fp1_room3_hybrid_reference_a4.svg",
+    "aprilTagOnlyFile": "tagStandard41h12_id_0.svg",
+    "qrOnlyFile": "aag_fp1_room3_qr.svg"
+  }
+}

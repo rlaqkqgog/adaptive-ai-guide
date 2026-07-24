@@ -1,0 +1,2 @@
+room_id,april_tag_family,april_tag_id,tag_size_m,printed_bitmap_extent_m,qr_payload,qr_core_size_m,card_file
+room3,tagStandard41h12,0,0.095,0.171,AAG-FP1-ZONE:room3,0.05,aag_fp1_room3_hybrid_reference_a4.svg

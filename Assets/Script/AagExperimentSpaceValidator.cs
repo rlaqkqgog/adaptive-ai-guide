@@ -189,7 +189,7 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
     /// <summary>
     /// The fiducial overload keeps the exact nine-room/floor, input-focus, and
     /// World-Lock gates. It skips only MRUK's HMD-in-Room3 test after a fresh,
-    /// calibrated physical Room3 QR marker has independently established the
+    /// calibrated physical Room3 fiducial marker has independently established the
     /// start zone.
     /// </summary>
     public bool TryValidateSessionStart(

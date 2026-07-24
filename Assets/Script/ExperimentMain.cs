@@ -262,6 +262,7 @@ public sealed class ExperimentMain : MonoBehaviour
     [SerializeField] private IncidentalObjectManager incidentalObjectManager;
     [SerializeField] private IncidentalAnchorLoader incidentalAnchorLoader;
     [SerializeField] private AagFiducialZoneAlignment fiducialZoneAlignment;
+    [SerializeField] private AagAprilTagTranslationAligner aprilTagTranslationAligner;
     [SerializeField] private AagFixedSpaceOffset fixedSpaceOffset;
     [SerializeField] private AagSpaceOffsetDiagnostic spaceOffsetDiagnostic;
 
@@ -331,6 +332,7 @@ public sealed class ExperimentMain : MonoBehaviour
     private bool deliveryCompletionFeedbackActive;
     private bool fiducialStartGatePassed;
     private string lastFiducialHudStatus = string.Empty;
+    private string lastAprilTagHudStatus = string.Empty;
 
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
     private string SelectedSetId => SafeChoice(
@@ -388,6 +390,8 @@ public sealed class ExperimentMain : MonoBehaviour
         if (fixedSpaceOffset == null)
             fixedSpaceOffset = GetComponent<AagFixedSpaceOffset>()
                 ?? gameObject.AddComponent<AagFixedSpaceOffset>();
+        if (aprilTagTranslationAligner == null)
+            aprilTagTranslationAligner = GetComponent<AagAprilTagTranslationAligner>();
         if (spaceOffsetDiagnostic == null)
             spaceOffsetDiagnostic = GetComponent<AagSpaceOffsetDiagnostic>()
                 ?? gameObject.AddComponent<AagSpaceOffsetDiagnostic>();
@@ -450,6 +454,15 @@ public sealed class ExperimentMain : MonoBehaviour
                     StringComparison.Ordinal))
             {
                 lastFiducialHudStatus = fiducialZoneAlignment.StatusLine;
+                RefreshHud("Ready");
+            }
+            if (aprilTagTranslationAligner != null
+                && !string.Equals(
+                    lastAprilTagHudStatus,
+                    aprilTagTranslationAligner.StatusLine,
+                    StringComparison.Ordinal))
+            {
+                lastAprilTagHudStatus = aprilTagTranslationAligner.StatusLine;
                 RefreshHud("Ready");
             }
             return;
@@ -1094,7 +1107,10 @@ public sealed class ExperimentMain : MonoBehaviour
         state = SessionState.Loading;
         PrepareForNewSession();
 
-        if (config.fixedSpaceOffsetEnabled && config.fiducialMarkerAlignmentEnabled)
+        var aprilTagAlignmentApplied = aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.IsApplied;
+        if ((config.fixedSpaceOffsetEnabled || aprilTagAlignmentApplied)
+            && config.fiducialMarkerAlignmentEnabled)
         {
             state = SessionState.Idle;
             RefreshHud("START BLOCKED: fixed_offset_and_fiducial_are_mutually_exclusive");
@@ -1104,12 +1120,27 @@ public sealed class ExperimentMain : MonoBehaviour
                 this);
             yield break;
         }
-        fixedSpaceOffset.Configure(
-            config.fixedSpaceOffsetEnabled,
-            config.fixedSpaceOffsetMeters,
-            config.fixedSpaceOffsetHorizontalOnly);
+        if (!aprilTagAlignmentApplied)
+        {
+            fixedSpaceOffset.Configure(
+                config.fixedSpaceOffsetEnabled,
+                config.fixedSpaceOffsetMeters,
+                config.fixedSpaceOffsetHorizontalOnly);
+        }
 
         fiducialStartGatePassed = false;
+        if (aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.RequireAppliedAlignmentBeforeSession)
+        {
+            RefreshHud("Checking Room3 AprilTag translation...");
+            if (!aprilTagTranslationAligner.TryValidateSessionStart(out var aprilTagFailure))
+            {
+                state = SessionState.Idle;
+                RefreshHud($"START BLOCKED: {aprilTagFailure}");
+                yield break;
+            }
+            fiducialStartGatePassed = true;
+        }
         if (config.fiducialMarkerAlignmentEnabled)
         {
             RefreshHud("Checking Room3 QR marker...");
@@ -1662,7 +1693,9 @@ public sealed class ExperimentMain : MonoBehaviour
         out string failure)
     {
         failure = string.Empty;
-        if (config == null || !config.fixedSpaceOffsetEnabled) return true;
+        var useAprilTagTranslation = aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.IsApplied;
+        if (config == null || (!config.fixedSpaceOffsetEnabled && !useAprilTagTranslation)) return true;
         if (fixedSpaceOffset == null)
         {
             failure = "manager_missing";
@@ -1675,7 +1708,7 @@ public sealed class ExperimentMain : MonoBehaviour
             failure = "correction_non_finite";
             return false;
         }
-        if (correction.magnitude > AagFiducialZoneAlignment.MaximumAcceptedCorrectionMeters)
+        if (correction.magnitude > AagFixedSpaceOffset.MaximumAcceptedCorrectionMeters)
         {
             failure = $"correction_too_large_{correction.magnitude:F3}m";
             return false;
@@ -1728,7 +1761,8 @@ public sealed class ExperimentMain : MonoBehaviour
             "fixed_space_offset_applied",
             $"roots={fixedSpaceOffset.RegisteredRootCount}; "
             + $"offset=({correction.x:F4},{correction.y:F4},{correction.z:F4}); "
-            + $"horizontalOnly={fixedSpaceOffset.HorizontalOnly}; source=FP1ExperimentConfig");
+            + $"horizontalOnly={fixedSpaceOffset.HorizontalOnly}; "
+            + $"source={(useAprilTagTranslation ? "ROOM3_APRILTAG" : "FP1ExperimentConfig")}");
         return true;
     }
 
@@ -3363,6 +3397,9 @@ public sealed class ExperimentMain : MonoBehaviour
             + (config != null && config.fiducialMarkerAlignmentEnabled
                 ? $"{fiducialZoneAlignment?.StatusLine ?? "QR MARKERS UNAVAILABLE"}\n"
                     + "Idle setup: look at one room QR, hold RIGHT STICK 1.2 s\n"
+                : string.Empty)
+            + (aprilTagTranslationAligner != null
+                ? $"APRILTAG: {aprilTagTranslationAligner.StatusLine}\n"
                 : string.Empty)
             + "During run: hold left Y for operator window\n"
             + "Hold a left-hand pinch for 1.2 s: store stone";
