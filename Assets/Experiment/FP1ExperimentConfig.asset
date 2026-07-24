@@ -1,0 +1,279 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1d87c13d74f54b3c9e286d9f7c6a1b02, type: 3}
+  m_Name: FP1ExperimentConfig
+  m_EditorClassIdentifier: 
+  spaceId: FP1
+  floorPlanId: FP1
+  storageNamespace: fp1
+  startRoomId: room3
+  participantIds:
+  - P01
+  - P02
+  - P03
+  - P04
+  - P05
+  - P06
+  - P07
+  - P08
+  - P09
+  - P10
+  - P11
+  - P12
+  - P13
+  - P14
+  - P15
+  - P16
+  - P17
+  - P18
+  - P19
+  - P20
+  setIds:
+  - FP1-S1
+  - FP1-S2
+  - FP1-S3
+  assetSetIds:
+  - FP1-S1
+  - FP1-S2
+  - FP1-S3
+  sessionTimeLimitSeconds: 1200
+  trackIntervalSeconds: 0.1
+  roomMinDwellSeconds: 0.5
+  logFlushIntervalSeconds: 10
+  fiducialMarkerAlignmentEnabled: 0
+  fixedSpaceOffsetEnabled: 0
+  fixedSpaceOffsetMeters: {x: 0, y: 0, z: 0}
+  fixedSpaceOffsetHorizontalOnly: 1
+  fixedTowersEnabled: 1
+  fixedTowerResourcesPath: Prefabs/StonepagodaTower
+  randomizeTowerColorsPerSession: 1
+  fixedTowers:
+  - towerId: Tower-1
+    acceptedColor: Red
+    anchorUuid: ''
+    visualLocalPosition: {x: 0, y: 0, z: 0}
+    visualLocalEulerAngles: {x: 0, y: 0, z: 0}
+    visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
+    labelLocalPosition: {x: 0, y: 0.5, z: 0}
+    labelWidthMeters: 2.6
+    labelHeightMeters: 0.7
+    requiredStoneCount: 3
+    deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
+    deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
+    requireGrabBeforeDelivery: 1
+  - towerId: Tower-2
+    acceptedColor: Blue
+    anchorUuid: ''
+    visualLocalPosition: {x: 0, y: 0, z: 0}
+    visualLocalEulerAngles: {x: 0, y: 0, z: 0}
+    visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
+    labelLocalPosition: {x: 0, y: 0.5, z: 0}
+    labelWidthMeters: 2.6
+    labelHeightMeters: 0.7
+    requiredStoneCount: 3
+    deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
+    deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
+    requireGrabBeforeDelivery: 1
+  - towerId: Tower-3
+    acceptedColor: Yellow
+    anchorUuid: ''
+    visualLocalPosition: {x: 0, y: 0, z: 0}
+    visualLocalEulerAngles: {x: 0, y: 0, z: 0}
+    visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
+    labelLocalPosition: {x: 0, y: 0.5, z: 0}
+    labelWidthMeters: 2.6
+    labelHeightMeters: 0.7
+    requiredStoneCount: 3
+    deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
+    deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
+    requireGrabBeforeDelivery: 1
+  - towerId: Tower-4
+    acceptedColor: Green
+    anchorUuid: ''
+    visualLocalPosition: {x: 0, y: 0, z: 0}
+    visualLocalEulerAngles: {x: 0, y: 0, z: 0}
+    visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
+    labelLocalPosition: {x: 0, y: 0.5, z: 0}
+    labelWidthMeters: 2.6
+    labelHeightMeters: 0.7
+    requiredStoneCount: 3
+    deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
+    deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
+    requireGrabBeforeDelivery: 1
+  aesWindowSeconds: 24
+  decisionIntervalSeconds: 2
+  aesMinimumDistanceMeters: 12
+  aesMinimumUniqueRooms: 2
+  aesMinimumHeadRotationDegrees: 500
+  proxyWindowSeconds: 48
+  proxyColdStartRatio: 0.5
+  proxyLowBoundary: 0.25
+  proxyHighBoundary: 0.71
+  aagTextModeEnabled: 0
+  aagPlaybackEnabled: 1
+  captionVisibleSeconds: 3
+  minimumUtteranceGapSeconds: 15
+  stalestRecencyFloorSeconds: 60
+  stalestMeaningfulDwellSeconds: 5
+  initialSupportLevel: 2
+  aagClips:
+  - clipId: GF-01
+    captionText: 좀 더 둘러보시겠어요?
+    clip: {fileID: 8300000, guid: d64389c160e56304789b2a242596dfb4, type: 3}
+  - clipId: GF-02
+    captionText: 다른 곳도 자유롭게 다녀보세요.
+    clip: {fileID: 8300000, guid: 26869ed48fec37e4da623ee8f891b9b0, type: 3}
+  - clipId: VE-U-room1
+    captionText: 아직 안 가보신 원우회실을 확인해보세요.
+    clip: {fileID: 8300000, guid: f3cb1b693d0f8604abcf586a0e7a3684, type: 3}
+  - clipId: VE-U-room2
+    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
+    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
+  - clipId: VE-U-room2-1
+    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
+    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
+  - clipId: VE-U-room2-2
+    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
+    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
+  - clipId: VE-U-room3
+    captionText: 아직 안 가보신 419강의실을 확인해보세요.
+    clip: {fileID: 8300000, guid: 6014f047862beac42841845f65dc4050, type: 3}
+  - clipId: VE-U-hall1-1
+    captionText: 아직 안 가보신 베란다 쪽 복도를 확인해보세요.
+    clip: {fileID: 8300000, guid: aacdcc90661a0514897a82424075a8c6, type: 3}
+  - clipId: VE-U-hall1-2
+    captionText: 아직 안 가보신 라운지 앞 복도를 확인해보세요.
+    clip: {fileID: 8300000, guid: bd7bdd2672a90224b87ddb6e31171271, type: 3}
+  - clipId: VE-U-hall1-3
+    captionText: 아직 안 가보신 정수기 근처 복도를 확인해보세요.
+    clip: {fileID: 8300000, guid: a4915909c7e8bd049ad976a7d270f4c3, type: 3}
+  - clipId: VE-U-hall2-1
+    captionText: 아직 안 가보신 화장실 앞쪽을 확인해보세요.
+    clip: {fileID: 8300000, guid: bee4fd60d22f86748bb3262806964206, type: 3}
+  - clipId: VE-U-hall2-2
+    captionText: 아직 안 가보신 계단 쪽을 확인해보세요.
+    clip: {fileID: 8300000, guid: 6c54272c329208740bd1e04a5fa7fc12, type: 3}
+  - clipId: VE-V-room1
+    captionText: 원우회실은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 5cefc31e76946584292cf9395ef1ad75, type: 3}
+  - clipId: VE-V-room2
+    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
+  - clipId: VE-V-room2-1
+    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
+  - clipId: VE-V-room2-2
+    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
+  - clipId: VE-V-room3
+    captionText: 419강의실은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 67e51f943531fef459b272aedd0f860a, type: 3}
+  - clipId: VE-V-hall1-1
+    captionText: 베란다 쪽 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: e046a85abc864fc44a9588fdf8749416, type: 3}
+  - clipId: VE-V-hall1-2
+    captionText: 라운지 앞 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 7a6e4f778217bdf40afc30dabc12a516, type: 3}
+  - clipId: VE-V-hall1-3
+    captionText: 정수기 근처 복도는 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 3dc0a2ebd1639004087a0f32253c8a48, type: 3}
+  - clipId: VE-V-hall2-1
+    captionText: 화장실 앞쪽은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: c20b224893b14164c84e3cafdbdc58e5, type: 3}
+  - clipId: VE-V-hall2-2
+    captionText: 계단 쪽은 꼼꼼히 살펴보셨나요?
+    clip: {fileID: 8300000, guid: 8c08d52de76f6ce47bdd764d979d0695, type: 3}
+  - clipId: E-room1
+    captionText: 원우회실 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: 413c68fcd4ec1a44184df6542b527e81, type: 3}
+  - clipId: E-room2
+    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
+  - clipId: E-room2-1
+    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
+  - clipId: E-room2-2
+    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
+  - clipId: E-room3
+    captionText: 419강의실 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: 2bcb2bce811ef3d4ca7df36489645453, type: 3}
+  - clipId: E-hall1-1
+    captionText: 베란다 쪽 복도도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: 360334a44131a3d48aae98bff5895b10, type: 3}
+  - clipId: E-hall1-2
+    captionText: 라운지 앞 복도도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: 39634461662c5a94797eb83fa37697aa, type: 3}
+  - clipId: E-hall1-3
+    captionText: 정수기 근처도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: d2538af2c6aee9b46932a90cd043c117, type: 3}
+  - clipId: E-hall2-1
+    captionText: 화장실 앞쪽도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: 4ebe1bcef150b1a47837c11a72ea3d4f, type: 3}
+  - clipId: E-hall2-2
+    captionText: 계단 쪽도 한번 살펴보세요.
+    clip: {fileID: 8300000, guid: f9aa1920e7bfe624ea8bcdc686787c46, type: 3}
+  - clipId: N-01
+    captionText: 아직 찾지 못한 돌이 남아 있어요.
+    clip: {fileID: 8300000, guid: 1c236de0d515393429923088eb059f09, type: 3}
+  - clipId: N-02
+    captionText: 남은 돌이 아직 있어요.
+    clip: {fileID: 8300000, guid: 282900ebf0a15f74e84b580c671eac77, type: 3}
+  - clipId: H-01
+    captionText: 아직 둘러보지 않은 공간이 남아 있어요.
+    clip: {fileID: 8300000, guid: 0665dd57df0161f46ac7142d0c58a716, type: 3}
+  - clipId: H-02
+    captionText: 가보지 않은 곳이 아직 있어요.
+    clip: {fileID: 8300000, guid: 81ed568bb6351a54ebc36e042eed312a, type: 3}
+  - clipId: VH-01
+    captionText: 계속 자유롭게 다녀보세요.
+    clip: {fileID: 8300000, guid: 73776a9a114789749b8b63aef7851471, type: 3}
+  - clipId: VH-02
+    captionText: 편하신 대로 계속 진행하세요.
+    clip: {fileID: 8300000, guid: c86245494dee457428153de1a2226bab, type: 3}
+  rooms:
+  - roomUuid: ce00a9e3-c3dc-48cd-a503-e928584055f2
+    roomId: hall2-2
+    displayName: 계단 쪽
+    tieOrder: 8
+  - roomUuid: 7423d1c6-d1e7-3316-6714-6a9b282a396e
+    roomId: hall1-3
+    displayName: 정수기 근처 복도
+    tieOrder: 6
+  - roomUuid: 880b5e63-6438-a8d5-c156-2ddffc48a6d4
+    roomId: hall2-1
+    displayName: 화장실 앞
+    tieOrder: 7
+  - roomUuid: 0d537c33-3e47-2606-3ea9-897c2bc9f1ce
+    roomId: room3
+    displayName: 419강의실
+    tieOrder: 3
+  - roomUuid: 5faa1907-d2e2-7605-7b01-5149a34a4c6d
+    roomId: room2-1
+    displayName: 스튜던트 라운지
+    tieOrder: 1
+  - roomUuid: ad306342-a794-cffd-be87-d9aea02c5823
+    roomId: room2-2
+    displayName: Student Lounge 2
+    tieOrder: 2
+  - roomUuid: 98332012-20ba-e0ba-78ec-8440113270cd
+    roomId: room1
+    displayName: 원우회실
+    tieOrder: 0
+  - roomUuid: b4131884-79b1-7db8-5529-4875ea40bdd5
+    roomId: hall1-2
+    displayName: 라운지 앞 복도
+    tieOrder: 5
+  - roomUuid: 7e4d3e1f-3247-602b-3822-c21df384e947
+    roomId: hall1-1
+    displayName: 베란다 쪽 복도
+    tieOrder: 4
