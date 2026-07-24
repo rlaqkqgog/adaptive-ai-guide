@@ -26,8 +26,25 @@ public sealed partial class AagFp1PlacementAuthoring
     private const string SpatialAnchorLocalizedSource = "SPATIAL_ANCHOR_LOCALIZED";
     private const string RoomLocalRecoverySource = "MRUK_ROOM_LOCAL_RECOVERY";
     private const string UnavailableRecoverySource = "UNAVAILABLE";
-    private static readonly Guid Room2Uuid = AagExperimentSpaceCatalog.Fp1Room2Uuid;
+    private static readonly Guid Room2Part1Uuid = AagExperimentSpaceCatalog.Fp1Room2Part1Uuid;
+    private static readonly Guid Room2Part2Uuid = AagExperimentSpaceCatalog.Fp1Room2Part2Uuid;
     private static readonly Guid Room3Uuid = AagExperimentSpaceCatalog.Fp1Room3Uuid;
+
+    private static bool IsRoom2(Guid roomUuid) => AagExperimentSpaceCatalog.IsFp1Room2(roomUuid);
+
+    private static int CountRoom2(IReadOnlyDictionary<Guid, int> counts)
+    {
+        counts.TryGetValue(Room2Part1Uuid, out var part1);
+        counts.TryGetValue(Room2Part2Uuid, out var part2);
+        return part1 + part2;
+    }
+
+    private static int CountRoom2(IReadOnlyDictionary<string, int> counts)
+    {
+        counts.TryGetValue(Room2Part1Uuid.ToString(), out var part1);
+        counts.TryGetValue(Room2Part2Uuid.ToString(), out var part2);
+        return part1 + part2;
+    }
 
     [Header("PROVISIONAL manual hotspot persistence")]
     [SerializeField, Min(0.01f)] private float manualHotspotAdjacencyMeters = 0.75f;
@@ -780,10 +797,11 @@ public sealed partial class AagFp1PlacementAuthoring
             }
             result[room.Anchor.Uuid] = zones[0];
         }
-        if (!result.TryGetValue(Room2Uuid, out var room2Zone) || room2Zone != "ZG-01"
+        if (!result.TryGetValue(Room2Part1Uuid, out var room2Part1Zone) || room2Part1Zone != "ZG-01"
+            || !result.TryGetValue(Room2Part2Uuid, out var room2Part2Zone) || room2Part2Zone != "ZG-01"
             || !result.TryGetValue(Room3Uuid, out var room3Zone) || room3Zone != "ZG-04")
         {
-            failure = $"ROOM_CAP_MAPPING_REQUIRED Room2={Room2Uuid}:ZG-01 Room3={Room3Uuid}:ZG-04";
+            failure = $"ROOM_CAP_MAPPING_REQUIRED Room2Parts={Room2Part1Uuid},{Room2Part2Uuid}:ZG-01 Room3={Room3Uuid}:ZG-04";
             return false;
         }
         failure = string.Empty;
@@ -803,10 +821,12 @@ public sealed partial class AagFp1PlacementAuthoring
             room => room.Anchor.Uuid,
             room => Mathf.Min(
                 pools[room.Anchor.Uuid].candidates.Count,
-                room.Anchor.Uuid == Room2Uuid ? room2MaximumMarkers : room.Anchor.Uuid == Room3Uuid ? room3MaximumMarkers : int.MaxValue));
-        if (capacities.Sum(pair => pair.Value) < MarkerCountPerSet)
+                room.Anchor.Uuid == Room3Uuid ? room3MaximumMarkers : int.MaxValue));
+        var totalCapacity = capacities.Where(pair => !IsRoom2(pair.Key)).Sum(pair => pair.Value)
+            + Mathf.Min(room2MaximumMarkers, capacities.Where(pair => IsRoom2(pair.Key)).Sum(pair => pair.Value));
+        if (totalCapacity < MarkerCountPerSet)
         {
-            failure = $"manual hotspot room capacity={capacities.Sum(pair => pair.Value)}/{MarkerCountPerSet}";
+            failure = $"manual hotspot room capacity={totalCapacity}/{MarkerCountPerSet}";
             return new List<MRUKRoom>();
         }
 
@@ -818,6 +838,7 @@ public sealed partial class AagFp1PlacementAuthoring
             foreach (var room in shuffled.OrderBy(room => used[room.Anchor.Uuid]).ThenBy(_ => random.Next()))
             {
                 if (used[room.Anchor.Uuid] >= capacities[room.Anchor.Uuid]) continue;
+                if (IsRoom2(room.Anchor.Uuid) && used.Where(pair => IsRoom2(pair.Key)).Sum(pair => pair.Value) >= room2MaximumMarkers) continue;
                 sequence.Add(room);
                 used[room.Anchor.Uuid]++;
                 progressed = true;
@@ -846,7 +867,8 @@ public sealed partial class AagFp1PlacementAuthoring
                 return false;
             }
         }
-        if (requiredRoomCounts.TryGetValue(Room2Uuid, out var room2Count) && room2Count > room2MaximumMarkers)
+        var room2Count = CountRoom2(requiredRoomCounts);
+        if (room2Count > room2MaximumMarkers)
         {
             failure = $"Room2 count={room2Count}>{room2MaximumMarkers}";
             return false;
@@ -1046,7 +1068,8 @@ public sealed partial class AagFp1PlacementAuthoring
             for (var right = left + 1; right < manual.Count; right++)
                 if (AreAdjacentHotspotRecords(manual[left], manual[right])) failures.Add($"{candidate.set_id}:sameSetAdjacent");
             var roomCounts = manual.GroupBy(record => record.room_uuid).ToDictionary(group => group.Key, group => group.Count(), StringComparer.Ordinal);
-            if (roomCounts.TryGetValue(Room2Uuid.ToString(), out var room2) && room2 > room2MaximumMarkers) failures.Add($"{candidate.set_id}:Room2={room2}>{room2MaximumMarkers}");
+            var room2 = CountRoom2(roomCounts);
+            if (room2 > room2MaximumMarkers) failures.Add($"{candidate.set_id}:Room2Combined={room2}>{room2MaximumMarkers}");
             if (roomCounts.TryGetValue(Room3Uuid.ToString(), out var room3) && room3 > room3MaximumMarkers) failures.Add($"{candidate.set_id}:Room3={room3}>{room3MaximumMarkers}");
         }
 

@@ -15,6 +15,7 @@ using UnityEngine.UI;
 /// in their visible sibling managers under _Experiment.
 /// </summary>
 [DisallowMultipleComponent]
+[DefaultExecutionOrder(10000)]
 public sealed class ExperimentMain : MonoBehaviour
 {
     private const float VgMapHalfSpanMeters = 7f; // 40% wider view than the previous 5 m half-span.
@@ -22,6 +23,15 @@ public sealed class ExperimentMain : MonoBehaviour
     private const float OperatorAbortHoldSeconds = 0.8f;
     private const float S3RigidRecoveryStabilizationSeconds = 4f;
     private const float S3RigidRecoveryRetryIntervalSeconds = 0.25f;
+    private const float SpaceReadinessTimeoutSeconds = 12f;
+    private const float SpaceReadinessStableSeconds = 1.5f;
+    private const float SpaceReadinessPollSeconds = 0.25f;
+    // Quest/MRUK World Lock legitimately accumulates tracking-space corrections
+    // during a long walk. Integrity must therefore be judged per rendered frame,
+    // not against the session-start pose. These limits remain well below the
+    // multi-metre origin replacement this guard is intended to catch.
+    private const float MaximumTrackingSpaceStepMeters = 0.75f;
+    private const float MaximumTrackingSpaceStepRotationDegrees = 10f;
     private const int InventoryCapacity = 3;
     private const float InventoryDeliveryDwellSeconds = 3f;
     private const int RequiredRoomInteriorGridSize = 11;
@@ -59,6 +69,57 @@ public sealed class ExperimentMain : MonoBehaviour
         public Quaternion rotation;
         public string roomIds;
     }
+
+    private readonly struct S3CanonicalTargetPlacement
+    {
+        public readonly Vector3 Position;
+        public readonly string RoomUuid;
+
+        public S3CanonicalTargetPlacement(Vector3 position, string roomUuid)
+        {
+            Position = position;
+            RoomUuid = roomUuid;
+        }
+    }
+
+    // Validated FP1-S3 constellation from the last physically correct field run
+    // (2026-07-20 16:41).  These poses are transformed as one rigid layout from
+    // persistent tower/incidental references; live per-room MRUK floor origins
+    // are deliberately not used because Meta can replace them mid-session.
+    private static readonly IReadOnlyDictionary<string, S3CanonicalTargetPlacement>
+        S3CanonicalTargets = new Dictionary<string, S3CanonicalTargetPlacement>(StringComparer.Ordinal)
+        {
+            ["blue_1"] = new(new Vector3(-19.5796976f, 0.8613052f, -5.8403312f), "7e4d3e1f-3247-602b-3822-c21df384e947"),
+            ["blue_2"] = new(new Vector3(2.1814880f, 1.8638211f, -3.1760836f), "7423d1c6-d1e7-3316-6714-6a9b282a396e"),
+            ["blue_3"] = new(new Vector3(3.6865795f, 1.2555922f, 5.7449489f), "ce00a9e3-c3dc-48cd-a503-e928584055f2"),
+            ["green_1"] = new(new Vector3(-8.6749134f, 1.7837031f, 4.2364044f), "ad306342-a794-cffd-be87-d9aea02c5823"),
+            ["green_2"] = new(new Vector3(-13.6698999f, 0.4892681f, -0.8269613f), "5faa1907-d2e2-7605-7b01-5149a34a4c6d"),
+            ["green_3"] = new(new Vector3(8.8090744f, 2.5344079f, 5.1913123f), "ce00a9e3-c3dc-48cd-a503-e928584055f2"),
+            ["red_1"] = new(new Vector3(-26.6888847f, 0.6086617f, -4.9870124f), "98332012-20ba-e0ba-78ec-8440113270cd"),
+            ["red_2"] = new(new Vector3(-17.8106403f, 0.7588592f, -7.3271031f), "b4131884-79b1-7db8-5529-4875ea40bdd5"),
+            ["red_3"] = new(new Vector3(-11.9031324f, 1.8741175f, -6.1516155f), "b4131884-79b1-7db8-5529-4875ea40bdd5"),
+            ["yellow_1"] = new(new Vector3(-17.5012245f, 0.2500426f, -1.7263687f), "5faa1907-d2e2-7605-7b01-5149a34a4c6d"),
+            ["yellow_2"] = new(new Vector3(6.2087975f, 2.2959590f, 3.5084310f), "ce00a9e3-c3dc-48cd-a503-e928584055f2"),
+            ["yellow_3"] = new(new Vector3(7.9531116f, 0.9614943f, 0.1868193f), "880b5e63-6438-a8d5-c156-2ddffc48a6d4"),
+        };
+
+    // Floor-anchor origins in the same validated world frame as
+    // S3CanonicalTargets. Meta can rebase the complete multi-room scene after
+    // a room is removed from Space Setup. Matching the remaining room UUIDs
+    // recovers that single global transform without depending on the deleted
+    // Unmapped room or on any individual object anchor.
+    private static readonly IReadOnlyDictionary<Guid, Vector3> S3CanonicalRoomFloorOrigins =
+        new Dictionary<Guid, Vector3>
+        {
+            [Guid.Parse("5faa1907-d2e2-7605-7b01-5149a34a4c6d")] = new(-13.106f, 0.036f, -0.403f),
+            [Guid.Parse("98332012-20ba-e0ba-78ec-8440113270cd")] = new(-26.704f, -0.002f, -3.716f),
+            [Guid.Parse("0d537c33-3e47-2606-3ea9-897c2bc9f1ce")] = new(1.133f, 0.079f, 2.906f),
+            [Guid.Parse("b4131884-79b1-7db8-5529-4875ea40bdd5")] = new(-12.484f, -0.003f, -5.448f),
+            [Guid.Parse("ce00a9e3-c3dc-48cd-a503-e928584055f2")] = new(6.964f, 0.018f, 3.705f),
+            [Guid.Parse("7e4d3e1f-3247-602b-3822-c21df384e947")] = new(-22.695f, -0.005f, -7.886f),
+            [Guid.Parse("880b5e63-6438-a8d5-c156-2ddffc48a6d4")] = new(10.916f, 0.006f, -0.139f),
+            [Guid.Parse("7423d1c6-d1e7-3316-6714-6a9b282a396e")] = new(-0.681f, -0.049f, -2.859f),
+        };
 
     [Serializable]
     private sealed class ObjectEventLog
@@ -189,6 +250,7 @@ public sealed class ExperimentMain : MonoBehaviour
     [Header("Existing Scene Services")]
     [SerializeField] private AnchorLoader anchorLoader;
     [SerializeField] private SpatialAnchorManager spatialAnchorManager;
+    [SerializeField] private AagExperimentSpaceValidator experimentSpaceValidator;
     [SerializeField] private Transform headTransform;
 
     [Header("Visible Experiment Managers")]
@@ -199,6 +261,9 @@ public sealed class ExperimentMain : MonoBehaviour
     [SerializeField] private FixedTowerAnchorLoader fixedTowerAnchorLoader;
     [SerializeField] private IncidentalObjectManager incidentalObjectManager;
     [SerializeField] private IncidentalAnchorLoader incidentalAnchorLoader;
+    [SerializeField] private AagFiducialZoneAlignment fiducialZoneAlignment;
+    [SerializeField] private AagFixedSpaceOffset fixedSpaceOffset;
+    [SerializeField] private AagSpaceOffsetDiagnostic spaceOffsetDiagnostic;
 
     [Header("Scene-owned Outputs")]
     [SerializeField] private AudioSource audioSource;
@@ -252,11 +317,20 @@ public sealed class ExperimentMain : MonoBehaviour
     private float activeDeliveryDwellStartedAt = -1f;
     private float transientInventoryFeedbackUntil = -1f;
     private bool inventoryCompletionEndScheduled;
+    private bool sessionTrackingSpaceLockActive;
+    private Transform lockedTrackingSpace;
+    private Vector3 lockedTrackingSpaceLocalPosition;
+    private Quaternion lockedTrackingSpaceLocalRotation;
+    private string pendingSpatialIntegrityFailure = string.Empty;
+    private bool spaceReadinessPassed;
+    private string spaceReadinessFailure = string.Empty;
     private string activeInventoryStoreObjectId = string.Empty;
     private string currentTowerZoneId = string.Empty;
     private string currentTowerZoneColor = string.Empty;
     private float currentTowerZoneEnteredAt = -1f;
     private bool deliveryCompletionFeedbackActive;
+    private bool fiducialStartGatePassed;
+    private string lastFiducialHudStatus = string.Empty;
 
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
     private string SelectedSetId => SafeChoice(config != null ? config.setIds : null, setIndex, AagExperimentSpaceCatalog.Fp1S1);
@@ -276,6 +350,8 @@ public sealed class ExperimentMain : MonoBehaviour
 
         if (anchorLoader == null) anchorLoader = FindFirstObjectByType<AnchorLoader>();
         if (spatialAnchorManager == null) spatialAnchorManager = FindFirstObjectByType<SpatialAnchorManager>();
+        if (experimentSpaceValidator == null)
+            experimentSpaceValidator = FindFirstObjectByType<AagExperimentSpaceValidator>();
         if (headTransform == null)
         {
             var rig = FindFirstObjectByType<OVRCameraRig>();
@@ -295,9 +371,27 @@ public sealed class ExperimentMain : MonoBehaviour
             incidentalObjectManager = GetComponent<IncidentalObjectManager>() ?? gameObject.AddComponent<IncidentalObjectManager>();
         if (incidentalAnchorLoader == null)
             incidentalAnchorLoader = GetComponent<IncidentalAnchorLoader>() ?? gameObject.AddComponent<IncidentalAnchorLoader>();
+        if (fiducialZoneAlignment == null)
+            fiducialZoneAlignment = GetComponent<AagFiducialZoneAlignment>()
+                ?? gameObject.AddComponent<AagFiducialZoneAlignment>();
+        if (fixedSpaceOffset == null)
+            fixedSpaceOffset = GetComponent<AagFixedSpaceOffset>()
+                ?? gameObject.AddComponent<AagFixedSpaceOffset>();
+        if (spaceOffsetDiagnostic == null)
+            spaceOffsetDiagnostic = GetComponent<AagSpaceOffsetDiagnostic>()
+                ?? gameObject.AddComponent<AagSpaceOffsetDiagnostic>();
         fixedTowerAnchorLoader.Initialize(spatialAnchorManager != null ? spatialAnchorManager.anchorPrefab : null);
         incidentalAnchorLoader.Initialize(spatialAnchorManager != null ? spatialAnchorManager.anchorPrefab : null);
         fixedTowerManager.Initialize(config, this);
+        fiducialZoneAlignment.Initialize(config, WriteSystem);
+        fiducialZoneAlignment.enabled = config.fiducialMarkerAlignmentEnabled;
+        fixedSpaceOffset.Configure(
+            config.fixedSpaceOffsetEnabled,
+            config.fixedSpaceOffsetMeters,
+            config.fixedSpaceOffsetHorizontalOnly);
+        spaceOffsetDiagnostic.SetFixedSpaceOffset(fixedSpaceOffset);
+        behaviorMetrics?.SetPhysicalRoomProvider(
+            fiducialZoneAlignment.GetCurrentPhysicalRoomUuid);
 
         if (behaviorMetrics == null || aagGuide == null || loggingManager == null || audioSource == null)
         {
@@ -332,6 +426,21 @@ public sealed class ExperimentMain : MonoBehaviour
         if (state == SessionState.Idle)
         {
             HandleOperatorInput();
+            if (fiducialZoneAlignment != null
+                && fiducialZoneAlignment.HandleIdleCalibrationInput(out var markerStatus))
+            {
+                lastFiducialHudStatus = fiducialZoneAlignment.StatusLine;
+                RefreshHud(markerStatus);
+            }
+            else if (fiducialZoneAlignment != null
+                && !string.Equals(
+                    lastFiducialHudStatus,
+                    fiducialZoneAlignment.StatusLine,
+                    StringComparison.Ordinal))
+            {
+                lastFiducialHudStatus = fiducialZoneAlignment.StatusLine;
+                RefreshHud("Ready");
+            }
             return;
         }
 
@@ -370,6 +479,41 @@ public sealed class ExperimentMain : MonoBehaviour
 #if ENABLE_LEGACY_INPUT_MANAGER
         if (Input.GetKeyDown(KeyCode.Escape)) EndSession("operator_abort");
 #endif
+    }
+
+    private void LateUpdate()
+    {
+        // MRUK World Lock updates TrackingSpace in Update(). Compare with the
+        // last accepted frame so normal gradual correction can accumulate without
+        // being mistaken for an origin jump.
+        if (!sessionTrackingSpaceLockActive || lockedTrackingSpace == null) return;
+
+        var positionStep = Vector3.Distance(
+            lockedTrackingSpace.localPosition, lockedTrackingSpaceLocalPosition);
+        var rotationStep = Quaternion.Angle(
+            lockedTrackingSpace.localRotation, lockedTrackingSpaceLocalRotation);
+        if (positionStep <= MaximumTrackingSpaceStepMeters
+            && rotationStep <= MaximumTrackingSpaceStepRotationDegrees)
+        {
+            lockedTrackingSpaceLocalPosition = lockedTrackingSpace.localPosition;
+            lockedTrackingSpaceLocalRotation = lockedTrackingSpace.localRotation;
+            return;
+        }
+
+        // A single-frame change this large is an unsafe relocalization. Restore
+        // the immediately preceding accepted pose and fail closed.
+        lockedTrackingSpace.SetLocalPositionAndRotation(
+            lockedTrackingSpaceLocalPosition,
+            lockedTrackingSpaceLocalRotation);
+
+        pendingSpatialIntegrityFailure =
+            $"tracking_space_step_position_{positionStep:F3}m_rotation_{rotationStep:F2}deg";
+        if (state != SessionState.Running) return;
+
+        WriteSystem(
+            "spatial_integrity_breach",
+            $"reason={pendingSpatialIntegrityFailure}; action=session_failed_closed");
+        EndSession("spatial_integrity_abort", pendingSpatialIntegrityFailure);
     }
 
     private void HandleRunningOperatorWindowInput()
@@ -467,6 +611,8 @@ public sealed class ExperimentMain : MonoBehaviour
         }
         target.pocketed = true;
         target.collected = true;
+        if (behaviorMetrics.NotifyTargetFound(objectId, "inventory"))
+            aagGuide?.NotifyTargetFound();
         pocketedObjectIds.Add(objectId);
         behaviorMetrics.ForceClearCarry();
         target.transform.gameObject.SetActive(false);
@@ -879,16 +1025,111 @@ public sealed class ExperimentMain : MonoBehaviour
         StartCoroutine(StartSessionRoutine());
     }
 
+    private IEnumerator WaitForExperimentSpaceReadiness()
+    {
+        spaceReadinessPassed = false;
+        spaceReadinessFailure = "space_readiness_timeout";
+        var deadline = Time.realtimeSinceStartup + SpaceReadinessTimeoutSeconds;
+        var stableSince = -1f;
+        var nextPollAt = 0f;
+
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            var now = Time.realtimeSinceStartup;
+            if (now < nextPollAt)
+            {
+                yield return null;
+                continue;
+            }
+            nextPollAt = now + SpaceReadinessPollSeconds;
+
+            if (experimentSpaceValidator == null)
+            {
+                spaceReadinessFailure = "space_validator_missing";
+                stableSince = -1f;
+            }
+            else if (experimentSpaceValidator.TryValidateSessionStart(
+                headTransform,
+                AagExperimentSpaceCatalog.Fp1Room3Uuid,
+                fiducialStartGatePassed,
+                out var failure))
+            {
+                if (stableSince < 0f) stableSince = now;
+                var stableSeconds = now - stableSince;
+                RefreshHud($"Checking experiment space {stableSeconds:F1}/{SpaceReadinessStableSeconds:F1}s...");
+                if (stableSeconds >= SpaceReadinessStableSeconds)
+                {
+                    spaceReadinessPassed = true;
+                    spaceReadinessFailure = string.Empty;
+                    yield break;
+                }
+            }
+            else
+            {
+                stableSince = -1f;
+                spaceReadinessFailure = failure;
+                RefreshHud($"SPACE NOT READY: {failure}");
+            }
+
+            yield return null;
+        }
+
+        Debug.LogError(
+            $"[AAG Space Gate] Start blocked after {SpaceReadinessTimeoutSeconds:F1}s: {spaceReadinessFailure}");
+    }
+
     private IEnumerator StartSessionRoutine()
     {
         state = SessionState.Loading;
         PrepareForNewSession();
+
+        if (config.fixedSpaceOffsetEnabled && config.fiducialMarkerAlignmentEnabled)
+        {
+            state = SessionState.Idle;
+            RefreshHud("START BLOCKED: fixed_offset_and_fiducial_are_mutually_exclusive");
+            Debug.LogError(
+                "[AAG Fixed Offset] Disable either Fixed Global Translation or Fiducial Marker Alignment. "
+                + "Applying both would double-correct experiment content.",
+                this);
+            yield break;
+        }
+        fixedSpaceOffset.Configure(
+            config.fixedSpaceOffsetEnabled,
+            config.fixedSpaceOffsetMeters,
+            config.fixedSpaceOffsetHorizontalOnly);
+
+        fiducialStartGatePassed = false;
+        if (config.fiducialMarkerAlignmentEnabled)
+        {
+            RefreshHud("Checking Room3 QR marker...");
+            var fiducialFailure = "fiducial_manager_missing";
+            if (fiducialZoneAlignment == null
+                || !fiducialZoneAlignment.TryValidateSessionStart("room3", out fiducialFailure))
+            {
+                state = SessionState.Idle;
+                RefreshHud($"START BLOCKED: {fiducialFailure}");
+                yield break;
+            }
+            fiducialStartGatePassed = true;
+            fiducialZoneAlignment.BeginSession("room3");
+        }
+
+        RefreshHud("Checking experiment space...");
+        yield return WaitForExperimentSpaceReadiness();
+        if (!spaceReadinessPassed)
+        {
+            fiducialZoneAlignment?.EndSession();
+            state = SessionState.Idle;
+            RefreshHud($"START BLOCKED: {spaceReadinessFailure}");
+            yield break;
+        }
 
         currentSetId = SelectedSetId;
         currentGuideMode = SelectedGuideMode;
         sessionId = BuildSessionId(SelectedParticipantId, currentSetId, currentGuideMode);
         if (!loggingManager.OpenSession(sessionId, SelectedParticipantId, currentSetId, currentGuideMode, config))
         {
+            fiducialZoneAlignment?.EndSession();
             sessionId = string.Empty;
             state = SessionState.Idle;
             RefreshHud("START BLOCKED: log_open_failed");
@@ -896,6 +1137,11 @@ public sealed class ExperimentMain : MonoBehaviour
         }
         behaviorMetrics.BeginSession(config, headTransform, loggingManager);
         aagGuide.BeginSession(config, behaviorMetrics, loggingManager);
+        if (!BeginSessionTrackingSpaceLock(out var trackingLockFailure))
+        {
+            AbortLoading(trackingLockFailure);
+            yield break;
+        }
         RefreshHud("Loading anchors...");
 
         if (anchorLoader == null || spatialAnchorManager == null)
@@ -955,15 +1201,84 @@ public sealed class ExperimentMain : MonoBehaviour
             yield break;
         }
 
-        var loadedTargetsFromRoomLocal = TrySpawnRoomLocalTargets(
-            set, out var roomLocalLoadDetail, out var roomLocalLoadFailure);
-        if (loadedTargetsFromRoomLocal)
-            WriteSystem("room_local_load_succeeded", roomLocalLoadDetail);
+        var isS3 = string.Equals(
+            set.set_id, AagExperimentSpaceCatalog.Fp1S3, StringComparison.Ordinal);
+        var loadedTargetsFromS3Global = false;
+        if (!TrySolveS3RoomConstellation(
+                out var roomConstellationSolution,
+                out var roomConstellationFailure,
+                out var roomConstellationDetail))
+        {
+            var strictDetail = roomConstellationDetail;
+            if (TrySolveS3RoomConstellation(
+                    out roomConstellationSolution,
+                    out var bestEffortWarning,
+                    out var bestEffortDetail,
+                    true))
+            {
+                WriteSystem(
+                    "room_constellation_warning",
+                    $"{strictDetail}; action=diagnostic_only_continue_best_effort; "
+                    + $"qualityWarning={bestEffortWarning}; fallback={bestEffortDetail}");
+            }
+            else
+            {
+                // UUID and floor validation remain fail-closed in the space
+                // validator. Constellation geometry is diagnostic only because
+                // Meta may independently relocalize overlapping room floors.
+                roomConstellationSolution = new AagRigidPoseRecovery.Solution(
+                    Quaternion.identity,
+                    Vector3.zero,
+                    Array.Empty<string>(),
+                    Array.Empty<string>(),
+                    float.PositiveInfinity,
+                    float.PositiveInfinity);
+                WriteSystem(
+                    "room_constellation_warning",
+                    $"{strictDetail}; action=diagnostic_only_continue_identity_rotation; "
+                    + $"bestEffortFailure={bestEffortWarning}; fallback={bestEffortDetail}");
+            }
+        }
         else
-            WriteSystem("room_local_load_fallback", roomLocalLoadFailure);
+        {
+            WriteSystem("room_constellation_solved", roomConstellationDetail);
+        }
 
-        AagRigidPoseRecovery.Solution? s3RecoverySolution = null;
-        if (!loadedTargetsFromRoomLocal)
+        // Target and S3 incidental positions are resolved in individual MRUK
+        // floor frames. The constellation solution supplies only a best-effort
+        // legacy orientation/fallback for content that has not yet migrated.
+        AagRigidPoseRecovery.Solution? s3RecoverySolution = roomConstellationSolution;
+
+        if (!TryResolveFixedTowersFromRoomFloors(
+                towersByUuid,
+                roomConstellationSolution,
+                out var towerRoomLocalDetail,
+                out var towerRoomLocalFailure))
+        {
+            WriteSystem("tower_room_local_failed", towerRoomLocalFailure);
+            AbortLoading($"fixed_tower_room_local_failed_{towerRoomLocalFailure}");
+            yield break;
+        }
+        WriteSystem("tower_room_local_resolved", towerRoomLocalDetail);
+
+        var roomLocalLoadDetail = string.Empty;
+        var roomLocalLoadFailure = string.Empty;
+        var loadedTargetsFromRoomLocal = TrySpawnRoomLocalTargets(
+            set, out roomLocalLoadDetail, out roomLocalLoadFailure);
+        if (loadedTargetsFromRoomLocal)
+        {
+            WriteSystem(
+                isS3 ? "s3_room_local_load_succeeded" : "room_local_load_succeeded",
+                roomLocalLoadDetail);
+        }
+        else
+        {
+            WriteSystem("room_local_load_failed", roomLocalLoadFailure);
+            AbortLoading($"room_local_catalog_failed_{roomLocalLoadFailure}");
+            yield break;
+        }
+
+        if (!loadedTargetsFromRoomLocal && !loadedTargetsFromS3Global)
         {
             anchorLoader.ClearLoadedAnchors();
             anchorLoader.ClearPrefabOverrides();
@@ -1135,7 +1450,7 @@ public sealed class ExperimentMain : MonoBehaviour
 
         FreezeRealTargetAnchors();
         ResolveHorizontalWallPenetrations();
-        if (!loadedTargetsFromRoomLocal)
+        if (!loadedTargetsFromRoomLocal && !loadedTargetsFromS3Global)
         {
             if (TryCaptureRoomLocalTargets(currentSetId, out var roomLocalCaptureDetail, out var roomLocalCaptureFailure))
                 WriteSystem("room_local_calibration_saved", roomLocalCaptureDetail);
@@ -1145,7 +1460,7 @@ public sealed class ExperimentMain : MonoBehaviour
 
         WriteSystem("tower_load_started",
             $"fixedTowers={towersByUuid.Count}; requested={towersByUuid.Count}; loader=TOWER_ONLY");
-        fixedTowerAnchorLoader.Load(towersByUuid);
+        fixedTowerAnchorLoader.LoadCurrentWorldPoses(towersByUuid);
         while (fixedTowerAnchorLoader.IsLoading)
         {
             RefreshHud($"Loading towers {fixedTowerAnchorLoader.LoadedCount}/{towersByUuid.Count}...");
@@ -1171,10 +1486,23 @@ public sealed class ExperimentMain : MonoBehaviour
                 : "REAL";
             WriteSystem("tower_loaded", $"tower={pair.Value.towerId}; mode={sourceMode}");
         }
+        if (isS3 || config.fiducialMarkerAlignmentEnabled || config.fixedSpaceOffsetEnabled)
+        {
+            var frozenTowerAnchors = fixedTowerAnchorLoader.FreezeRealAnchorPoses();
+            var towerFrame = config.fiducialMarkerAlignmentEnabled
+                ? "fiducial_zone"
+                : config.fixedSpaceOffsetEnabled
+                    ? "fixed_global_translation"
+                    : "session_global";
+            WriteSystem(
+                "tower_poses_frozen",
+                $"realAnchors={frozenTowerAnchors}; total={towersByUuid.Count}; "
+                + $"frame={towerFrame}");
+        }
 
         WriteSystem("incidental_load_started",
             $"set={currentSetId}; objects={incidentalsByUuid.Count}; requested={incidentalsByUuid.Count}; loader=INCIDENTAL_ONLY");
-        incidentalAnchorLoader.Load(incidentalsByUuid, s3RecoverySolution);
+        incidentalAnchorLoader.Load(incidentalsByUuid, s3RecoverySolution, true, currentSetId);
         while (incidentalAnchorLoader.IsLoading)
         {
             RefreshHud($"Loading incidental objects {incidentalAnchorLoader.LoadedCount}/{incidentalsByUuid.Count}...");
@@ -1215,6 +1543,41 @@ public sealed class ExperimentMain : MonoBehaviour
                 + $"position=({incidentalPosition.x:F4},{incidentalPosition.y:F4},{incidentalPosition.z:F4})");
         }
 
+        if (!TryRegisterFixedOffsetContent(
+                towersByUuid,
+                incidentalsByUuid,
+                out var fixedOffsetFailure))
+        {
+            AbortLoading($"fixed_space_offset_failed_{fixedOffsetFailure}");
+            yield break;
+        }
+
+        if (!TryRegisterFiducialZoneContent(
+                towersByUuid,
+                incidentalsByUuid,
+                out var fiducialRegistrationFailure))
+        {
+            AbortLoading($"fiducial_content_registration_failed_{fiducialRegistrationFailure}");
+            yield break;
+        }
+
+        if (!string.IsNullOrEmpty(pendingSpatialIntegrityFailure))
+        {
+            AbortLoading($"spatial_integrity_changed_during_loading_{pendingSpatialIntegrityFailure}");
+            yield break;
+        }
+        var finalSpaceFailure = experimentSpaceValidator == null ? "validator_missing" : string.Empty;
+        if (experimentSpaceValidator == null
+            || !experimentSpaceValidator.TryValidateSessionStart(
+                headTransform,
+                AagExperimentSpaceCatalog.Fp1Room3Uuid,
+                fiducialStartGatePassed,
+                out finalSpaceFailure))
+        {
+            AbortLoading($"final_space_validation_failed_{finalSpaceFailure}");
+            yield break;
+        }
+
         runClockStart = Time.realtimeSinceStartup;
         sampleAccumulator = 0f;
         nextDecisionTime = SessionTime + Mathf.Max(0.5f, config.decisionIntervalSeconds);
@@ -1238,6 +1601,7 @@ public sealed class ExperimentMain : MonoBehaviour
 
     private void PrepareForNewSession()
     {
+        ReleaseSessionTrackingSpaceLock();
         CloseRunningOperatorWindow(false);
         StopGuideOutputs();
         loggingManager.CloseSession();
@@ -1248,6 +1612,10 @@ public sealed class ExperimentMain : MonoBehaviour
 
     private void ClearSpawnedObjects()
     {
+        fiducialZoneAlignment?.EndSession();
+        fiducialZoneAlignment?.ReleaseAllContent();
+        fixedSpaceOffset?.ClearRegisteredContent();
+        fiducialStartGatePassed = false;
         ResetInventoryDeliveryDwell(false, "session_clear");
         mismatchFeedbackTowerId = string.Empty;
         currentTowerZoneId = string.Empty;
@@ -1277,15 +1645,94 @@ public sealed class ExperimentMain : MonoBehaviour
         }
     }
 
+    private bool TryRegisterFixedOffsetContent(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid,
+        IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> incidentalsByUuid,
+        out string failure)
+    {
+        failure = string.Empty;
+        if (config == null || !config.fixedSpaceOffsetEnabled) return true;
+        if (fixedSpaceOffset == null)
+        {
+            failure = "manager_missing";
+            return false;
+        }
+
+        var correction = fixedSpaceOffset.CorrectionOffsetMeters;
+        if (!AagSpaceOffsetSolver.IsFinite(correction))
+        {
+            failure = "correction_non_finite";
+            return false;
+        }
+        if (correction.magnitude > AagFiducialZoneAlignment.MaximumAcceptedCorrectionMeters)
+        {
+            failure = $"correction_too_large_{correction.magnitude:F3}m";
+            return false;
+        }
+
+        fixedSpaceOffset.ClearRegisteredContent();
+        var registeredRoots = new HashSet<Transform>();
+        foreach (var target in targets.Values.OrderBy(value => value.objectId, StringComparer.Ordinal))
+        {
+            var root = ResolveTargetRegistrationRoot(target?.transform);
+            if (root == null)
+            {
+                failure = $"target_root_missing_{target?.objectId ?? "null"}";
+                return false;
+            }
+            if (!registeredRoots.Add(root)) continue;
+            if (!fixedSpaceOffset.TryRegisterContent(root, $"target:{target.objectId}", out failure))
+                return false;
+        }
+
+        foreach (var pair in towersByUuid.OrderBy(value => value.Value.towerId, StringComparer.Ordinal))
+        {
+            if (!fixedTowerAnchorLoader.TryGetTransform(pair.Key, out var towerRoot)
+                || towerRoot == null)
+            {
+                failure = $"tower_root_missing_{pair.Value.towerId}";
+                return false;
+            }
+            if (!registeredRoots.Add(towerRoot)) continue;
+            if (!fixedSpaceOffset.TryRegisterContent(
+                    towerRoot, $"tower:{pair.Value.towerId}", out failure))
+                return false;
+        }
+
+        foreach (var pair in incidentalsByUuid.OrderBy(value => value.Value.object_id, StringComparer.Ordinal))
+        {
+            if (!incidentalAnchorLoader.TryGetTransform(pair.Key, out var incidentalRoot)
+                || incidentalRoot == null)
+            {
+                failure = $"incidental_root_missing_{pair.Value.object_id}";
+                return false;
+            }
+            if (!registeredRoots.Add(incidentalRoot)) continue;
+            if (!fixedSpaceOffset.TryRegisterContent(
+                    incidentalRoot, $"incidental:{pair.Value.object_id}", out failure))
+                return false;
+        }
+
+        WriteSystem(
+            "fixed_space_offset_applied",
+            $"roots={fixedSpaceOffset.RegisteredRootCount}; "
+            + $"offset=({correction.x:F4},{correction.y:F4},{correction.z:F4}); "
+            + $"horizontalOnly={fixedSpaceOffset.HorizontalOnly}; source=FP1ExperimentConfig");
+        return true;
+    }
+
     private void RegisterTarget(
         AagManualAnchorEntry entry,
         Transform targetTransform,
         bool approximate,
-        string sourceModeOverride = null)
+        string sourceModeOverride = null,
+        string roomUuidOverride = null)
     {
         if (entry == null || targetTransform == null) return;
         var movableTransform = ConfigureStoneInteraction(targetTransform);
-        var roomUuid = behaviorMetrics.ResolveRoomUuid(movableTransform.position);
+        var roomUuid = string.IsNullOrWhiteSpace(roomUuidOverride)
+            ? behaviorMetrics.ResolveRoomUuid(movableTransform.position)
+            : roomUuidOverride.Trim();
         var mapping = config.FindRoom(roomUuid);
         var id = string.IsNullOrWhiteSpace(entry.marker_id) ? entry.anchor_uuid : entry.marker_id;
         var bridge = movableTransform.GetComponent<ExperimentObject>()
@@ -1309,6 +1756,103 @@ public sealed class ExperimentMain : MonoBehaviour
         };
         WriteObjectEvent("target_loaded", id, string.Empty);
         WriteSystem("target_loaded", $"object={id}; mode={sourceMode}; roomUuid={roomUuid}");
+    }
+
+    private bool TryRegisterFiducialZoneContent(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid,
+        IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> incidentalsByUuid,
+        out string failure)
+    {
+        failure = string.Empty;
+        if (config == null || !config.fiducialMarkerAlignmentEnabled) return true;
+        if (fiducialZoneAlignment == null)
+        {
+            failure = "manager_missing";
+            return false;
+        }
+
+        var registeredRoots = new HashSet<Transform>();
+        foreach (var target in targets.Values.OrderBy(value => value.objectId, StringComparer.Ordinal))
+        {
+            if (target?.transform == null || string.IsNullOrWhiteSpace(target.roomUuid))
+            {
+                failure = $"target_identity_missing_{target?.objectId ?? "null"}";
+                return false;
+            }
+
+            var root = ResolveTargetRegistrationRoot(target.transform);
+            if (root == null)
+            {
+                failure = $"target_root_missing_{target.objectId}";
+                return false;
+            }
+            if (!registeredRoots.Add(root)) continue;
+            if (!fiducialZoneAlignment.RegisterContent(
+                    target.roomUuid,
+                    root,
+                    $"target:{target.objectId}",
+                    out failure))
+                return false;
+        }
+
+        foreach (var pair in towersByUuid.OrderBy(value => value.Value.towerId, StringComparer.Ordinal))
+        {
+            if (!AagFixedTowerRoomLocalCatalog.TryGet(pair.Value.towerId, out var placement)
+                || !fixedTowerAnchorLoader.TryGetTransform(pair.Key, out var towerRoot)
+                || towerRoot == null)
+            {
+                failure = $"tower_root_or_room_missing_{pair.Value.towerId}";
+                return false;
+            }
+            if (!registeredRoots.Add(towerRoot)) continue;
+            if (!fiducialZoneAlignment.RegisterContent(
+                    placement.RoomUuid.ToString(),
+                    towerRoot,
+                    $"tower:{pair.Value.towerId}",
+                    out failure))
+                return false;
+        }
+
+        foreach (var pair in incidentalsByUuid.OrderBy(value => value.Value.object_id, StringComparer.Ordinal))
+        {
+            if (!incidentalAnchorLoader.TryGetTransform(pair.Key, out var incidentalRoot)
+                || incidentalRoot == null)
+            {
+                failure = $"incidental_root_missing_{pair.Value.object_id}";
+                return false;
+            }
+            var roomUuid = behaviorMetrics.ResolveRoomUuid(incidentalRoot.position);
+            if (string.IsNullOrWhiteSpace(roomUuid))
+            {
+                failure = $"incidental_room_unresolved_{pair.Value.object_id}";
+                return false;
+            }
+            if (!registeredRoots.Add(incidentalRoot)) continue;
+            if (!fiducialZoneAlignment.RegisterContent(
+                    roomUuid,
+                    incidentalRoot,
+                    $"incidental:{pair.Value.object_id}",
+                    out failure))
+                return false;
+        }
+
+        WriteSystem(
+            "fiducial_content_registration_complete",
+            $"roots={registeredRoots.Count}; targets={targets.Count}; "
+            + $"towers={towersByUuid.Count}; incidentals={incidentalsByUuid.Count}");
+        return true;
+    }
+
+    private Transform ResolveTargetRegistrationRoot(Transform targetTransform)
+    {
+        if (targetTransform == null) return null;
+        var approximateRoot = approximatedObjects.FirstOrDefault(value =>
+            value != null
+            && (value.transform == targetTransform || targetTransform.IsChildOf(value.transform)));
+        if (approximateRoot != null) return approximateRoot.transform;
+
+        var spatialAnchor = targetTransform.GetComponentInParent<OVRSpatialAnchor>(true);
+        return spatialAnchor != null ? spatialAnchor.transform : targetTransform;
     }
 
     // The old Cube child remains in the anchor prefab for backwards compatibility.
@@ -1500,8 +2044,21 @@ public sealed class ExperimentMain : MonoBehaviour
                 return false;
             if (!AagRecoveryPlacementValidator.TryValidate(position, out var roomIds, out var placementFailure))
             {
-                failure = $"{placementFailure}_{saved.objectId}";
-                return false;
+                if (!TryRecoverS3VolumePlacement(
+                        set.set_id,
+                        saved,
+                        position,
+                        placements,
+                        placementFailure,
+                        out position,
+                        out roomIds,
+                        out var recoveryDetail))
+                {
+                    failure = $"{placementFailure}_{saved.objectId}";
+                    return false;
+                }
+
+                WriteSystem("target_room_local_volume_rehomed", recoveryDetail);
             }
             if (!roomIds.Split('|').Contains(saved.roomUuid, StringComparer.OrdinalIgnoreCase))
             {
@@ -1557,6 +2114,66 @@ public sealed class ExperimentMain : MonoBehaviour
         detail = $"set={set.set_id}; targets={placements.Count}; calibratedAt={savedSet.calibratedAtUtc}; "
             + $"source={savedSet.calibrationSource}; path={MrukRoomLocalPlacementStore.CatalogPath}";
         return true;
+    }
+
+    private static bool TryRecoverS3VolumePlacement(
+        string setId,
+        MrukRoomLocalPlacementStore.Placement saved,
+        Vector3 originalPosition,
+        IReadOnlyCollection<RecoveredTargetPlacement> existingPlacements,
+        string validationFailure,
+        out Vector3 resolvedPosition,
+        out string roomIds,
+        out string detail)
+    {
+        resolvedPosition = originalPosition;
+        roomIds = string.Empty;
+        detail = string.Empty;
+
+        // A rescan can classify a previously valid S3 floor-local pose inside a
+        // newly measured table/storage volume. Rehome only volume collisions in
+        // the same required room; all other invalid poses remain fail-closed.
+        if (!string.Equals(setId, AagExperimentSpaceCatalog.Fp1S3, StringComparison.Ordinal)
+            || saved == null
+            || !validationFailure.StartsWith("inside_mruk_volume_", StringComparison.Ordinal)
+            || !Guid.TryParse(saved.roomUuid, out var roomUuid)
+            || !Guid.TryParse(saved.floorAnchorUuid, out var floorUuid))
+            return false;
+
+        var room = MRUK.Instance?.Rooms?.FirstOrDefault(value =>
+            value != null && value.Anchor != null && value.Anchor.Uuid == roomUuid);
+        var floor = room?.FloorAnchors?.FirstOrDefault(value =>
+            value != null && value.Anchor != null && value.Anchor.Uuid == floorUuid
+            && value.PlaneBoundary2D != null && value.PlaneBoundary2D.Count >= 3);
+        if (floor == null) return false;
+
+        var localHeight = floor.transform.InverseTransformPoint(originalPosition).z;
+        const float minimumSeparationMeters = 1.5f;
+        foreach (var candidate in BuildRequiredRoomInteriorCandidates(floor))
+        {
+            var candidateWorld = floor.transform.TransformPoint(
+                new Vector3(candidate.point.x, candidate.point.y, localHeight));
+            if (!AagRecoveryPlacementValidator.TryValidate(candidateWorld, out var candidateRoomIds, out _)
+                || !candidateRoomIds.Split('|').Contains(roomUuid.ToString(), StringComparer.OrdinalIgnoreCase))
+                continue;
+
+            var overlapsExistingTarget = existingPlacements.Any(existing =>
+            {
+                var delta = candidateWorld - existing.position;
+                delta.y = 0f;
+                return delta.sqrMagnitude < minimumSeparationMeters * minimumSeparationMeters;
+            });
+            if (overlapsExistingTarget) continue;
+
+            resolvedPosition = candidateWorld;
+            roomIds = candidateRoomIds;
+            detail = $"object={saved.objectId}; reason={validationFailure}; room={roomUuid}; "
+                + $"floor={floorUuid}; from=({originalPosition.x:F4},{originalPosition.y:F4},{originalPosition.z:F4}); "
+                + $"to=({candidateWorld.x:F4},{candidateWorld.y:F4},{candidateWorld.z:F4})";
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryCaptureRoomLocalTargets(
@@ -1771,6 +2388,272 @@ public sealed class ExperimentMain : MonoBehaviour
         return false;
     }
 
+    private List<AagRigidPoseRecovery.Reference> CollectS3GlobalReferences(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid,
+        IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> incidentalsByUuid)
+    {
+        var references = new List<AagRigidPoseRecovery.Reference>();
+        foreach (var pair in towersByUuid.OrderBy(value => value.Value.towerId, StringComparer.Ordinal))
+        {
+            if (pair.Value == null || !pair.Value.hasFallbackPose
+                || !anchorLoader.TryGetLocalizedAnchor(pair.Key, out var anchor)
+                || anchorLoader.LocalizationFailuresReadOnly.ContainsKey(pair.Key))
+                continue;
+            references.Add(new AagRigidPoseRecovery.Reference(
+                $"tower:{pair.Value.towerId}",
+                pair.Value.fallbackWorldPosition,
+                anchor.transform.position));
+        }
+
+        foreach (var pair in incidentalsByUuid.OrderBy(value => value.Value.object_id, StringComparer.Ordinal))
+        {
+            if (pair.Value == null
+                || !anchorLoader.TryGetLocalizedAnchor(pair.Key, out var anchor)
+                || anchorLoader.LocalizationFailuresReadOnly.ContainsKey(pair.Key))
+                continue;
+            references.Add(new AagRigidPoseRecovery.Reference(
+                $"incidental:{pair.Value.object_id}",
+                pair.Value.FallbackPosition,
+                anchor.transform.position));
+        }
+        return references;
+    }
+
+    private bool TrySolveS3RoomConstellation(
+        out AagRigidPoseRecovery.Solution solution,
+        out string failure,
+        out string detail,
+        bool allowRmsWarning = false)
+    {
+        solution = default;
+        failure = string.Empty;
+        detail = string.Empty;
+        var references = new List<AagRigidPoseRecovery.Reference>();
+        var rooms = MRUK.Instance?.Rooms;
+        if (rooms == null)
+        {
+            failure = "mruk_rooms_unavailable";
+            detail = "reason=mruk_rooms_unavailable";
+            return false;
+        }
+
+        foreach (var pair in S3CanonicalRoomFloorOrigins.OrderBy(value => value.Key))
+        {
+            var room = rooms.FirstOrDefault(value =>
+                value != null && value.Anchor != null && value.Anchor.Uuid == pair.Key);
+            var floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
+            if (floor == null) continue;
+            references.Add(new AagRigidPoseRecovery.Reference(
+                $"room:{pair.Key}",
+                pair.Value,
+                floor.transform.position));
+        }
+
+        var solved = allowRmsWarning
+            ? AagRigidPoseRecovery.TrySolveBestEffort(references, out solution, out failure)
+            : AagRigidPoseRecovery.TrySolve(references, out solution, out failure);
+        detail = $"matchedRooms={references.Count}; loadedRooms={rooms.Count}; "
+            + $"deletedUnmappedRequired=false; mode={(allowRmsWarning ? "best_effort" : "strict")}; "
+            + $"reason={(string.IsNullOrEmpty(failure) ? "none" : failure)}; "
+            + (solved
+                ? $"inliers={string.Join("|", solution.InlierIds)}; "
+                    + $"outliers={string.Join("|", solution.OutlierIds)}; "
+                    + $"rms={solution.RmsResidualMeters:F4}; maxResidual={solution.MaxResidualMeters:F4}; "
+                    + $"yaw={solution.Rotation.eulerAngles.y:F3}; "
+                    + $"translation=({solution.Translation.x:F4},{solution.Translation.y:F4},{solution.Translation.z:F4})"
+                : DescribeReferences(references));
+        return solved;
+    }
+
+    private bool TryResolveFixedTowersFromRoomFloors(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid,
+        AagRigidPoseRecovery.Solution roomConstellationSolution,
+        out string detail,
+        out string failure)
+    {
+        detail = string.Empty;
+        failure = string.Empty;
+        if (towersByUuid == null
+            || towersByUuid.Count != FixedTowerManager.RequiredTowerCount
+            || AagFixedTowerRoomLocalCatalog.Count != FixedTowerManager.RequiredTowerCount)
+        {
+            failure = $"catalog_count_{AagFixedTowerRoomLocalCatalog.Count}_runtime_{towersByUuid?.Count ?? 0}";
+            return false;
+        }
+
+        var rooms = MRUK.Instance?.Rooms;
+        if (rooms == null)
+        {
+            failure = "mruk_rooms_unavailable";
+            return false;
+        }
+
+        var rows = new List<string>();
+        foreach (var definition in towersByUuid.Values.OrderBy(value => value.towerId, StringComparer.Ordinal))
+        {
+            if (definition == null
+                || !AagFixedTowerRoomLocalCatalog.TryGet(definition.towerId, out var placement))
+            {
+                failure = $"catalog_entry_missing_{definition?.towerId ?? "null"}";
+                return false;
+            }
+
+            var room = rooms.FirstOrDefault(value =>
+                value != null && value.Anchor != null && value.Anchor.Uuid == placement.RoomUuid);
+            var floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
+            if (floor == null)
+            {
+                failure = $"floor_missing_{definition.towerId}_{placement.RoomUuid}";
+                return false;
+            }
+
+            var local = placement.FloorLocalPosition;
+            if (!floor.IsPositionInBoundary(new Vector2(local.x, local.y)))
+            {
+                failure = $"outside_floor_{definition.towerId}_{placement.RoomUuid}";
+                return false;
+            }
+
+            var worldPosition = floor.transform.TransformPoint(local);
+            var worldRotation = roomConstellationSolution.TransformRotation(
+                placement.CanonicalRotation.normalized);
+            if (!AagRigidPoseRecovery.IsFinite(worldPosition)
+                || !AagRigidPoseRecovery.IsFinite(worldRotation))
+            {
+                failure = $"non_finite_pose_{definition.towerId}";
+                return false;
+            }
+
+            definition.hasFallbackPose = true;
+            definition.fallbackWorldPosition = worldPosition;
+            definition.fallbackWorldRotation = worldRotation;
+            rows.Add(
+                $"{definition.towerId}:room={placement.RoomUuid},"
+                + $"local=({local.x:F3},{local.y:F3},{local.z:F3}),"
+                + $"world=({worldPosition.x:F3},{worldPosition.y:F3},{worldPosition.z:F3})");
+        }
+
+        detail = string.Join("|", rows);
+        return true;
+    }
+
+    private static string DescribeReferences(
+        IReadOnlyCollection<AagRigidPoseRecovery.Reference> references)
+    {
+        var rows = (references ?? Array.Empty<AagRigidPoseRecovery.Reference>())
+            .OrderBy(value => value.Id, StringComparer.Ordinal)
+            .Select(value =>
+                $"{value.Id}:captured=({value.CapturedPosition.x:F3},{value.CapturedPosition.y:F3},{value.CapturedPosition.z:F3})"
+                + $",current=({value.CurrentPosition.x:F3},{value.CurrentPosition.y:F3},{value.CurrentPosition.z:F3})");
+        return $"references={string.Join("|", rows)}";
+    }
+
+    private bool BeginSessionTrackingSpaceLock(out string failure)
+    {
+        failure = string.Empty;
+        var cameraRig = FindFirstObjectByType<OVRCameraRig>();
+        var trackingSpace = cameraRig != null ? cameraRig.trackingSpace : null;
+        if (trackingSpace == null)
+        {
+            failure = "session_tracking_space_unavailable";
+            return false;
+        }
+
+        lockedTrackingSpace = trackingSpace;
+        lockedTrackingSpaceLocalPosition = trackingSpace.localPosition;
+        lockedTrackingSpaceLocalRotation = trackingSpace.localRotation;
+        pendingSpatialIntegrityFailure = string.Empty;
+        sessionTrackingSpaceLockActive = true;
+        WriteSystem(
+            "session_tracking_space_locked",
+            $"worldLockRemainsEnabled={MRUK.Instance != null && MRUK.Instance.EnableWorldLock}; "
+            + $"localPosition=({lockedTrackingSpaceLocalPosition.x:F4},{lockedTrackingSpaceLocalPosition.y:F4},{lockedTrackingSpaceLocalPosition.z:F4}); "
+            + $"localRotation=({lockedTrackingSpaceLocalRotation.x:F5},{lockedTrackingSpaceLocalRotation.y:F5},"
+            + $"{lockedTrackingSpaceLocalRotation.z:F5},{lockedTrackingSpaceLocalRotation.w:F5})");
+        return true;
+    }
+
+    private bool TrySpawnS3CanonicalTargets(
+        AagManualAnchorSetRecord set,
+        AagRigidPoseRecovery.Solution solution,
+        out string failure)
+    {
+        failure = string.Empty;
+        if (set?.anchors == null || set.anchors.Count != 12 || S3CanonicalTargets.Count != 12)
+        {
+            failure = "canonical_catalog_count_mismatch";
+            return false;
+        }
+
+        var placements = new List<RecoveredTargetPlacement>();
+        foreach (var entry in set.anchors.OrderBy(value => value.marker_id, StringComparer.Ordinal))
+        {
+            if (!S3CanonicalTargets.TryGetValue(entry.marker_id, out var canonical))
+            {
+                failure = $"canonical_pose_missing_{entry.marker_id}";
+                return false;
+            }
+            var prefab = spatialAnchorManager.GetAnchorPrefabForColor(entry.color);
+            if (prefab == null)
+            {
+                failure = $"prefab_missing_{entry.marker_id}_{entry.color}";
+                return false;
+            }
+            var position = solution.TransformPoint(canonical.Position);
+            var rotation = solution.TransformRotation(entry.CapturedRotation);
+            if (!AagRigidPoseRecovery.IsFinite(position) || !AagRigidPoseRecovery.IsFinite(rotation))
+            {
+                failure = $"non_finite_pose_{entry.marker_id}";
+                return false;
+            }
+            if (!AagRecoveryPlacementValidator.TryValidate(position, out var roomIds, out var placementFailure)
+                || !roomIds.Split('|').Contains(canonical.RoomUuid, StringComparer.OrdinalIgnoreCase))
+            {
+                failure = $"canonical_pose_invalid_{entry.marker_id}_{placementFailure}";
+                return false;
+            }
+            placements.Add(new RecoveredTargetPlacement
+            {
+                entry = entry,
+                prefab = prefab,
+                position = position,
+                rotation = rotation,
+                roomIds = canonical.RoomUuid,
+            });
+        }
+
+        foreach (var placement in placements)
+        {
+            var prefabObject = placement.prefab.gameObject;
+            var wasActive = prefabObject.activeSelf;
+            GameObject instance;
+            try
+            {
+                prefabObject.SetActive(false);
+                instance = Instantiate(prefabObject, placement.position, placement.rotation);
+            }
+            finally
+            {
+                prefabObject.SetActive(wasActive);
+            }
+            foreach (var anchor in instance.GetComponentsInChildren<OVRSpatialAnchor>(true))
+                DestroyImmediate(anchor);
+            instance.SetActive(true);
+            approximatedObjects.Add(instance);
+            RegisterTarget(
+                placement.entry,
+                instance.transform,
+                true,
+                "S3_SESSION_GLOBAL",
+                placement.roomIds);
+            WriteSystem(
+                "target_session_global_loaded",
+                $"object={placement.entry.marker_id}; roomUuid={placement.roomIds}; "
+                + $"position=({placement.position.x:F4},{placement.position.y:F4},{placement.position.z:F4})");
+        }
+        return true;
+    }
+
     private bool TrySolveRigidRecovery(
         AagManualAnchorSetRecord set,
         out AagRigidPoseRecovery.Solution solution,
@@ -1933,7 +2816,7 @@ public sealed class ExperimentMain : MonoBehaviour
             objectId = target.objectId,
             roomUuid = target.roomUuid,
             roomId = target.roomId,
-            delivered = target.delivered || target.collected,
+            delivered = target.delivered || target.pocketed || target.collected,
         }).ToArray();
     }
 
@@ -1953,6 +2836,9 @@ public sealed class ExperimentMain : MonoBehaviour
             WriteSystem("grab_rejected", $"object={experimentObject.ObjectId}; reason={rejectionReason}");
             return;
         }
+        fiducialZoneAlignment?.DetachRegisteredAncestor(
+            experimentObject.transform,
+            "participant_grabbed");
         WriteObjectEvent("grab", experimentObject.ObjectId, string.Empty);
     }
 
@@ -1995,6 +2881,8 @@ public sealed class ExperimentMain : MonoBehaviour
         target.delivered = true;
         target.pocketed = false;
         target.collected = true;
+        if (behaviorMetrics.NotifyTargetFound(objectId, "delivery"))
+            aagGuide?.NotifyTargetFound();
         pocketedObjectIds.Remove(objectId);
         behaviorMetrics.ForceClearCarry();
         WriteObjectEvent("delivered", objectId, towerId);
@@ -2050,6 +2938,7 @@ public sealed class ExperimentMain : MonoBehaviour
         loggingManager.CloseSession();
         ClearSpawnedObjects();
         behaviorMetrics.ResetSession();
+        ReleaseSessionTrackingSpaceLock();
         sessionId = string.Empty;
         state = SessionState.Idle;
         RefreshHud($"Previous session ended: {reason}");
@@ -2086,9 +2975,17 @@ public sealed class ExperimentMain : MonoBehaviour
         StopGuideOutputs();
         ClearSpawnedObjects();
         behaviorMetrics.ResetSession();
+        ReleaseSessionTrackingSpaceLock();
         sessionId = string.Empty;
         state = SessionState.Idle;
         RefreshHud($"START BLOCKED: {reason}");
+    }
+
+    private void ReleaseSessionTrackingSpaceLock()
+    {
+        sessionTrackingSpaceLockActive = false;
+        lockedTrackingSpace = null;
+        pendingSpatialIntegrityFailure = string.Empty;
     }
 
     private void WriteSessionEnd(string reason, float runningSeconds, string abortNote = "")
@@ -2113,9 +3010,20 @@ public sealed class ExperimentMain : MonoBehaviour
 
     private void OnApplicationPause(bool paused)
     {
-        if (!paused || loggingManager == null || !loggingManager.WriterOpen) return;
-        WriteSystem("application_pause", "paused=true");
-        loggingManager.FlushNow();
+        if (!paused) return;
+
+        pendingSpatialIntegrityFailure = "application_paused_or_virtual_lobby_entered";
+        if (loggingManager != null && loggingManager.WriterOpen)
+        {
+            WriteSystem("application_pause", "paused=true; action=fail_closed");
+            loggingManager.FlushNow();
+        }
+
+        // Entering the Quest lobby or losing immersive focus can cause MRUK to
+        // relocalize into a different world frame on return.  Never continue a
+        // participant session across that boundary.
+        if (state == SessionState.Running)
+            EndSession("spatial_integrity_abort", pendingSpatialIntegrityFailure);
     }
 
     private void OnApplicationQuit()
@@ -2441,6 +3349,10 @@ public sealed class ExperimentMain : MonoBehaviour
             + $"{status}\n\n"
             + "X: PARTICIPANT   Y: SET   B: GUIDE   A: PLAY\n"
             + "Keyboard: P / S / G / Enter\n"
+            + (config != null && config.fiducialMarkerAlignmentEnabled
+                ? $"{fiducialZoneAlignment?.StatusLine ?? "QR MARKERS UNAVAILABLE"}\n"
+                    + "Idle setup: look at one room QR, hold RIGHT STICK 1.2 s\n"
+                : string.Empty)
             + "During run: hold left Y for operator window\n"
             + "Hold a left-hand pinch for 1.2 s: store stone";
     }
@@ -2936,6 +3848,29 @@ public static class AagRigidPoseRecovery
         out Solution solution,
         out string failure)
     {
+        return TrySolveInternal(source, true, out solution, out failure);
+    }
+
+    /// <summary>
+    /// Returns the strongest rigid consensus even when its RMS exceeds the
+    /// strict experiment-quality threshold. Callers may use this only for
+    /// diagnostic orientation/fallback after independently validating every
+    /// required room UUID and floor.
+    /// </summary>
+    public static bool TrySolveBestEffort(
+        IReadOnlyList<Reference> source,
+        out Solution solution,
+        out string qualityWarning)
+    {
+        return TrySolveInternal(source, false, out solution, out qualityWarning);
+    }
+
+    private static bool TrySolveInternal(
+        IReadOnlyList<Reference> source,
+        bool enforceMaximumRms,
+        out Solution solution,
+        out string failure)
+    {
         solution = default;
         failure = string.Empty;
         var references = (source ?? Array.Empty<Reference>())
@@ -2994,12 +3929,6 @@ public static class AagRigidPoseRecovery
             failure = "no_three_reference_rigid_consensus";
             return false;
         }
-        if (best.rms > MaximumRmsResidualMeters)
-        {
-            failure = $"rms_{best.rms:F4}_maximum_{MaximumRmsResidualMeters:F4}";
-            return false;
-        }
-
         var inlierIds = best.inliers.Select(reference => reference.Id)
             .OrderBy(value => value, StringComparer.Ordinal).ToArray();
         var inlierSet = new HashSet<string>(inlierIds, StringComparer.Ordinal);
@@ -3012,6 +3941,11 @@ public static class AagRigidPoseRecovery
             outlierIds,
             best.rms,
             best.maximum);
+        if (best.rms > MaximumRmsResidualMeters)
+        {
+            failure = $"rms_{best.rms:F4}_maximum_{MaximumRmsResidualMeters:F4}";
+            if (enforceMaximumRms) return false;
+        }
         return true;
     }
 

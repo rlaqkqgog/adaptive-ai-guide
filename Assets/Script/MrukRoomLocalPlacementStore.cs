@@ -12,9 +12,10 @@ using UnityEngine;
 /// </summary>
 public static class MrukRoomLocalPlacementStore
 {
-    public const string SchemaVersion = "aag-fp1-floor-anchor-local-placements/v1";
+    public const string SchemaVersion = "aag-fp1-floor-anchor-local-placements/v3-space-20260721";
     private const string DirectoryName = "AagRoomLocalPlacements";
     private const string FileName = "fp1_floor_anchor_local_placements.json";
+    private const string SeedResourcePath = "AAG/fp1_floor_anchor_local_placements";
 
     [Serializable]
     public sealed class Catalog
@@ -305,19 +306,35 @@ public static class MrukRoomLocalPlacementStore
         failure = string.Empty;
         try
         {
-            if (!File.Exists(CatalogPath))
+            if (File.Exists(CatalogPath))
             {
-                failure = "catalog_not_created";
-                return false;
+                catalog = JsonUtility.FromJson<Catalog>(File.ReadAllText(CatalogPath));
+                if (catalog != null
+                    && string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
+                    && catalog.sets != null
+                    && catalog.sets.Count == 3
+                    && catalog.sets.All(value => TryValidateSet(value, out _)))
+                    return true;
             }
-            catalog = JsonUtility.FromJson<Catalog>(File.ReadAllText(CatalogPath));
-            if (catalog == null || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
-                || catalog.sets == null)
+
+            // A Space Setup rescan replaces MRUK room/floor UUIDs. The bundled,
+            // audited v2 seed atomically supersedes the stale v1 device catalog
+            // once, then the persistent copy remains authoritative on restarts.
+            var seed = Resources.Load<TextAsset>(SeedResourcePath);
+            catalog = seed == null ? null : JsonUtility.FromJson<Catalog>(seed.text);
+            if (catalog == null
+                || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
+                || catalog.sets == null
+                || catalog.sets.Count != 3
+                || catalog.sets.Any(value => !TryValidateSet(value, out _)))
             {
-                failure = "catalog_schema_invalid";
+                failure = "catalog_and_bundled_seed_invalid";
                 catalog = null;
                 return false;
             }
+
+            if (!TryWriteCatalog(catalog, out var writeFailure))
+                Debug.LogWarning($"[RoomLocalPlacement] using bundled seed without persistent copy: {writeFailure}");
             return true;
         }
         catch (Exception exception)

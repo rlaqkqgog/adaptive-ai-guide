@@ -30,7 +30,10 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
         anchorPrefab = prefab;
     }
 
-    public void Load(IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid)
+    public void Load(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid,
+        AagRigidPoseRecovery.Solution? globalSolution = null,
+        bool useGlobalSolutionOnly = false)
     {
         ClearLoadedAnchors();
         failures.Clear();
@@ -43,9 +46,64 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
         var requested = requestedByUuid.Keys.ToArray();
         if (requested.Length == 0) return;
 
+        if (useGlobalSolutionOnly && globalSolution.HasValue)
+        {
+            foreach (var uuid in requested)
+                failures[uuid] = "deterministic_room_constellation";
+            IsLoading = true;
+            SpawnApproximateRoots(requestedByUuid, globalSolution);
+            IsLoading = false;
+            Debug.Log(
+                $"[FixedTower Load] deterministic room-constellation mode "
+                + $"ready={LoadedCount}/{requested.Length}", this);
+            return;
+        }
+
         IsLoading = true;
         var version = ++loadVersion;
-        LoadAsync(requested, requestedByUuid, version);
+        LoadAsync(requested, requestedByUuid, version, globalSolution);
+    }
+
+    /// <summary>
+    /// Creates the four runtime tower roots from poses already resolved in the
+    /// current MRUK world. This deliberately bypasses deleted SpatialAnchor
+    /// UUIDs and avoids applying the room-constellation transform twice.
+    /// </summary>
+    public void LoadCurrentWorldPoses(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> towersByUuid)
+    {
+        ClearLoadedAnchors();
+        failures.Clear();
+
+        var requestedByUuid = towersByUuid?
+            .Where(pair => pair.Key != Guid.Empty && pair.Value != null)
+            .GroupBy(pair => pair.Key)
+            .ToDictionary(group => group.Key, group => group.First().Value)
+            ?? new Dictionary<Guid, ExperimentTowerAnchor>();
+
+        IsLoading = true;
+        foreach (var pair in requestedByUuid)
+        {
+            var definition = pair.Value;
+            if (!definition.hasFallbackPose
+                || !AagRigidPoseRecovery.IsFinite(definition.fallbackWorldPosition)
+                || !AagRigidPoseRecovery.IsFinite(definition.fallbackWorldRotation))
+            {
+                failures[pair.Key] = "deterministic_floor_local_pose_invalid";
+                continue;
+            }
+
+            var root = new GameObject($"FixedTowerRoomLocalAnchor {definition.towerId}");
+            root.transform.SetPositionAndRotation(
+                definition.fallbackWorldPosition,
+                definition.fallbackWorldRotation);
+            approximateRoots[pair.Key] = root;
+            approximateReasons[pair.Key] = "deterministic_floor_local";
+        }
+        IsLoading = false;
+        Debug.Log(
+            $"[FixedTower Load] deterministic floor-local mode "
+            + $"ready={LoadedCount}/{requestedByUuid.Count} failed={failures.Count}", this);
     }
 
     public bool TryGetTransform(Guid uuid, out Transform anchorTransform)
@@ -62,6 +120,18 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
         }
         anchorTransform = null;
         return false;
+    }
+
+    public int FreezeRealAnchorPoses()
+    {
+        var frozen = 0;
+        foreach (var anchor in loadedAnchors.Values)
+        {
+            if (anchor == null || !anchor.enabled) continue;
+            anchor.enabled = false;
+            frozen++;
+        }
+        return frozen;
     }
 
     public void ClearLoadedAnchors()
@@ -87,7 +157,8 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
     private async void LoadAsync(
         Guid[] requested,
         IReadOnlyDictionary<Guid, ExperimentTowerAnchor> requestedByUuid,
-        int version)
+        int version,
+        AagRigidPoseRecovery.Solution? globalSolution)
     {
         try
         {
@@ -152,7 +223,7 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
         {
             if (version == loadVersion)
             {
-                SpawnApproximateRoots(requestedByUuid);
+                SpawnApproximateRoots(requestedByUuid, globalSolution);
                 IsLoading = false;
                 Debug.Log(
                     $"[FixedTower Load] complete real={loadedAnchors.Count} approx={approximateRoots.Count} " +
@@ -161,7 +232,9 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
         }
     }
 
-    private void SpawnApproximateRoots(IReadOnlyDictionary<Guid, ExperimentTowerAnchor> requestedByUuid)
+    private void SpawnApproximateRoots(
+        IReadOnlyDictionary<Guid, ExperimentTowerAnchor> requestedByUuid,
+        AagRigidPoseRecovery.Solution? globalSolution)
     {
         // Reconstruct missing tower poses relative to a localized tower. Raw
         // tracking-space fallback coordinates can shift between Quest sessions.
@@ -187,7 +260,13 @@ public sealed class FixedTowerAnchorLoader : MonoBehaviour
             var position = definition.fallbackWorldPosition;
             var rotation = definition.fallbackWorldRotation;
             var referenceTowerId = "raw_fallback";
-            if (references.Length > 0)
+            if (globalSolution.HasValue)
+            {
+                position = globalSolution.Value.TransformPoint(definition.fallbackWorldPosition);
+                rotation = globalSolution.Value.TransformRotation(definition.fallbackWorldRotation);
+                referenceTowerId = "session_global";
+            }
+            else if (references.Length > 0)
             {
                 var reference = references
                     .OrderBy(candidate =>

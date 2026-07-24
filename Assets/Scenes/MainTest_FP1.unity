@@ -236,14 +236,14 @@ MonoBehaviour:
   requestEyeTrackingPermissionOnStartup: 0
   requestScenePermissionOnStartup: 1
   requestRecordAudioPermissionOnStartup: 0
-  requestPassthroughCameraAccessPermissionOnStartup: 0
+  requestPassthroughCameraAccessPermissionOnStartup: 1
   _localDimming: 1
   _trackingOriginType: 1
   usePositionTracking: 1
   useRotationTracking: 1
   useIPDInPositionTracking: 1
   resetTrackerOnLoad: 0
-  AllowRecenter: 1
+  AllowRecenter: 0
   LateControllerUpdate: 1
   LateLatching: 0
   controllerDrivenHandPosesType: 0
@@ -1760,7 +1760,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 536207148}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c9e15d8eabf04c1b95e2288ac6f3d4a1, type: 3}
   m_Name: 
@@ -2105,6 +2105,7 @@ MonoBehaviour:
   config: {fileID: 11400000, guid: c89dd875498145c5bd32ef00fcb89fa1, type: 2}
   anchorLoader: {fileID: 536207151}
   spatialAnchorManager: {fileID: 536207149}
+  experimentSpaceValidator: {fileID: 0}
   headTransform: {fileID: 118821223}
   behaviorMetrics: {fileID: 930000003}
   aagGuide: {fileID: 930000012}
@@ -2113,11 +2114,16 @@ MonoBehaviour:
   fixedTowerAnchorLoader: {fileID: 0}
   incidentalObjectManager: {fileID: 0}
   incidentalAnchorLoader: {fileID: 0}
+  fiducialZoneAlignment: {fileID: 0}
+  fixedSpaceOffset: {fileID: 0}
+  spaceOffsetDiagnostic: {fileID: 0}
   audioSource: {fileID: 920000003}
   hudRoot: {fileID: 920000010}
   lobbyPanel: {fileID: 920000020}
   vgPanel: {fileID: 920000031}
   correctDeliveryClip: {fileID: 0}
+  deliveryZoneEntryClip: {fileID: 0}
+  experimenterAbortNote: 
 --- !u!1 &920000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -2493,11 +2499,14 @@ MonoBehaviour:
   aesValue: 0
   clearlyPassive: 0
   aesGatePassed: 0
+  windowFoundTargets: 0
   totalRoomVisits: 0
   uniqueRoomVisits: 0
   revisitCount: 0
   currentLostness: 0
   lastVisitedRoom: 
+  totalFoundTargets: 0
+  lastTargetFoundAt: -1
 --- !u!1 &930000010
 GameObject:
   m_ObjectHideFlags: 0
@@ -2985,6 +2994,10 @@ PrefabInstance:
     - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
       propertyPath: SceneSettings.DataSource
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3613868102660323786, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
+      propertyPath: SceneSettings.LoadSceneOnStartup
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8047981335285221976, guid: c2e00db6d2dfa42ac8d821db8d493a44, type: 3}
       propertyPath: m_LocalPosition.x

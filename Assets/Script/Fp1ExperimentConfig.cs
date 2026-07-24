@@ -75,6 +75,18 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Min(0.05f)] public float roomMinDwellSeconds = 0.5f;
     [Min(1f)] public float logFlushIntervalSeconds = 10f;
 
+    [Header("Fiducial zone alignment")]
+    [Tooltip("When enabled, every FP1 room requires its AAG-FP1-ZONE QR calibration. Content remains hidden until that room's marker is detected.")]
+    public bool fiducialMarkerAlignmentEnabled;
+
+    [Header("Fixed global translation (alternative to fiducial alignment)")]
+    [Tooltip("Applies one measured world-space translation to experiment-owned content. Must not be enabled together with Fiducial Marker Alignment.")]
+    public bool fixedSpaceOffsetEnabled;
+    [Tooltip("Correction = observed physical landmark position - expected virtual landmark position.")]
+    public Vector3 fixedSpaceOffsetMeters;
+    [Tooltip("Recommended for this experiment: preserve MRUK floor height and apply only X/Z.")]
+    public bool fixedSpaceOffsetHorizontalOnly = true;
+
     [Header("Shared fixed stone pagodas")]
     [Tooltip("The same four spatial-anchor UUIDs are loaded for every S1/S2/S3 session.")]
     public bool fixedTowersEnabled = true;
@@ -111,7 +123,7 @@ public sealed class Fp1ExperimentConfig : ScriptableObject
     [Tooltip("Production output. Keep text mode off during participant sessions when this is enabled.")]
     public bool aagPlaybackEnabled;
     [Min(0.1f)] public float captionVisibleSeconds = 3f;
-    [Min(0f)] public float minimumUtteranceGapSeconds = 8f;
+    [Min(0f)] public float minimumUtteranceGapSeconds = 15f;
     [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
     [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
     [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]

@@ -1,1 +1,859 @@
-{"schema_version":"aag-fp1-user-approved-manual-hotspots/v1","catalog_hash":"a9fba5582db834a70223990b4df2c673e3a7dff4a193ad82ea374e035ef11808","source_catalog_schema":"aag-fp1-preferred-hotspots/v1","source_anchor_list_hash":"bbeaecd068702f589e4f3a2b2ad7a5a09fe3e05a3307b9f635cfd35ede6c2aff","source_catalog_hash":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","source_catalog_file_sha256":"f6a0e040a08557b973ad14490fc4ee469a55e24a67a2001781efb282f73e19f0","hotspot_count":47,"source":"USER_APPROVED_MANUAL_HOTSPOT","user_approved":true,"anchors":[{"uuid":"15b60b09-b580-9d2b-d628-5547fbad5108","original_room_uuid":"cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6","zone_group":"ZG-08","diagnostic_world_position":{"x":-2.526670455932617,"y":0.3290592432022095,"z":-22.98796272277832},"diagnostic_world_rotation":{"x":0.21211931109428407,"y":0.778645932674408,"z":-0.2702726423740387,"w":0.5250415802001953},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"1af1ccd4-4169-c2e1-fcde-7ca43e30c615","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":-0.8370723724365234,"y":0.37327003479003909,"z":5.032131671905518},"diagnostic_world_rotation":{"x":0.5348309278488159,"y":0.2207145094871521,"z":-0.07421185821294785,"w":0.812239944934845},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"225dcf13-5bb1-5ff2-e096-253319f599e1","original_room_uuid":"cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6","zone_group":"ZG-08","diagnostic_world_position":{"x":-3.9932031631469728,"y":1.9595434665679932,"z":-21.782855987548829},"diagnostic_world_rotation":{"x":0.014917573891580105,"y":-0.00002411324021522887,"z":-0.1111740693449974,"w":0.9936890006065369},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"23263179-4bf3-680b-515e-6c7978a3bf6b","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-2.9667158126831056,"y":0.3249856233596802,"z":-9.02842903137207},"diagnostic_world_rotation":{"x":-0.047838158905506137,"y":0.791642427444458,"z":-0.6009380221366882,"w":-0.09943461418151856},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"26e3a2a0-91fd-9a2a-2797-f5422368a355","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-0.8630247116088867,"y":1.8072433471679688,"z":-5.528517723083496},"diagnostic_world_rotation":{"x":-0.34134575724601748,"y":0.6712754964828491,"z":0.2563537359237671,"w":0.6059331893920898},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"27213db2-5302-64bd-09c0-1498a501c4fd","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-1.2099618911743165,"y":1.922951102256775,"z":-2.8086888790130617},"diagnostic_world_rotation":{"x":-0.2708132565021515,"y":-0.4224233627319336,"z":-0.3103956878185272,"w":0.8073866963386536},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"27b594db-4934-3fe5-f630-809b70df0b94","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-2.1454319953918459,"y":1.4402475357055665,"z":-2.8231823444366457},"diagnostic_world_rotation":{"x":-0.11655637621879578,"y":0.09954395890235901,"z":-0.0610688142478466,"w":0.9862942099571228},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"2f8cbc83-b660-dd37-66f7-8575da3a424c","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":9.727790832519532,"y":0.831691563129425,"z":14.01891803741455},"diagnostic_world_rotation":{"x":-0.06400493532419205,"y":0.960737943649292,"z":-0.2403421401977539,"w":-0.12297038733959198},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"2f9541ad-3814-49f1-4f2c-42e5101de1fb","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-2.3190150260925295,"y":0.9560209512710571,"z":-5.570453643798828},"diagnostic_world_rotation":{"x":0.30687662959098818,"y":-0.5704441070556641,"z":0.14732617139816285,"w":0.7474726438522339},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"36153691-9121-1105-63ef-9a77c0f7b113","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-1.9471435546875,"y":0.4378781318664551,"z":-4.654751777648926},"diagnostic_world_rotation":{"x":-0.04520914703607559,"y":0.8663610219955444,"z":-0.3911606967449188,"w":-0.3071939945220947},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"3aa8c6dd-d146-4182-1a54-b174c121901d","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-2.1102609634399416,"y":1.0302152633666993,"z":-3.1929075717926027},"diagnostic_world_rotation":{"x":0.2649921476840973,"y":0.040690284222364429,"z":0.023218786343932153,"w":0.9631118178367615},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"3c20deab-9728-95f0-a439-a8f339085cb6","original_room_uuid":"b887c5f7-5e25-95b0-b1d7-a2d13703e00a","zone_group":"ZG-07","diagnostic_world_position":{"x":5.746850967407227,"y":0.6291244029998779,"z":-15.21892261505127},"diagnostic_world_rotation":{"x":0.24724780023097993,"y":0.6806923747062683,"z":-0.290951132774353,"w":0.6251991987228394},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"3c696bd8-35b2-cd35-a933-858b2d1eae64","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-1.3204169273376465,"y":0.48616158962249758,"z":-2.679579496383667},"diagnostic_world_rotation":{"x":0.3913736045360565,"y":-0.40220654010772707,"z":0.33853307366371157,"w":0.7552827000617981},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"45e3ada0-8414-f5e6-9ed5-d52366cad3a2","original_room_uuid":"3342022d-32d9-c32f-cc67-a6993db345ef","zone_group":"ZG-02","diagnostic_world_position":{"x":8.431488037109375,"y":1.0837948322296143,"z":4.316874980926514},"diagnostic_world_rotation":{"x":0.022771567106246949,"y":0.7720628976821899,"z":-0.08620820939540863,"w":0.6292603015899658},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"4f928d77-82ab-5c53-656e-9d292af0224c","original_room_uuid":"6ac2d59f-e9a6-5fc7-ecf7-3617f7bf7133","zone_group":"ZG-05","diagnostic_world_position":{"x":5.5989532470703129,"y":0.6614158749580383,"z":-16.88591957092285},"diagnostic_world_rotation":{"x":0.34022828936576846,"y":0.6781986951828003,"z":-0.2660163342952728,"w":0.5945810675621033},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"577f4525-5fde-dbfe-51ca-772ddf43fb3a","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":0.06073331832885742,"y":0.7465201616287231,"z":-2.985478639602661},"diagnostic_world_rotation":{"x":0.3817422091960907,"y":0.05405072122812271,"z":-0.013497515581548214,"w":0.9225882887840271},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"59e3ea0b-7829-43e5-31ed-29152199b608","original_room_uuid":"b887c5f7-5e25-95b0-b1d7-a2d13703e00a","zone_group":"ZG-07","diagnostic_world_position":{"x":7.162399768829346,"y":1.9102227687835694,"z":-4.862824440002441},"diagnostic_world_rotation":{"x":-0.4908915162086487,"y":0.6022453308105469,"z":0.40260520577430727,"w":0.48397842049598696},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"5ce9827d-8085-d42e-6d40-b5dd81dfc80b","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":3.6591458320617677,"y":0.22158336639404298,"z":-9.176847457885743},"diagnostic_world_rotation":{"x":0.3007209300994873,"y":0.1776726096868515,"z":-0.07845844328403473,"w":0.9337257146835327},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"60ca4285-cde8-2ae3-65f6-53defa0307d2","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":0.30837440490722659,"y":0.595954954624176,"z":7.789267539978027},"diagnostic_world_rotation":{"x":0.2831893265247345,"y":-0.6793089509010315,"z":0.3239624798297882,"w":0.5944674611091614},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"63a756ed-0e19-353b-a9a1-2bcafdf67f01","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-2.213155746459961,"y":2.0308170318603517,"z":-8.659375190734864},"diagnostic_world_rotation":{"x":-0.3592119812965393,"y":-0.5024120807647705,"z":-0.5615951418876648,"w":0.5505994558334351},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"6d3ce2ea-cb47-96e3-5733-cbe488f1a18e","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":3.645266056060791,"y":0.653046190738678,"z":-11.780238151550293},"diagnostic_world_rotation":{"x":0.1195765882730484,"y":0.7220412492752075,"z":-0.1684577912092209,"w":0.6602877378463745},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"718621a6-01b4-6338-13f1-c49587438e71","original_room_uuid":"cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6","zone_group":"ZG-08","diagnostic_world_position":{"x":-3.518064498901367,"y":0.7942632436752319,"z":-23.698240280151368},"diagnostic_world_rotation":{"x":-0.02776513434946537,"y":0.8913972973823547,"z":-0.41623207926750185,"w":-0.1771746128797531},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"7ec9de29-d16f-ddcf-d912-ca4b124799c4","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-0.618797779083252,"y":0.4182577133178711,"z":-4.998396873474121},"diagnostic_world_rotation":{"x":0.25610023736953738,"y":0.8285089731216431,"z":-0.29741713404655459,"w":0.39941033720970156},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"83ce6628-34a2-2d25-3496-222df1415901","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":8.258072853088379,"y":1.9556885957717896,"z":7.756717681884766},"diagnostic_world_rotation":{"x":-0.020372500643134118,"y":0.8313902020454407,"z":0.553469717502594,"w":-0.04524053633213043},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"879f3073-b8d0-77bd-afe4-a89c58f1b09f","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":4.586321830749512,"y":0.5110222101211548,"z":-3.4235894680023195},"diagnostic_world_rotation":{"x":0.4496024250984192,"y":0.43073993921279909,"z":-0.15618634223937989,"w":0.7667637467384338},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"8cba7a95-4f2f-9918-3bf6-02e021c2fac0","original_room_uuid":"b887c5f7-5e25-95b0-b1d7-a2d13703e00a","zone_group":"ZG-07","diagnostic_world_position":{"x":5.9855475425720219,"y":0.18743956089019776,"z":-13.484070777893067},"diagnostic_world_rotation":{"x":0.27463605999946597,"y":0.7207035422325134,"z":-0.2883549928665161,"w":0.5674617886543274},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"9668b7ca-95f7-f676-4e86-526985c087b4","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":9.781682968139649,"y":1.9783179759979249,"z":13.932367324829102},"diagnostic_world_rotation":{"x":-0.392893522977829,"y":0.7329872250556946,"z":0.302877277135849,"w":0.46543508768081667},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"97072ecb-7040-3df1-8400-812b7b6a39bf","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":3.570648431777954,"y":0.5484985709190369,"z":4.300045013427734},"diagnostic_world_rotation":{"x":-0.04656807333230972,"y":0.8852102756500244,"z":-0.4331005811691284,"w":-0.1632733941078186},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"a3a97f21-701e-32d3-c3d8-6fd2150f9222","original_room_uuid":"3342022d-32d9-c32f-cc67-a6993db345ef","zone_group":"ZG-02","diagnostic_world_position":{"x":8.516704559326172,"y":0.2365504503250122,"z":4.428478240966797},"diagnostic_world_rotation":{"x":0.246748685836792,"y":0.7229356169700623,"z":-0.2765454351902008,"w":0.5830968022346497},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"a5fd1cc3-bf38-4d5e-54d8-fb8a05c178af","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":-0.6269435882568359,"y":0.2616386413574219,"z":-10.508386611938477},"diagnostic_world_rotation":{"x":0.3857209086418152,"y":-0.4831198453903198,"z":0.26969629526138308,"w":0.7382944226264954},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"a6231a29-73bb-f36f-7507-8850ef6b8bef","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":-0.05981588363647461,"y":0.7288292646408081,"z":6.989579200744629},"diagnostic_world_rotation":{"x":0.14585527777671815,"y":0.8905255794525147,"z":-0.27240413427352908,"w":0.3338959515094757},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"a8ac4b64-120d-1f13-b006-8bcc16394346","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":8.93133544921875,"y":0.856338381767273,"z":8.029090881347657},"diagnostic_world_rotation":{"x":0.1933966875076294,"y":0.8044859766960144,"z":-0.24317871034145356,"w":0.5062254071235657},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"b76dd4ef-1383-3c54-d5b2-44b2e34c0ee3","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":-0.5157060623168945,"y":1.1555888652801514,"z":8.594511032104493},"diagnostic_world_rotation":{"x":0.12438037246465683,"y":0.11201560497283936,"z":-0.0951184555888176,"w":0.9812923073768616},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"bdb4bc65-287b-c83d-d383-398463aeb363","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":1.2701692581176758,"y":0.2483762502670288,"z":-5.939888954162598},"diagnostic_world_rotation":{"x":0.3594505190849304,"y":-0.23441176116466523,"z":0.1230602040886879,"w":0.8948199152946472},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"c1f05bef-e0b6-9fb9-8e4c-33f8a4eefce3","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":8.440851211547852,"y":0.6752188205718994,"z":7.8772735595703129},"diagnostic_world_rotation":{"x":0.016396742314100267,"y":0.944743275642395,"z":-0.3111823797225952,"w":-0.10176867246627808},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"c92998d5-9bf2-81ae-24f9-69762626115f","original_room_uuid":"36f65d12-3dd9-957c-8535-9a774780e5f6","zone_group":"ZG-03","diagnostic_world_position":{"x":8.314765930175782,"y":1.146429181098938,"z":18.05548858642578},"diagnostic_world_rotation":{"x":0.12136956304311753,"y":-0.5840670466423035,"z":0.0065048011019825939,"w":0.8025539517402649},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"d4d1fa0d-8589-5177-e15d-640983e2f0f2","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":-0.7462263107299805,"y":0.4117133617401123,"z":5.5930094718933109},"diagnostic_world_rotation":{"x":0.00805091392248869,"y":0.8886880874633789,"z":-0.3994970917701721,"w":-0.22487963736057282},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"d6b26a8e-b1b6-f758-1c65-2e4c9963693a","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":1.3646092414855958,"y":0.27474427223205569,"z":-8.045141220092774},"diagnostic_world_rotation":{"x":0.3037808835506439,"y":0.7765715718269348,"z":-0.41133835911750796,"w":0.36804160475730898},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"d963fceb-52b4-754a-457a-4193a5e28931","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":1.2598552703857422,"y":1.8798205852508546,"z":2.81351375579834},"diagnostic_world_rotation":{"x":-0.041730448603630069,"y":0.8808842897415161,"z":0.4602811932563782,"w":-0.10218999534845352},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"da939d1d-00d8-4bf4-d4d8-0230ccd7cd94","original_room_uuid":"3342022d-32d9-c32f-cc67-a6993db345ef","zone_group":"ZG-02","diagnostic_world_position":{"x":8.470645904541016,"y":1.3842445611953736,"z":4.257259368896484},"diagnostic_world_rotation":{"x":0.07309403270483017,"y":0.7972160577774048,"z":-0.08152981847524643,"w":0.5936806797981262},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"dc24d499-1ca6-f5ef-859c-77e8c3bad6b4","original_room_uuid":"5768d95b-6710-cc01-1e25-cd03767ab1dd","zone_group":"ZG-04","diagnostic_world_position":{"x":6.132917404174805,"y":0.8853902816772461,"z":7.220817565917969},"diagnostic_world_rotation":{"x":0.22540691494941712,"y":0.15924642980098725,"z":-0.011940154246985913,"w":0.9610878229141235},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"e006418e-4655-1451-d9fb-65576d43c6f8","original_room_uuid":"cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6","zone_group":"ZG-08","diagnostic_world_position":{"x":-0.8544397354125977,"y":0.9399170279502869,"z":-22.893905639648439},"diagnostic_world_rotation":{"x":-0.06932734698057175,"y":0.9774693846702576,"z":-0.19900766015052796,"w":0.01197159942239523},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"f2df3778-7670-0c8b-98cf-580e9e9fa7cf","original_room_uuid":"93ad5dfc-c2c2-aab8-e032-758172c5a70d","zone_group":"ZG-06","diagnostic_world_position":{"x":5.018879413604736,"y":0.38562941551208498,"z":8.666732788085938},"diagnostic_world_rotation":{"x":0.20068946480751038,"y":-0.693303644657135,"z":0.30708059668540957,"w":0.6202864646911621},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"f5f90aa5-9120-0ee2-4cc0-d28c8adc0629","original_room_uuid":"316e933e-d06d-5af0-8919-10578ccd3900","zone_group":"ZG-01","diagnostic_world_position":{"x":4.489477157592773,"y":0.2721797227859497,"z":-6.485112190246582},"diagnostic_world_rotation":{"x":0.35235950350761416,"y":0.7433212995529175,"z":-0.46930333971977236,"w":0.32104626297950747},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"f832387e-5ba8-9db7-ed12-f49cfbd24da0","original_room_uuid":"93ad5dfc-c2c2-aab8-e032-758172c5a70d","zone_group":"ZG-06","diagnostic_world_position":{"x":3.8224949836730959,"y":0.9314733147621155,"z":10.397774696350098},"diagnostic_world_rotation":{"x":0.19950254261493684,"y":0.1743732988834381,"z":-0.042580656707286838,"w":0.9633170366287231},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"f8c6744b-9182-5e57-5cad-734743468555","original_room_uuid":"93ad5dfc-c2c2-aab8-e032-758172c5a70d","zone_group":"ZG-06","diagnostic_world_position":{"x":2.180563449859619,"y":3.016443967819214,"z":13.11954402923584},"diagnostic_world_rotation":{"x":-0.0440264493227005,"y":0.9850261211395264,"z":-0.12800145149230958,"w":-0.10677500814199448},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"},{"uuid":"fe10d048-b2bf-d23e-b394-58cc49f82c8e","original_room_uuid":"cb3f5613-94eb-b618-8ba8-1bc3f24cbbc6","zone_group":"ZG-08","diagnostic_world_position":{"x":-2.6897387504577638,"y":1.1585403680801392,"z":-21.61739730834961},"diagnostic_world_rotation":{"x":0.12359130382537842,"y":0.12646135687828065,"z":-0.025006301701068879,"w":0.9839245080947876},"user_approved":true,"source":"USER_APPROVED_MANUAL_HOTSPOT"}]}
+{
+  "schema_version": "aag-fp1-user-approved-manual-hotspots/v1",
+  "catalog_hash": "a4843b673f61bfd659ca9beb66363765fb879583944ad5ca4f339f15ebca87d1",
+  "source_catalog_schema": "aag-fp1-preferred-hotspots/v1",
+  "source_anchor_list_hash": "bbeaecd068702f589e4f3a2b2ad7a5a09fe3e05a3307b9f635cfd35ede6c2aff",
+  "source_catalog_hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "source_catalog_file_sha256": "f6a0e040a08557b973ad14490fc4ee469a55e24a67a2001781efb282f73e19f0",
+  "hotspot_count": 47,
+  "source": "USER_APPROVED_MANUAL_HOTSPOT",
+  "user_approved": true,
+  "anchors": [
+    {
+      "uuid": "15b60b09-b580-9d2b-d628-5547fbad5108",
+      "original_room_uuid": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "zone_group": "ZG-08",
+      "diagnostic_world_position": {
+        "x": -28.345181546157246,
+        "y": 0.3031019297373183,
+        "z": 1.351403705766257
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.015474041055614627,
+        "y": 0.9326827010448533,
+        "z": -0.34322361687382336,
+        "w": -0.10982295773260266
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "1af1ccd4-4169-c2e1-fcde-7ca43e30c615",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": -0.7587863286122309,
+        "y": 0.3473127237156528,
+        "z": 4.530743177910789
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.3610746825600959,
+        "y": 0.6922833759570184,
+        "z": -0.40146799732501603,
+        "w": 0.47874027208030084
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "225dcf13-5bb1-5ff2-e096-253319f599e1",
+      "original_room_uuid": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "zone_group": "ZG-08",
+      "diagnostic_world_position": {
+        "x": -27.427191316823897,
+        "y": 1.9335861487655377,
+        "z": 2.9628187756748536
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.06119912723076924,
+        "y": 0.6480626424955215,
+        "z": -0.09400464909205397,
+        "w": 0.7532812251589668
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "23263179-4bf3-680b-515e-6c7978a3bf6b",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -14.87558372117766,
+        "y": 0.2990283114569528,
+        "z": 4.212546466453439
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.42361428680926777,
+        "y": 0.5415732899227508,
+        "z": -0.4289125112760966,
+        "w": -0.5859038874458471
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "26e3a2a0-91fd-9a2a-2797-f5422368a355",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -11.068285960946298,
+        "y": 1.7812860352652413,
+        "z": 2.7362744117283118
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.09603400298364534,
+        "y": 0.9037647767824883,
+        "z": 0.41594667532804136,
+        "w": 0.0312259795968886
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "27213db2-5302-64bd-09c0-1498a501c4fd",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.447409394024994,
+        "y": 1.8969937903540475,
+        "z": 3.541780692625692
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.4070757305000383,
+        "y": 0.19681890179541714,
+        "z": -0.06304474096663407,
+        "w": 0.889706148214317
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "27b594db-4934-3fe5-f630-809b70df0b94",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.621159619244404,
+        "y": 1.414290223802839,
+        "z": 4.461087624863747
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.1284960667021009,
+        "y": 0.7113476941947727,
+        "z": 0.028346935664079906,
+        "w": 0.6904126809701034
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "2f8cbc83-b660-dd37-66f7-8575da3a424c",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 10.169836226139015,
+        "y": 0.805734254096206,
+        "z": -4.312019844153949
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.203787324439595,
+        "y": 0.6555881772552208,
+        "z": -0.14258925981877632,
+        "w": -0.712981887024672
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "2f9541ad-3814-49f1-4f2c-42e5101de1fb",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -11.357809663535296,
+        "y": 0.9300636393683297,
+        "z": 4.163804601586158
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.3296439507730836,
+        "y": 0.044996090048443946,
+        "z": -0.08493009359087816,
+        "w": 0.9392002431865688
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "36153691-9121-1105-63ef-9a77c0f7b113",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -10.392118274889475,
+        "y": 0.4119208199637277,
+        "z": 3.953475238893591
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.2865016711160016,
+        "y": 0.46493166957148113,
+        "z": -0.2701246567782534,
+        "w": -0.7929615406043627
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "3aa8c6dd-d146-4182-1a54-b174c121901d",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.979477596253334,
+        "y": 1.0042579514639718,
+        "z": 4.363404603902054
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.21767408653917844,
+        "y": 0.6513942862373597,
+        "z": -0.15289846558073125,
+        "w": 0.7105811249461338
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "3c20deab-9728-95f0-a439-a8f339085cb6",
+      "original_room_uuid": "b4131884-79b1-7db8-5529-4875ea40bdd5",
+      "zone_group": "ZG-07",
+      "diagnostic_world_position": {
+        "x": -20.148608964534542,
+        "y": 0.6031670851529072,
+        "z": -5.302033725945016
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.0003675350923357906,
+        "y": 0.9235164445548049,
+        "z": -0.38181654568105083,
+        "w": 0.03651529815020061
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "3c696bd8-35b2-cd35-a933-858b2d1eae64",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.339018974999906,
+        "y": 0.4602042777197702,
+        "z": 3.6726281792670177
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.517426290061437,
+        "y": 0.17872874458371335,
+        "z": 0.006926407754061908,
+        "w": 0.8368262036339518
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "45e3ada0-8414-f5e6-9ed5-d52366cad3a2",
+      "original_room_uuid": "7423d1c6-d1e7-3316-6714-6a9b282a396e",
+      "zone_group": "ZG-02",
+      "diagnostic_world_position": {
+        "x": -0.31227672622796954,
+        "y": 1.057837500343731,
+        "z": -4.526160201348035
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.037980022416957436,
+        "y": 0.9959133370232404,
+        "z": -0.0806716627875226,
+        "w": -0.01436056612871933
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "4f928d77-82ab-5c53-656e-9d292af0224c",
+      "original_room_uuid": "7e4d3e1f-3247-602b-3822-c21df384e947",
+      "zone_group": "ZG-05",
+      "diagnostic_world_position": {
+        "x": -21.316517438366375,
+        "y": 0.6354585790727538,
+        "z": -5.472565042898542
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.07997491432015268,
+        "y": 0.9019306807051538,
+        "z": -0.42441014873334726,
+        "w": -0.0010420817436021348
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "577f4525-5fde-dbfe-51ca-772ddf43fb3a",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.404997003900725,
+        "y": 0.7205628497259957,
+        "z": 2.2595474361284236
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.28334249570681086,
+        "y": 0.635517058354968,
+        "z": -0.25617638025527106,
+        "w": 0.6709759763700867
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "59e3ea0b-7829-43e5-31ed-29152199b608",
+      "original_room_uuid": "b4131884-79b1-7db8-5529-4875ea40bdd5",
+      "zone_group": "ZG-07",
+      "diagnostic_world_position": {
+        "x": -9.59733252540298,
+        "y": 1.884265451119075,
+        "z": -5.008478161293451
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.11395979782683843,
+        "y": 0.7723448704502499,
+        "z": 0.6245627302193159,
+        "w": -0.020444108917897403
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "5ce9827d-8085-d42e-6d40-b5dd81dfc80b",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -13.892323984249334,
+        "y": 0.19562605449131557,
+        "z": -2.3416331812496707
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.1795243719420611,
+        "y": 0.7372612883280218,
+        "z": -0.25369232957244836,
+        "w": 0.599880816936013
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "60ca4285-cde8-2ae3-65f6-53defa0307d2",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": 2.0113683855261737,
+        "y": 0.5699976526052559,
+        "z": 3.854333482118737
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.42532641189282006,
+        "y": -0.13620206884178465,
+        "z": 0.06515603234625456,
+        "w": 0.8923570648784548
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "63a756ed-0e19-353b-a9a1-2bcafdf67f01",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -14.38347289350959,
+        "y": 2.0048597199576244,
+        "z": 3.532928600305743
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.6364794998673331,
+        "y": -0.029749801059525474,
+        "z": -0.19828311187233183,
+        "w": 0.744776881442874
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "6d3ce2ea-cb47-96e3-5733-cbe488f1a18e",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -16.459974907754912,
+        "y": 0.6270888788359505,
+        "z": -2.77175466067377
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.017013815214197214,
+        "y": 0.9776064349273025,
+        "z": -0.20588131490710523,
+        "w": 0.04011324784542513
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "718621a6-01b4-6338-13f1-c49587438e71",
+      "original_room_uuid": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "zone_group": "ZG-08",
+      "diagnostic_world_position": {
+        "x": -29.15042832042719,
+        "y": 0.7683059323562849,
+        "z": 2.217332378799778
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.2925126352759276,
+        "y": 0.5601705812612467,
+        "z": -0.2974162053077911,
+        "w": -0.7156737237831798
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "7ec9de29-d16f-ddcf-d912-ca4b124799c4",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -10.504291307839354,
+        "y": 0.3923004014151437,
+        "z": 2.5859915416857655
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.004374878235627839,
+        "y": 0.89104393579548,
+        "z": -0.3924603682987137,
+        "w": -0.22802724450679543
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "83ce6628-34a2-2d25-3496-222df1415901",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 3.954905888341587,
+        "y": 1.9297312905341406,
+        "z": -3.9357156022852813
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.3409762733237021,
+        "y": 0.6067335010870075,
+        "z": 0.43643889000099917,
+        "w": -0.5702023631866832
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "879f3073-b8d0-77bd-afe4-a89c58f1b09f",
+      "original_room_uuid": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -8.065221455777685,
+        "y": 0.4850648982184274,
+        "z": -2.274484440536374
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.2433611137604306,
+        "y": 0.8233320791411615,
+        "z": -0.4090377372894514,
+        "w": 0.3091727433644512
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "8cba7a95-4f2f-9918-3bf6-02e021c2fac0",
+      "original_room_uuid": "b4131884-79b1-7db8-5529-4875ea40bdd5",
+      "zone_group": "ZG-07",
+      "diagnostic_world_position": {
+        "x": -18.38080006283458,
+        "y": 0.16148224308258285,
+        "z": -5.254504609097134
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.02293417744525698,
+        "y": 0.9166848053788457,
+        "z": -0.3975519887695469,
+        "w": -0.033397714260642516
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "9668b7ca-95f7-f676-4e86-526985c087b4",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 10.096160689633125,
+        "y": 1.9523606670103701,
+        "z": -4.3782192717342525
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.10537923619782948,
+        "y": 0.8604602271848895,
+        "z": 0.4847630015001589,
+        "w": -0.11622498177176663
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "97072ecb-7040-3df1-8400-812b7b6a39bf",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": -0.7251160449440557,
+        "y": 0.522541261921502,
+        "z": 0.019077588341424923
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.3147617916787828,
+        "y": 0.5715542660489422,
+        "z": -0.30111407851062977,
+        "w": -0.6953999188834523
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "a3a97f21-701e-32d3-c3d8-6fd2150f9222",
+      "original_room_uuid": "7423d1c6-d1e7-3316-6714-6a9b282a396e",
+      "zone_group": "ZG-02",
+      "diagnostic_world_position": {
+        "x": -0.4487901679869757,
+        "y": 0.21059311209587173,
+        "z": -4.535835889453306
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.01121232451947185,
+        "y": 0.928605825524214,
+        "z": -0.3704545378973518,
+        "w": -0.01813670126077474
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "a5fd1cc3-bf38-4d5e-54d8-fb8a05c178af",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -15.935019903195581,
+        "y": 0.23568132945469447,
+        "z": 1.6547342218381478
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.4687694515586675,
+        "y": 0.1058887105036156,
+        "z": -0.04209369288979947,
+        "w": 0.8759400112405911
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "a6231a29-73bb-f36f-7507-8850ef6b8bef",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": 1.2020333219392936,
+        "y": 0.7028719599612105,
+        "z": 4.086325593545618
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.06406531195828095,
+        "y": 0.8960719563009646,
+        "z": -0.30228033640446095,
+        "w": -0.3187119124818782
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "a8ac4b64-120d-1f13-b006-8bcc16394346",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 4.325582925458293,
+        "y": 0.830381076308736,
+        "z": -4.538387702602256
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.008744261226531146,
+        "y": 0.9414232484711524,
+        "z": -0.310582839999726,
+        "w": -0.13108815595365528
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "b76dd4ef-1383-3c54-d5b2-44b2e34c0ee3",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": 2.631269407910425,
+        "y": 1.12963156480403,
+        "z": 4.8103355474298475
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.03378658072289829,
+        "y": 0.7181407774213754,
+        "z": -0.15289363134040806,
+        "w": 0.6780529686265088
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "bdb4bc65-287b-c83d-d383-398463aeb363",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -11.109991941517457,
+        "y": 0.2224189383643014,
+        "z": 0.5641778638230615
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.3542354795288225,
+        "y": 0.3969579460769855,
+        "z": -0.13735249608482902,
+        "w": 0.8355093691327425
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "c1f05bef-e0b6-9fb9-8e4c-33f8a4eefce3",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 4.099995811621432,
+        "y": 0.6492615152470338,
+        "z": -4.0916048238349525
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.18793001342043067,
+        "y": 0.6570135001773554,
+        "z": -0.24856715828995615,
+        "w": -0.6864618987679892
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "c92998d5-9bf2-81ae-24f9-69762626115f",
+      "original_room_uuid": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "zone_group": "ZG-03",
+      "diagnostic_world_position": {
+        "x": 13.78717226193939,
+        "y": 1.1204718698352756,
+        "z": -2.283409927998054
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.09701855388220565,
+        "y": 0.0703072824954821,
+        "z": -0.07321395241149942,
+        "w": 0.9900929266503186
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "d4d1fa0d-8589-5177-e15d-640983e2f0f2",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": -0.21846936723519939,
+        "y": 0.38575605237264576,
+        "z": 4.534690814058122
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.2513431420517583,
+        "y": 0.534504539601132,
+        "z": -0.3106273501570158,
+        "w": -0.7447430237496439
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "d6b26a8e-b1b6-f758-1c65-2e4c9963693a",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -13.168330502752402,
+        "y": 0.24878696032932826,
+        "z": 0.11223939345798728
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.03251699200922966,
+        "y": 0.8311092849532384,
+        "z": -0.51031822425069,
+        "w": -0.21857564295412935
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "d963fceb-52b4-754a-457a-4193a5e28931",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": -2.4950847824136506,
+        "y": 1.8538632697606325,
+        "z": 2.069584559160017
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.26477203227503177,
+        "y": 0.6076185174822215,
+        "z": 0.37880859210327117,
+        "w": -0.6459098688566344
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "da939d1d-00d8-4bf4-d4d8-0230ccd7cd94",
+      "original_room_uuid": "7423d1c6-d1e7-3316-6714-6a9b282a396e",
+      "zone_group": "ZG-02",
+      "diagnostic_world_position": {
+        "x": -0.3771466339024232,
+        "y": 1.358287229125171,
+        "z": -4.573885722099092
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.003572694274452708,
+        "y": 0.9923059926853591,
+        "z": -0.10943986603868402,
+        "w": -0.05778380792038791
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "dc24d499-1ca6-f5ef-859c-77e8c3bad6b4",
+      "original_room_uuid": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "zone_group": "ZG-04",
+      "diagnostic_world_position": {
+        "x": 2.4296466235569842,
+        "y": 0.8594329835554577,
+        "z": -2.040420941816764
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.16464020849435096,
+        "y": 0.741228478836366,
+        "z": -0.15441645832040723,
+        "w": 0.632162559242989
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "e006418e-4655-1451-d9fb-65576d43c6f8",
+      "original_room_uuid": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "zone_group": "ZG-08",
+      "diagnostic_world_position": {
+        "x": -28.019172710423717,
+        "y": 0.9139597145421454,
+        "z": -0.270937255695749
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.18234574948807278,
+        "y": 0.7487780632082951,
+        "z": -0.10564258324356797,
+        "w": -0.6284274694085972
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "f2df3778-7670-0c8b-98cf-580e9e9fa7cf",
+      "original_room_uuid": "ce00a9e3-c3dc-48cd-a503-e928584055f2",
+      "zone_group": "ZG-06",
+      "diagnostic_world_position": {
+        "x": 3.880005794458493,
+        "y": 0.3596721046765745,
+        "z": -0.7050425091092694
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.35102706397966044,
+        "y": -0.1332334721171605,
+        "z": 0.10655869284790014,
+        "w": 0.920692178331049
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "f5f90aa5-9120-0ee2-4cc0-d28c8adc0629",
+      "original_room_uuid": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "zone_group": "ZG-01",
+      "diagnostic_world_position": {
+        "x": -11.098441691590274,
+        "y": 0.2462224108832223,
+        "z": -2.70095281051683
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.032684811016382855,
+        "y": 0.775406547778244,
+        "z": -0.5859475338955071,
+        "w": -0.2331134408677943
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "f832387e-5ba8-9db7-ed12-f49cfbd24da0",
+      "original_room_uuid": "ce00a9e3-c3dc-48cd-a503-e928584055f2",
+      "zone_group": "ZG-06",
+      "diagnostic_world_position": {
+        "x": 5.385961566147128,
+        "y": 0.905516003270213,
+        "z": 0.7733726081131559
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.12560497288798148,
+        "y": 0.752211541704947,
+        "z": -0.16074128875105181,
+        "w": 0.6265488212440651
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "f8c6744b-9182-5e57-5cad-734743468555",
+      "original_room_uuid": "ce00a9e3-c3dc-48cd-a503-e928584055f2",
+      "zone_group": "ZG-06",
+      "diagnostic_world_position": {
+        "x": 7.796010332706059,
+        "y": 2.990486655394184,
+        "z": 2.8630619684991885
+      },
+      "diagnostic_world_rotation": {
+        "x": -0.11593993162066508,
+        "y": 0.6865955881380967,
+        "z": -0.06986151267169195,
+        "w": -0.7143275156763315
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    },
+    {
+      "uuid": "fe10d048-b2bf-d23e-b394-58cc49f82c8e",
+      "original_room_uuid": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "zone_group": "ZG-08",
+      "diagnostic_world_position": {
+        "x": -27.086921254376346,
+        "y": 1.1325830500150742,
+        "z": 1.7117414596867304
+      },
+      "diagnostic_world_rotation": {
+        "x": 0.07737929876436508,
+        "y": 0.737576524062026,
+        "z": -0.09956188540721182,
+        "w": 0.6633858200545714
+      },
+      "user_approved": true,
+      "source": "USER_APPROVED_MANUAL_HOTSPOT"
+    }
+  ]
+}

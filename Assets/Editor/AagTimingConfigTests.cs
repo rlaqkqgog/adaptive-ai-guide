@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using UnityEditor;
+using UnityEngine;
 
 public sealed class AagTimingConfigTests
 {
@@ -17,7 +18,7 @@ public sealed class AagTimingConfigTests
         Assert.That(config.proxyWindowSeconds * config.proxyColdStartRatio, Is.EqualTo(24f));
         Assert.That(config.proxyLowBoundary, Is.EqualTo(0.25f));
         Assert.That(config.proxyHighBoundary, Is.EqualTo(0.71f));
-        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(8f));
+        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(15f));
 
         Assert.That(config.aesMinimumDistanceMeters, Is.EqualTo(12f));
         Assert.That(config.aesMinimumUniqueRooms, Is.EqualTo(2));
@@ -51,6 +52,40 @@ public sealed class AagTimingConfigTests
                 Assert.That(binding.clip, Is.Not.Null, $"Missing AudioClip asset: {clipId}");
                 Assert.That(binding.captionText, Is.Not.Empty, $"Missing caption: {clipId}");
             }
+        }
+    }
+
+    [Test]
+    public void TargetFound_PassesAesAndStartsFreshLostnessEpisode()
+    {
+        var root = new GameObject("AAG target-found metrics test");
+        var config = ScriptableObject.CreateInstance<Fp1ExperimentConfig>();
+        try
+        {
+            config.aesWindowSeconds = 24f;
+            config.proxyWindowSeconds = 48f;
+            config.proxyColdStartRatio = 0.5f;
+            var logger = root.AddComponent<LoggingManager>();
+            var metrics = root.AddComponent<BehaviorMetrics>();
+            metrics.BeginSession(config, root.transform, logger);
+
+            for (var index = 0; index < 240; index++)
+                metrics.Sample(0.1f, ExperimentGuideMode.AAG);
+            Assert.That(metrics.Evaluate(ExperimentGuideMode.AAG).proxyHasValue, Is.True);
+
+            Assert.That(metrics.NotifyTargetFound("red_1", "inventory"), Is.True);
+            var afterFind = metrics.Evaluate(ExperimentGuideMode.AAG);
+            Assert.That(afterFind.aesRecentFoundTargets, Is.EqualTo(1));
+            Assert.That(afterFind.aesGatePassed, Is.True);
+            Assert.That(afterFind.proxyHasValue, Is.False);
+            Assert.That(afterFind.proxyColdStart, Is.True);
+            Assert.That(afterFind.proxyRatio, Is.Zero);
+            Assert.That(metrics.NotifyTargetFound("red_1", "delivery"), Is.False);
+        }
+        finally
+        {
+            Object.DestroyImmediate(root);
+            Object.DestroyImmediate(config);
         }
     }
 }

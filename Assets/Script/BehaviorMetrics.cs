@@ -9,6 +9,7 @@ public sealed class BehaviorMetricsSnapshot
     public float aesDistanceMeters;
     public int aesUniqueRooms;
     public float aesHeadRotationDegrees;
+    public int aesRecentFoundTargets;
     public float aesCombinedScore;
     public bool aesClearlyPassive;
     public bool aesGatePassed;
@@ -72,6 +73,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         public float distanceMeters;
         public int uniqueRooms;
         public float headRotationDegrees;
+        public int recentFoundTargets;
         public float combinedScore;
         public bool clearlyPassive;
         public bool gatePassed;
@@ -92,6 +94,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
         public bool coldStart;
         public int carrying;
         public bool windowFrozen;
+        public int totalFoundTargets;
+        public float lastTargetFoundAt;
         public string guideMode;
     }
 
@@ -114,6 +118,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     [SerializeField] private float aesValue;
     [SerializeField] private bool clearlyPassive;
     [SerializeField] private bool aesGatePassed;
+    [SerializeField] private int windowFoundTargets;
 
     [Header("Lostness Proxy (Play Mode)")]
     [SerializeField] private int totalRoomVisits;
@@ -121,6 +126,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
     [SerializeField] private int revisitCount;
     [SerializeField] private float currentLostness;
     [SerializeField] private string lastVisitedRoom = string.Empty;
+    [SerializeField] private int totalFoundTargets;
+    [SerializeField] private float lastTargetFoundAt = -1f;
 
     private readonly List<MetricSample> metricSamples = new List<MetricSample>();
     private readonly HashSet<string> visitedRooms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -129,6 +136,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
     private readonly Dictionary<string, float> stalestEligibleAfter = new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, int> roomVisitCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     private readonly EmptyHandRevisitWindow revisitWindow = new EmptyHandRevisitWindow();
+    private readonly HashSet<string> foundTargetIds = new HashSet<string>(StringComparer.Ordinal);
+    private readonly List<float> targetFoundTimes = new List<float>();
 
     private bool sessionActive;
     private bool hasPreviousPose;
@@ -139,12 +148,23 @@ public sealed class BehaviorMetrics : MonoBehaviour
     private string candidateRoomUuid = string.Empty;
     private float candidateRoomDwell;
     private float currentRoomEnteredAt;
+    private Func<string> physicalRoomProvider;
 
     public int Carrying => carrying ? 1 : 0;
     public string CarriedObjectId => carriedObjectId;
     public string CurrentRoomUuid => currentRoomUuid;
     public string CurrentRoomId => currentRoomId;
     public Vector3 LatestHeadPosition { get; private set; }
+
+    /// <summary>
+    /// Overrides only the participant head's current-room identity. Arbitrary
+    /// object-position queries continue to use MRUK geometry through
+    /// <see cref="ResolveRoomUuid"/>.
+    /// </summary>
+    public void SetPhysicalRoomProvider(Func<string> provider)
+    {
+        physicalRoomProvider = provider;
+    }
 
     public void BeginSession(Fp1ExperimentConfig sessionConfig, Transform trackedHead, LoggingManager logger)
     {
@@ -160,6 +180,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
         sessionActive = false;
         metricSamples.Clear();
         revisitWindow.Reset();
+        foundTargetIds.Clear();
+        targetFoundTimes.Clear();
         visitedRooms.Clear();
         lastVisitedAt.Clear();
         lastMeaningfulVisitAt.Clear();
@@ -185,11 +207,14 @@ public sealed class BehaviorMetrics : MonoBehaviour
         aesValue = 0f;
         clearlyPassive = false;
         aesGatePassed = false;
+        windowFoundTargets = 0;
         totalRoomVisits = 0;
         uniqueRoomVisits = 0;
         revisitCount = 0;
         currentLostness = 0f;
         lastVisitedRoom = string.Empty;
+        totalFoundTargets = 0;
+        lastTargetFoundAt = -1f;
     }
 
     public void Sample(float sampleDelta, ExperimentGuideMode guideMode)
@@ -206,7 +231,12 @@ public sealed class BehaviorMetrics : MonoBehaviour
         var euler = headTransform.eulerAngles;
         var yaw = NormalizeAngle(euler.y);
         var pitch = NormalizeAngle(euler.x);
-        UpdateStableRoom(ResolveRoomUuid(position), sampleDelta);
+        var physicalRoomUuid = physicalRoomProvider?.Invoke();
+        UpdateStableRoom(
+            string.IsNullOrWhiteSpace(physicalRoomUuid)
+                ? ResolveRoomUuid(position)
+                : physicalRoomUuid,
+            sampleDelta);
 
         var distance = 0f;
         var rotation = 0f;
@@ -252,6 +282,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     public BehaviorMetricsSnapshot Evaluate(ExperimentGuideMode guideMode)
     {
         var snapshot = new BehaviorMetricsSnapshot();
+        TrimFoundTargetWindow();
         var rooms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var sample in metricSamples)
         {
@@ -260,6 +291,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
             if (!string.IsNullOrEmpty(sample.roomUuid)) rooms.Add(sample.roomUuid);
         }
         snapshot.aesUniqueRooms = rooms.Count;
+        snapshot.aesRecentFoundTargets = targetFoundTimes.Count;
         snapshot.aesCombinedScore = snapshot.aesDistanceMeters
             + snapshot.aesUniqueRooms
             + snapshot.aesHeadRotationDegrees / 180f;
@@ -268,7 +300,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
         snapshot.aesClearlyPassive = config != null
             && snapshot.aesDistanceMeters < config.aesMinimumDistanceMeters
             && snapshot.aesUniqueRooms < config.aesMinimumUniqueRooms
-            && snapshot.aesHeadRotationDegrees < config.aesMinimumHeadRotationDegrees;
+            && snapshot.aesHeadRotationDegrees < config.aesMinimumHeadRotationDegrees
+            && snapshot.aesRecentFoundTargets == 0;
         snapshot.aesGatePassed = !snapshot.aesClearlyPassive;
 
         revisitWindow.GetWindow(config.proxyWindowSeconds, out var revisitSeconds, out var emptyHandSeconds);
@@ -283,6 +316,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         windowDistanceMeters = snapshot.aesDistanceMeters;
         windowUniqueRooms = snapshot.aesUniqueRooms;
         windowHeadRotationDegrees = snapshot.aesHeadRotationDegrees;
+        windowFoundTargets = snapshot.aesRecentFoundTargets;
         aesValue = snapshot.aesCombinedScore;
         clearlyPassive = snapshot.aesClearlyPassive;
         aesGatePassed = snapshot.aesGatePassed;
@@ -295,6 +329,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
             distanceMeters = snapshot.aesDistanceMeters,
             uniqueRooms = snapshot.aesUniqueRooms,
             headRotationDegrees = snapshot.aesHeadRotationDegrees,
+            recentFoundTargets = snapshot.aesRecentFoundTargets,
             combinedScore = snapshot.aesCombinedScore,
             clearlyPassive = snapshot.aesClearlyPassive,
             gatePassed = snapshot.aesGatePassed,
@@ -312,6 +347,8 @@ public sealed class BehaviorMetrics : MonoBehaviour
             coldStart = snapshot.proxyColdStart,
             carrying = Carrying,
             windowFrozen = windowFrozen,
+            totalFoundTargets = totalFoundTargets,
+            lastTargetFoundAt = lastTargetFoundAt,
             guideMode = guideMode.ToString(),
         }, "revisit_proxy");
 
@@ -367,6 +404,32 @@ public sealed class BehaviorMetrics : MonoBehaviour
         carrying = false;
         carriedObjectId = string.Empty;
         windowFrozen = false;
+    }
+
+    /// <summary>
+    /// Records direct evidence of successful search. A newly found target keeps
+    /// the loose AES gate open for one AES window and starts a fresh Lostness
+    /// episode so pre-find revisit time cannot penalize post-find behavior.
+    /// </summary>
+    public bool NotifyTargetFound(string objectId, string source)
+    {
+        objectId ??= string.Empty;
+        if (!sessionActive || string.IsNullOrWhiteSpace(objectId) || !foundTargetIds.Add(objectId))
+            return false;
+
+        var now = loggingManager != null ? loggingManager.SessionTime : 0f;
+        targetFoundTimes.Add(now);
+        totalFoundTargets = foundTargetIds.Count;
+        lastTargetFoundAt = now;
+        revisitWindow.Reset();
+        currentRoomIsRevisit = false;
+        currentLostness = 0f;
+        var aesEvidenceSeconds = config != null ? config.aesWindowSeconds : 0f;
+        loggingManager?.WriteSystem(
+            "target_found_metrics_reset",
+            $"object={objectId}; source={source ?? string.Empty}; totalFound={totalFoundTargets}; "
+            + $"aesActiveEvidenceSeconds={aesEvidenceSeconds:F1}; lostnessWindowReset=true");
+        return true;
     }
 
     public bool HasVisited(string roomUuid)
@@ -497,6 +560,14 @@ public sealed class BehaviorMetrics : MonoBehaviour
     {
         var minimumTime = loggingManager.SessionTime - config.aesWindowSeconds;
         while (metricSamples.Count > 0 && metricSamples[0].time < minimumTime) metricSamples.RemoveAt(0);
+    }
+
+    private void TrimFoundTargetWindow()
+    {
+        if (config == null || loggingManager == null) return;
+        var minimumTime = loggingManager.SessionTime - config.aesWindowSeconds;
+        while (targetFoundTimes.Count > 0 && targetFoundTimes[0] < minimumTime)
+            targetFoundTimes.RemoveAt(0);
     }
 
     private static float NormalizeAngle(float angle)

@@ -40,6 +40,7 @@ public sealed class AAGGuide : MonoBehaviour
         public float aesDistanceMeters;
         public int aesUniqueRooms;
         public float aesHeadRotationDegrees;
+        public int aesRecentFoundTargets;
         public float aesCombinedScore;
         public bool aesClearlyPassive;
         public bool aesGatePassed;
@@ -134,6 +135,12 @@ public sealed class AAGGuide : MonoBehaviour
         suppressionReason = string.Empty;
     }
 
+    public void NotifyTargetFound()
+    {
+        recentZoneVotes.Clear();
+        currentLostnessZone = "cold_start";
+    }
+
     public void Evaluate(BehaviorMetricsSnapshot snapshot, IReadOnlyCollection<AagGuideTarget> targets)
     {
         if (snapshot == null || config == null || behaviorMetrics == null || loggingManager == null) return;
@@ -149,11 +156,12 @@ public sealed class AAGGuide : MonoBehaviour
 
         var previousLevel = currentSupportLevel;
         var choices = BuildRoomChoices(targets);
+        var hasRemainingTargets = HasRemainingTargets(targets);
         var choice = snapshot.aesGatePassed ? ChooseRoom(choices, loggingManager.SessionTime) : null;
         var selectionRule = choice?.selectionRule
             ?? (!snapshot.aesGatePassed
                 ? "none"
-                : choices.Count == 0 ? "no_remaining_targets" : "recent_floor_fallback");
+                : !hasRemainingTargets ? "no_remaining_targets" : "recent_floor_fallback");
         var outputEnabled = config.aagTextModeEnabled || config.aagPlaybackEnabled;
         var outputDue = loggingManager.SessionTime - lastUtteranceTime >= config.minimumUtteranceGapSeconds;
         var adaptationDue = loggingManager.SessionTime - lastAdaptationTime >= config.minimumUtteranceGapSeconds;
@@ -175,6 +183,7 @@ public sealed class AAGGuide : MonoBehaviour
             aesDistanceMeters = snapshot.aesDistanceMeters,
             aesUniqueRooms = snapshot.aesUniqueRooms,
             aesHeadRotationDegrees = snapshot.aesHeadRotationDegrees,
+            aesRecentFoundTargets = snapshot.aesRecentFoundTargets,
             aesCombinedScore = snapshot.aesCombinedScore,
             aesClearlyPassive = snapshot.aesClearlyPassive,
             aesGatePassed = snapshot.aesGatePassed,
@@ -218,6 +227,14 @@ public sealed class AAGGuide : MonoBehaviour
             outputMode = "none",
         };
 
+        // A pocketed stone has already been found even though it has not yet
+        // been delivered. Once every target is found, no search/lostness prompt
+        // is valid (including the room-independent Normal and gate-failure clips).
+        if (!hasRemainingTargets)
+        {
+            FinishSuppressed(decision, "no_remaining_targets");
+            return;
+        }
         if (behaviorMetrics.Carrying != 0)
         {
             FinishSuppressed(decision, "carrying");
@@ -274,6 +291,11 @@ public sealed class AAGGuide : MonoBehaviour
         decision.outputMode = emittedMode;
         decision.reason = outputReason;
         PublishDecision(decision);
+    }
+
+    private static bool HasRemainingTargets(IReadOnlyCollection<AagGuideTarget> targets)
+    {
+        return targets != null && targets.Any(target => target != null && !target.delivered);
     }
 
     private List<RoomChoice> BuildRoomChoices(IReadOnlyCollection<AagGuideTarget> targets)

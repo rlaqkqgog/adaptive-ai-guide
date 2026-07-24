@@ -102,6 +102,60 @@ public sealed class AagRigidPoseRecoveryTests
     }
 
     [Test]
+    public void TrySolve_PostRescanEightRoomConstellation_IsWithinStrictThresholds()
+    {
+        var references = new List<AagRigidPoseRecovery.Reference>
+        {
+            new("room1", new Vector3(-26.704f, -0.002f, -3.716f), new Vector3(-3.025242f, 0.349068f, -22.232548f)),
+            new("room2", new Vector3(-13.106f, 0.036f, -0.403f), new Vector3(-0.439978f, 0.384134f, -8.409974f)),
+            new("room3", new Vector3(1.133f, 0.079f, 2.906f), new Vector3(2.281196f, 0.342008f, 5.908213f)),
+            new("hall1-1", new Vector3(-22.695f, -0.005f, -7.886f), new Vector3(2.327605f, 0.347336f, -20.014044f)),
+            new("hall1-2", new Vector3(-12.484f, -0.003f, -5.448f), new Vector3(4.510054f, 0.355273f, -9.838497f)),
+            new("hall1-3", new Vector3(-0.681f, -0.049f, -2.859f), new Vector3(6.769153f, 0.343031f, 1.970263f)),
+            new("hall2-1", new Vector3(10.916f, 0.006f, -0.139f), new Vector3(9.202517f, 0.323666f, 13.738680f)),
+            new("hall2-2", new Vector3(6.964f, 0.018f, 3.705f), new Vector3(3.960026f, 0.403465f, 11.574716f)),
+        };
+
+        Assert.That(AagRigidPoseRecovery.TrySolve(references, out var solution, out var failure),
+            Is.True, failure);
+        Assert.That(solution.InlierIds.Length, Is.GreaterThanOrEqualTo(3));
+        Assert.That(solution.RmsResidualMeters,
+            Is.LessThanOrEqualTo(AagRigidPoseRecovery.MaximumRmsResidualMeters));
+        Assert.That(solution.MaxResidualMeters,
+            Is.LessThanOrEqualTo(AagRigidPoseRecovery.InlierToleranceMeters));
+    }
+
+    [Test]
+    public void TrySolveBestEffort_CurrentNineRoomRelocalization_ContinuesWithQualityWarning()
+    {
+        // Runtime field sample from 2026-07-21 13:49. The ninth split room has
+        // no legacy canonical origin; five of the remaining eight form a valid
+        // consensus whose 16.89 cm RMS is diagnostic, not a session-start gate.
+        var references = new List<AagRigidPoseRecovery.Reference>
+        {
+            new("room3", new Vector3(1.133f, 0.079f, 2.906f), new Vector3(0.151f, -0.015f, 1.292f)),
+            new("room2-1", new Vector3(-13.106f, 0.036f, -0.403f), new Vector3(-15.026f, 0.029f, 0.831f)),
+            new("hall1-3", new Vector3(-0.681f, -0.049f, -2.859f), new Vector3(-3.787f, -0.021f, -3.797f)),
+            new("hall1-1", new Vector3(-22.695f, -0.005f, -7.886f), new Vector3(-25.206f, 0.003f, -4.416f)),
+            new("hall2-1", new Vector3(10.916f, 0.006f, -0.139f), new Vector3(9.443f, -0.068f, -3.533f)),
+            new("room1", new Vector3(-26.704f, -0.002f, -3.716f), new Vector3(-28.124f, 0.017f, 0.247f)),
+            new("hall1-2", new Vector3(-12.484f, -0.003f, -5.448f), new Vector3(-15.259f, -0.005f, -4.052f)),
+            new("hall2-2", new Vector3(6.964f, 0.018f, 3.705f), new Vector3(6.129f, -0.038f, 0.916f)),
+        };
+
+        Assert.That(AagRigidPoseRecovery.TrySolve(references, out _, out var strictFailure), Is.False);
+        StringAssert.Contains("rms_0.1689_maximum_0.1500", strictFailure);
+
+        Assert.That(AagRigidPoseRecovery.TrySolveBestEffort(
+            references, out var solution, out var qualityWarning), Is.True);
+        StringAssert.Contains("rms_0.1689_maximum_0.1500", qualityWarning);
+        Assert.That(solution.InlierIds.Length, Is.EqualTo(5));
+        Assert.That(solution.RmsResidualMeters, Is.EqualTo(0.1689f).Within(0.0002f));
+        Assert.That(solution.MaxResidualMeters,
+            Is.LessThanOrEqualTo(AagRigidPoseRecovery.InlierToleranceMeters));
+    }
+
+    [Test]
     public void TrySolve_FieldS3DataSelectsKnownRigidTriplet()
     {
         var references = new List<AagRigidPoseRecovery.Reference>

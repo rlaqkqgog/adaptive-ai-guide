@@ -4,6 +4,7 @@ using UnityEngine;
 
 public sealed class IncidentalPrefabVisibilityTests
 {
+    [TestCase("IncidentalObjects/FP1-S1/04_pot")]
     [TestCase("IncidentalObjects/FP1-S2/05_sewingMachin")]
     [TestCase("IncidentalObjects/FP1-S3/03_heamer")]
     public void Prefab_HasAnActiveVisibleRenderer(string resourcePath)

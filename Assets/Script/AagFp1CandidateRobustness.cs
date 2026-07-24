@@ -1208,10 +1208,10 @@ public sealed partial class AagFp1PlacementAuthoring
         foreach (var candidate in triplet)
         {
             var counts = candidate.metrics.room_counts.ToDictionary(item => item.key, item => item.value, StringComparer.OrdinalIgnoreCase);
-            counts.TryGetValue(Room2Uuid.ToString(), out var room2Count);
+            var room2Count = CountRoom2(counts);
             counts.TryGetValue(Room3Uuid.ToString(), out var room3Count);
             if (room2Count > room2MaximumMarkers)
-                failures.Add($"{candidate.set_id}:Room2={room2Count}>{room2MaximumMarkers}");
+                failures.Add($"{candidate.set_id}:Room2Combined={room2Count}>{room2MaximumMarkers}");
             if (room3Count > room3MaximumMarkers)
                 failures.Add($"{candidate.set_id}:Room3={room3Count}>{room3MaximumMarkers}");
         }

@@ -30,7 +30,9 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
 
     public void Load(
         IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> entries,
-        AagRigidPoseRecovery.Solution? s3RecoverySolution = null)
+        AagRigidPoseRecovery.Solution? globalRecoverySolution = null,
+        bool useGlobalSolutionOnly = false,
+        string setId = "")
     {
         ClearLoadedAnchors();
         failures.Clear();
@@ -40,9 +42,23 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             .ToDictionary(pair => pair.Key, pair => pair.Value)
             ?? new Dictionary<Guid, AagIncidentalAnchorEntry>();
         if (normalized.Count == 0) return;
+
+        if (useGlobalSolutionOnly && globalRecoverySolution.HasValue)
+        {
+            foreach (var uuid in normalized.Keys)
+                failures[uuid] = "deterministic_room_constellation";
+            IsLoading = true;
+            if (!TrySpawnS3RoomLocalRoots(normalized, setId))
+                SpawnRigidApproximateRoots(normalized, globalRecoverySolution.Value, setId);
+            IsLoading = false;
+            Debug.Log(
+                $"[Incidental Load] deterministic room-constellation mode "
+                + $"set={setId}; ready={LoadedCount}/{normalized.Count}", this);
+            return;
+        }
         IsLoading = true;
         var version = ++loadVersion;
-        LoadAsync(normalized, version, s3RecoverySolution);
+        LoadAsync(normalized, version, globalRecoverySolution, setId);
     }
 
     public bool TryGetTransform(Guid uuid, out Transform result)
@@ -95,7 +111,8 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
     private async void LoadAsync(
         IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> entries,
         int version,
-        AagRigidPoseRecovery.Solution? s3RecoverySolution)
+        AagRigidPoseRecovery.Solution? globalRecoverySolution,
+        string setId)
     {
         try
         {
@@ -153,8 +170,8 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
         {
             if (version == loadVersion)
             {
-                if (s3RecoverySolution.HasValue)
-                    SpawnRigidApproximateRoots(entries, s3RecoverySolution.Value);
+                if (globalRecoverySolution.HasValue)
+                    SpawnRigidApproximateRoots(entries, globalRecoverySolution.Value, setId);
                 else
                     SpawnLegacyApproximateRoots(entries);
                 IsLoading = false;
@@ -198,9 +215,57 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
         }
     }
 
+    private bool TrySpawnS3RoomLocalRoots(
+        IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> entries,
+        string setId)
+    {
+        if (!string.Equals(setId, AagExperimentSpaceCatalog.Fp1S3, StringComparison.Ordinal)
+            || entries.Count != AagS3IncidentalRoomLocalCatalog.Count)
+            return false;
+
+        var placements = new List<(Guid uuid, AagIncidentalAnchorEntry entry, Vector3 position, Quaternion rotation)>();
+        foreach (var pair in entries.OrderBy(value => value.Value.object_id, StringComparer.Ordinal))
+        {
+            if (!AagS3IncidentalRoomLocalCatalog.TryResolve(
+                    pair.Value.object_id, out var position, out var rotation, out var resolveFailure))
+            {
+                LastRecoverySummary =
+                    $"set={setId}; status=failed; source=room_local_20260721; "
+                    + $"object={pair.Value.object_id}; reason={resolveFailure}";
+                failures[pair.Key] = $"{failures[pair.Key]}; room_local={resolveFailure}";
+                return false;
+            }
+            if (!AagRecoveryPlacementValidator.TryValidate(position, out _, out var placementFailure))
+            {
+                LastRecoverySummary =
+                    $"set={setId}; status=failed; source=room_local_20260721; "
+                    + $"object={pair.Value.object_id}; reason={placementFailure}";
+                failures[pair.Key] = $"{failures[pair.Key]}; room_local={placementFailure}";
+                return false;
+            }
+            placements.Add((pair.Key, pair.Value, position, rotation));
+        }
+
+        foreach (var placement in placements)
+        {
+            var root = new GameObject($"IncidentalRoomLocalAnchor {placement.entry.object_id}");
+            root.transform.SetPositionAndRotation(placement.position, placement.rotation);
+            approximateRoots[placement.uuid] = root;
+            approximateReasons[placement.uuid] = "deterministic_room_local_20260721";
+            failures.Remove(placement.uuid);
+            Debug.Log(
+                $"[Incidental Load] room-local object={placement.entry.object_id} "
+                + $"position={placement.position}", this);
+        }
+        LastRecoverySummary =
+            $"set={setId}; status=success; source=room_local_20260721; recovered={placements.Count}";
+        return true;
+    }
+
     private void SpawnRigidApproximateRoots(
         IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> entries,
-        AagRigidPoseRecovery.Solution stoneSolution)
+        AagRigidPoseRecovery.Solution stoneSolution,
+        string setId)
     {
         var missing = entries
             .Where(pair => !realAnchors.ContainsKey(pair.Key) && failures.ContainsKey(pair.Key))
@@ -208,7 +273,7 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             .ToArray();
         if (missing.Length == 0)
         {
-            LastRecoverySummary = "set=FP1-S3; missing=0; source=none";
+            LastRecoverySummary = $"set={setId}; missing=0; source=none";
             return;
         }
 
@@ -221,7 +286,7 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             .ToArray();
 
         var solution = stoneSolution;
-        var source = "stone_consensus";
+        var source = references.Length == 0 ? "room_constellation" : "stone_consensus";
         var compatible = references.Length == 0 || references.All(reference =>
             Vector3.Distance(solution.TransformPoint(reference.CapturedPosition), reference.CurrentPosition)
                 <= AagRigidPoseRecovery.InlierToleranceMeters);
@@ -246,7 +311,7 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
                     finalFailure = twoReferenceFailure;
                 }
                 LastRecoverySummary =
-                    $"set=FP1-S3; status=failed; stone_solution_incompatible=true; "
+                    $"set={setId}; status=failed; stone_solution_incompatible=true; "
                     + $"incidentalReferences={references.Length}; reason={finalFailure}";
                 foreach (var pair in missing)
                     failures[pair.Key] = $"{failures[pair.Key]}; rigid_recovery={finalFailure}";
@@ -261,14 +326,14 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             var rotation = solution.TransformRotation(pair.Value.FallbackRotation);
             if (!AagRigidPoseRecovery.IsFinite(position) || !AagRigidPoseRecovery.IsFinite(rotation))
             {
-                LastRecoverySummary = $"set=FP1-S3; status=failed; object={pair.Value.object_id}; reason=non_finite_pose";
+                LastRecoverySummary = $"set={setId}; status=failed; object={pair.Value.object_id}; reason=non_finite_pose";
                 failures[pair.Key] = $"{failures[pair.Key]}; rigid_recovery=non_finite_pose";
                 return;
             }
             if (!AagRecoveryPlacementValidator.TryValidate(position, out var rooms, out var placementFailure))
             {
                 LastRecoverySummary =
-                    $"set=FP1-S3; status=failed; object={pair.Value.object_id}; reason={placementFailure}";
+                    $"set={setId}; status=failed; object={pair.Value.object_id}; reason={placementFailure}";
                 failures[pair.Key] = $"{failures[pair.Key]}; rigid_recovery={placementFailure}";
                 return;
             }
@@ -289,7 +354,7 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
         }
 
         LastRecoverySummary =
-            $"set=FP1-S3; status=success; source={source}; references={references.Length}; "
+            $"set={setId}; status=success; source={source}; references={references.Length}; "
             + $"recovered={placements.Count}; inliers={string.Join("|", solution.InlierIds ?? Array.Empty<string>())}; "
             + $"rms={solution.RmsResidualMeters:F4}; maxResidual={solution.MaxResidualMeters:F4}";
     }

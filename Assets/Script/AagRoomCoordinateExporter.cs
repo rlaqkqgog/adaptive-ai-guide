@@ -28,7 +28,7 @@ public class AagRoomCoordinateExporter : MonoBehaviour
     }
 
     [Header("Export timing")]
-    [Tooltip("Exports once after MRUK has loaded at least one room. Call ExportNow() from a UnityEvent to export again.")]
+    [Tooltip("Exports once after MRUK reports that the complete Scene has loaded. Call ExportNow() from a UnityEvent to export again.")]
     [SerializeField] private bool exportOnStart = true;
 
     [Tooltip("Maximum time to wait for MRUK scene data on device.")]
@@ -83,7 +83,10 @@ public class AagRoomCoordinateExporter : MonoBehaviour
         lastWaitingLogTime = float.NegativeInfinity;
         UpdateWaitingDiagnostics(elapsed, true);
 
-        while ((MRUK.Instance == null || MRUK.Instance.Rooms.Count == 0) && elapsed < waitForMrukSeconds)
+        // Rooms are populated incrementally while MRUK loads a device Scene.  Waiting
+        // only for Rooms.Count > 0 can therefore export a truncated room list.  MRUK's
+        // IsInitialized flag is set only after its final SceneLoadedEvent has fired.
+        while ((MRUK.Instance == null || !MRUK.Instance.IsInitialized) && elapsed < waitForMrukSeconds)
         {
             elapsed += Time.unscaledDeltaTime;
             UpdateWaitingDiagnostics(elapsed, false);
@@ -97,6 +100,13 @@ public class AagRoomCoordinateExporter : MonoBehaviour
             yield break;
         }
 
+        if (!MRUK.Instance.IsInitialized)
+        {
+            SetDiagnostic("MRUK load incomplete", $"Timed out after {elapsed:F1}s before SceneLoadedEvent. No files were written.", true);
+            isExporting = false;
+            yield break;
+        }
+
         if (MRUK.Instance.Rooms.Count == 0)
         {
             SetDiagnostic("No rooms", $"MRUK instance found, but room count stayed 0 for {elapsed:F1}s. No files were written.", true);
@@ -106,7 +116,7 @@ public class AagRoomCoordinateExporter : MonoBehaviour
 
         try
         {
-            SetDiagnostic("Exporting", $"MRUK instance found; room count={MRUK.Instance.Rooms.Count}");
+            SetDiagnostic("Exporting", $"MRUK SceneLoadedEvent complete; room count={MRUK.Instance.Rooms.Count}");
             WriteExport(MRUK.Instance.Rooms);
             SetDiagnostic("Export succeeded", $"rooms={MRUK.Instance.Rooms.Count}; files written under {ExportFolderName}");
         }

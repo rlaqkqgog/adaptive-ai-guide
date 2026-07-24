@@ -5,6 +5,19 @@ using UnityEngine;
 public sealed class MrukRoomLocalPlacementStoreTests
 {
     [Test]
+    public void BundledPostRescanCatalog_HasThreeValidSetsAndCurrentSchema()
+    {
+        var seed = Resources.Load<TextAsset>("AAG/fp1_floor_anchor_local_placements");
+        Assert.That(seed, Is.Not.Null);
+        var catalog = JsonUtility.FromJson<MrukRoomLocalPlacementStore.Catalog>(seed.text);
+        Assert.That(catalog, Is.Not.Null);
+        Assert.That(catalog.schemaVersion, Is.EqualTo(MrukRoomLocalPlacementStore.SchemaVersion));
+        Assert.That(catalog.sets, Has.Count.EqualTo(3));
+        foreach (var set in catalog.sets)
+            Assert.That(MrukRoomLocalPlacementStore.TryValidateSet(set, out var failure), Is.True, failure);
+    }
+
+    [Test]
     public void FloorAnchorPose_RoundTripsAcrossRelocalization()
     {
         var source = new GameObject("source floor");
@@ -51,7 +64,7 @@ public sealed class MrukRoomLocalPlacementStoreTests
             {
                 objectId = index < 2 ? "red_1" : $"object_{index}",
                 color = "Red",
-                roomUuid = "316e933e-d06d-5af0-8919-10578ccd3900",
+                roomUuid = "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
                 floorAnchorUuid = "a285cf0f-0955-7828-6885-67fcd03d7db6",
                 localRotationW = 1f,
             });
@@ -84,7 +97,7 @@ public sealed class MrukRoomLocalPlacementStoreTests
             {
                 objectId = $"object_{index}",
                 color = "Red",
-                roomUuid = "316e933e-d06d-5af0-8919-10578ccd3900",
+                roomUuid = "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
                 floorAnchorUuid = "a285cf0f-0955-7828-6885-67fcd03d7db6",
                 localRotationW = 1f,
             });

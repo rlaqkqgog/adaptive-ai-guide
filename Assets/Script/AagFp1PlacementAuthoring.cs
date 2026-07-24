@@ -1405,9 +1405,9 @@ public sealed partial class AagFp1PlacementAuthoring : MonoBehaviour
     {
         failure = string.Empty;
         var result = new List<MRUKRoom>(MarkerCountPerSet);
-        if (rooms.Count != 8)
+        if (rooms.Count != AagExperimentSpaceCatalog.Fp1.RoomIds.Count)
         {
-            failure = $"exact FP1 room quota requires 8 loaded rooms; actual={rooms.Count}";
+            failure = $"exact FP1 room quota requires {AagExperimentSpaceCatalog.Fp1.RoomIds.Count} loaded rooms; actual={rooms.Count}";
             return result;
         }
 
@@ -2613,7 +2613,7 @@ public sealed partial class AagFp1PlacementAuthoring : MonoBehaviour
                 : maximumPairwise;
 
         var readinessReasons = new List<string>();
-        roomCountsById.TryGetValue(Room2Uuid, out var room2Count);
+        var room2Count = CountRoom2(roomCountsById);
         roomCountsById.TryGetValue(Room3Uuid, out var room3Count);
         if (room2Count > room2MaximumMarkers)
             readinessReasons.Add($"room=Room2 count={room2Count}>{room2MaximumMarkers}");

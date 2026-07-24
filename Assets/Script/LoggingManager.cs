@@ -41,7 +41,7 @@ public sealed class LoggingManager : MonoBehaviour
         public float aesMinimumDistanceMeters;
         public int aesMinimumUniqueRooms;
         public float aesMinimumHeadRotationDegrees;
-        public string aesGateRule = "block_only_when_all_three_signals_are_below_threshold";
+        public string aesGateRule = "block_only_when_distance_room_rotation_are_below_threshold_and_no_target_was_found_in_window";
         public float proxyWindowSeconds;
         public float proxyColdStartRatio;
         public float proxyLowBoundary;
@@ -53,7 +53,7 @@ public sealed class LoggingManager : MonoBehaviour
         public float stalestRecencyFloorSeconds;
         public float stalestMeaningfulDwellSeconds;
         public string initialSupportLevel;
-        public string supportAdjustmentRule = "recent4_strict3of4|underload:+1_harder|optimal:0|overload:-1_easier|carrying:clear|gate_blocked:adjust|clamp:VeryEasy..VeryHard";
+        public string supportAdjustmentRule = "recent4_strict3of4|underload:+1_harder|optimal:0|overload:-1_easier|target_found:aes_pass+proxy_reset+votes_clear|carrying:clear|gate_blocked:adjust|clamp:VeryEasy..VeryHard";
         public bool freezeProxyWhileCarrying = true;
         public string roomSelectionRule = "unvisited_then_stalest_then_remaining_count_then_tie_order";
         public string roomTieOrder;
