@@ -19,8 +19,9 @@ public static class AagRoom3AprilTagSetup
     // unconfirmed until the researcher checks the real installation.
     private static readonly Vector3 InitialReferenceWorldPosition =
         new Vector3(-0.89998f, 1.333365f, -2.32729f);
-    private const float Room3ContentAlongWallBackMeters = 0.5f;
-    private const float Room3ContentWallClearanceMeters = 0.4f;
+    private const float Room3ContentAlongWallBaselineMeters = -0.65f;
+    private const float Room3ContentAlongWallAdjustmentMeters = 0.15f;
+    private const float Room3ContentWallClearanceMeters = 0.25f;
 
     [MenuItem("AAG/Room3 AprilTag/Setup MainTest FP1 (Preview Only)")]
     public static void SetupMainTestFp1()
@@ -118,8 +119,10 @@ public static class AagRoom3AprilTagSetup
         serialized.FindProperty("allowQuestControllerApply").boolValue = false;
         serialized.FindProperty("horizontalOnly").boolValue = false;
         serialized.FindProperty("requireAppliedAlignmentBeforeSession").boolValue = true;
-        serialized.FindProperty("contentAlongWallBackMeters").floatValue =
-            Room3ContentAlongWallBackMeters;
+        serialized.FindProperty("contentAlongWallBaselineMeters").floatValue =
+            Room3ContentAlongWallBaselineMeters;
+        serialized.FindProperty("contentAlongWallAdjustmentMeters").floatValue =
+            Room3ContentAlongWallAdjustmentMeters;
         serialized.FindProperty("contentWallClearanceMeters").floatValue =
             Room3ContentWallClearanceMeters;
         serialized.FindProperty("showRuntimeHud").boolValue = true;

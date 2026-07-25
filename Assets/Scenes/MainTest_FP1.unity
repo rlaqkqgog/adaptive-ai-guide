@@ -2512,8 +2512,9 @@ MonoBehaviour:
   allowQuestControllerApply: 1
   horizontalOnly: 0
   requireAppliedAlignmentBeforeSession: 1
-  contentAlongWallBackMeters: 0.5
-  contentWallClearanceMeters: 0.4
+  contentAlongWallBaselineMeters: -0.65
+  contentAlongWallAdjustmentMeters: 0.15
+  contentWallClearanceMeters: 0.25
   showRuntimeHud: 1
 --- !u!114 &920000043
 MonoBehaviour:

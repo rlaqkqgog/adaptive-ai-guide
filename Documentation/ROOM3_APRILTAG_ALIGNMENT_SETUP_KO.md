@@ -26,9 +26,12 @@
 - 현재 현장 승인 씬은 `Horizontal Only = false`라 XYZ 평행이동을 사용한다.
 - 현장 승인 씬은 `Preview Only = false`, `Allow Quest Controller Apply = true`이며
   양쪽 thumbstick을 1.5초 눌러 명시적으로 적용한다.
-- 콘텐츠에는 태그 보정과 별도로 태그 기준 수평축의 `벽을 따라 뒤쪽 0.50 m`와
-  `벽에서 방 안쪽 0.40 m` 미세조정이 더해진다. 높이 미세조정은 0이다.
+- 콘텐츠에는 태그 보정과 별도로 태그 기준 수평축의 고정 기준 `-0.65 m`에
+  조정값 `+0.15 m`를 더한 최종 `-0.50 m`와
+  `벽에서 방 안쪽 0.25 m` 미세조정이 더해진다. 높이 미세조정은 0이다.
 - 빨간 큐브는 현실 태그 중심 확인용이라 이 콘텐츠 미세조정을 받지 않는다.
+- 상세 AprilTag 정렬 HUD는 Apply가 성공하면 자동으로 숨고, `A`로 세션이 Running 상태에
+  들어갈 때도 강제로 숨긴다. 정렬을 Reset하면 다시 나타난다.
 - 보정은 `AagFixedSpaceOffset`을 통해 앱 소유 실험 콘텐츠에만 적용된다. MRUK, Room/Anchor,
   OVRCameraRig, TrackingSpace는 이동하지 않는다.
 - 적용된 최신 태그 보정이 없거나 검출이 12초보다 오래됐으면 FP1 실험 시작은 차단된다.

@@ -44,10 +44,12 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     [SerializeField] private bool requireAppliedAlignmentBeforeSession = true;
 
     [Header("Content fine tuning")]
-    [Tooltip("Moves experiment content along the Room3 wall, toward the back of the authored room.")]
-    [SerializeField] private float contentAlongWallBackMeters = 0.5f;
+    [Tooltip("Fixed on-site baseline along the Room3 wall. Keep this at the confirmed -0.65 m reference.")]
+    [SerializeField] private float contentAlongWallBaselineMeters = -0.65f;
+    [Tooltip("Adjustment measured from the fixed -0.65 m baseline. The current +0.15 m produces -0.50 m.")]
+    [SerializeField] private float contentAlongWallAdjustmentMeters = 0.15f;
     [Tooltip("Moves experiment content horizontally away from the tagged Room3 wall and into the room.")]
-    [SerializeField] private float contentWallClearanceMeters = 0.4f;
+    [SerializeField] private float contentWallClearanceMeters = 0.25f;
 
     [Header("Runtime display")]
     [SerializeField] private bool showRuntimeHud = true;
@@ -56,6 +58,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     private PassthroughCameraAccess cameraAccess;
     private TagDetector detector;
     private Color32[] pixels;
+    private GameObject hudRoot;
     private Text hud;
     private Vector2Int detectorResolution;
     private float verticalFovRadians;
@@ -90,7 +93,10 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public bool HasStablePreview => hasStablePreview;
     public bool IsApplied => isApplied;
     public Vector3 PreviewOffsetMeters => previewOffsetMeters;
-    public float ContentAlongWallBackMeters => contentAlongWallBackMeters;
+    public float ContentAlongWallBaselineMeters => contentAlongWallBaselineMeters;
+    public float ContentAlongWallAdjustmentMeters => contentAlongWallAdjustmentMeters;
+    public float ContentAlongWallBackMeters =>
+        contentAlongWallBaselineMeters + contentAlongWallAdjustmentMeters;
     public float ContentWallClearanceMeters => contentWallClearanceMeters;
     public Vector3 ContentFineTuneMeters => ResolveContentFineTuneMeters();
     public Vector3 ContentOffsetMeters => previewOffsetMeters + ContentFineTuneMeters;
@@ -98,6 +104,11 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public Vector3 ExpectedReferenceWorldPosition => expectedReferenceWorldPosition;
     public float PreviewJitterMeters => previewJitterMeters;
     public string StatusLine => runtimeStatus;
+
+    public void HideRuntimeHud()
+    {
+        SetHudVisible(false);
+    }
 
     private void Awake()
     {
@@ -153,6 +164,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     {
         detector?.Dispose();
         detector = null;
+        if (hudRoot != null) Destroy(hudRoot);
     }
 
     public bool TryValidateSessionStart(out string failure)
@@ -228,11 +240,14 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             $"[AAG AprilTag Align] APPLY detected={medianDetectedWorldPosition:F4} "
             + $"reference={expectedReferenceWorldPosition:F4} tagOffset={previewOffsetMeters:F4} "
             + $"fineTuneWorld={contentFineTuneMeters:F4} "
-            + $"alongWallBack={contentAlongWallBackMeters:F3}m "
+            + $"alongWallBase={contentAlongWallBaselineMeters:F3}m "
+            + $"alongWallAdjustment={contentAlongWallAdjustmentMeters:F3}m "
+            + $"alongWallFinal={ContentAlongWallBackMeters:F3}m "
             + $"wallClearance={contentWallClearanceMeters:F3}m contentOffset={contentOffsetMeters:F4} "
             + $"residual={residual:F4}m jitter={previewJitterMeters:F4}m "
             + $"horizontalOnly={horizontalOnly}",
             this);
+        SetHudVisible(false);
         return true;
     }
 
@@ -242,6 +257,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         fixedSpaceOffset?.ResetCorrection();
         isApplied = false;
         runtimeStatus = hasStablePreview ? "STABLE PREVIEW - NOT APPLIED" : "ALIGNMENT RESET";
+        SetHudVisible(true);
         Debug.Log("[AAG AprilTag Align] Applied alignment reset.", this);
     }
 
@@ -471,6 +487,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             typeof(RectTransform),
             typeof(Canvas),
             typeof(CanvasScaler));
+        hudRoot = canvasObject;
         var rect = canvasObject.GetComponent<RectTransform>();
         if (anchor != null)
         {
@@ -514,7 +531,12 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
     private void UpdateHud()
     {
-        if (hud == null) return;
+        if (isApplied)
+        {
+            SetHudVisible(false);
+            return;
+        }
+        if (hud == null || hudRoot == null || !hudRoot.activeSelf) return;
         var color = isApplied ? "#55FF88" : hasStablePreview ? "#FFD966" : "#FF8888";
         hud.text =
             "<b>ROOM3 APRILTAG TRANSLATION</b>\n"
@@ -523,7 +545,9 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             + $"MRUK reference:  {expectedReferenceWorldPosition:F3}\n"
             + $"Tag offset:      {previewOffsetMeters:F3} ({previewOffsetMeters.magnitude:F2}m)\n"
             + $"Content fine:    {ContentFineTuneMeters:F3}\n"
-            + $"Room3 axes:      back {contentAlongWallBackMeters:F2}m | wall {contentWallClearanceMeters:F2}m\n"
+            + $"Room3 axes:      base {contentAlongWallBaselineMeters:F2}m + adjust "
+            + $"{contentAlongWallAdjustmentMeters:F2}m = {ContentAlongWallBackMeters:F2}m | "
+            + $"wall {contentWallClearanceMeters:F2}m\n"
             + $"Content offset:  {ContentOffsetMeters:F3}\n"
             + $"Jitter: {previewJitterMeters:F3}m | samples: {samples.Count} | seen: {lastSeenIds}\n\n"
             + (previewOnly
@@ -533,12 +557,17 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
                     : "Call ApplyPreview() from an approved operator control.");
     }
 
+    private void SetHudVisible(bool visible)
+    {
+        if (hudRoot != null) hudRoot.SetActive(visible);
+    }
+
     private Vector3 ResolveContentFineTuneMeters()
     {
         if (room3TagReference == null) return Vector3.zero;
         return ResolveHorizontalReferenceFineTune(
             room3TagReference.transform.rotation,
-            contentAlongWallBackMeters,
+            ContentAlongWallBackMeters,
             contentWallClearanceMeters);
     }
 

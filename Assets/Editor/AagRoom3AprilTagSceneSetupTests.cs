@@ -34,12 +34,14 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(aligner.AllowQuestControllerApply, Is.True);
         Assert.That(aligner.HorizontalOnly, Is.False);
         Assert.That(fixedOffset.HorizontalOnly, Is.False);
-        Assert.That(aligner.ContentAlongWallBackMeters, Is.EqualTo(0.5f).Within(0.0001f));
-        Assert.That(aligner.ContentWallClearanceMeters, Is.EqualTo(0.4f).Within(0.0001f));
+        Assert.That(aligner.ContentAlongWallBaselineMeters, Is.EqualTo(-0.65f).Within(0.0001f));
+        Assert.That(aligner.ContentAlongWallAdjustmentMeters, Is.EqualTo(0.15f).Within(0.0001f));
+        Assert.That(aligner.ContentAlongWallBackMeters, Is.EqualTo(-0.50f).Within(0.0001f));
+        Assert.That(aligner.ContentWallClearanceMeters, Is.EqualTo(0.25f).Within(0.0001f));
         Assert.That(
             Vector3.Distance(
                 aligner.ContentFineTuneMeters,
-                new Vector3(0.4f, 0f, 0.5f)),
+                new Vector3(0.25f, 0f, -0.50f)),
             Is.LessThan(0.0001f));
         Assert.That(Mathf.Abs(aligner.ContentFineTuneMeters.y), Is.LessThan(0.0001f));
 
@@ -68,9 +70,9 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         var yaw = Quaternion.Euler(0f, 37f, 0f);
         var result = AagAprilTagTranslationAligner.ResolveHorizontalReferenceFineTune(
             yaw,
-            0.5f,
-            0.4f);
-        var expected = yaw * new Vector3(-0.5f, 0f, 0.4f);
+            -0.50f,
+            0.25f);
+        var expected = yaw * new Vector3(0.50f, 0f, 0.25f);
 
         Assert.That(Vector3.Distance(result, expected), Is.LessThan(0.0001f));
         Assert.That(Mathf.Abs(result.y), Is.LessThan(0.0001f));

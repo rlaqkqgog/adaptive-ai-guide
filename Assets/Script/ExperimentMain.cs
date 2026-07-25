@@ -1624,6 +1624,7 @@ public sealed class ExperimentMain : MonoBehaviour
         sampleAccumulator = 0f;
         nextDecisionTime = SessionTime + Mathf.Max(0.5f, config.decisionIntervalSeconds);
         state = SessionState.Running;
+        aprilTagTranslationAligner?.HideRuntimeHud();
         ApplyGuideVisibility();
         ShowParticipantSpawnConfirmation(towersByUuid.Count);
         SetAbortButtonVisible(false);
