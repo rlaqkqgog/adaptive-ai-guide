@@ -1,0 +1,233 @@
+﻿{
+    "schema_version": "aag-fp1-incidental-anchor-sets/v1",
+    "floor_plan_id": "FP1",
+    "updated_at_utc": "2026-07-17T22:18:20.0504560Z",
+    "persistence_warning": "EXPORT BEFORE APP UNINSTALL OR CLEAR APP DATA",
+    "sets": [
+        {
+            "set_id": "FP1-S1",
+            "objects": [
+                {
+                    "set_id": "FP1-S1",
+                    "object_id": "incidental_01_01_birdcage_open",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S1/01_birdcage_open",
+                    "anchor_uuid": "3308493b-faf7-c6d1-dfc7-903d1dde9d9e",
+                    "fallback_x": -10.659677505493164,
+                    "fallback_y": 0.8256819844245911,
+                    "fallback_z": -3.1939902305603029,
+                    "fallback_rotation_x": 0.038277801126241687,
+                    "fallback_rotation_y": 0.9670347571372986,
+                    "fallback_rotation_z": -0.16772663593292237,
+                    "fallback_rotation_w": 0.18774032592773438,
+                    "saved_at_utc": "2026-07-17T22:11:20.5871840Z"
+                },
+                {
+                    "set_id": "FP1-S1",
+                    "object_id": "incidental_02_02_bowlingBall",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S1/02_bowlingBall",
+                    "anchor_uuid": "386a174c-0718-8b4b-a2e2-0e5592a9f5a7",
+                    "fallback_x": -11.084228515625,
+                    "fallback_y": 0.17098677158355714,
+                    "fallback_z": -5.947964191436768,
+                    "fallback_rotation_x": 0.06324193626642227,
+                    "fallback_rotation_y": 0.9532168507575989,
+                    "fallback_rotation_z": -0.2955731451511383,
+                    "fallback_rotation_w": -0.0038337723817676307,
+                    "saved_at_utc": "2026-07-17T22:11:47.6171160Z"
+                },
+                {
+                    "set_id": "FP1-S1",
+                    "object_id": "incidental_03_03_iron",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S1/03_iron",
+                    "anchor_uuid": "4c396b2d-a689-60b3-3558-15c9d55ab8fc",
+                    "fallback_x": -26.372587203979493,
+                    "fallback_y": 0.842816174030304,
+                    "fallback_z": -4.841561794281006,
+                    "fallback_rotation_x": 0.18242350220680238,
+                    "fallback_rotation_y": -0.5116602182388306,
+                    "fallback_rotation_z": 0.09196040779352188,
+                    "fallback_rotation_w": 0.8345470428466797,
+                    "saved_at_utc": "2026-07-17T22:12:21.8247010Z"
+                },
+                {
+                    "set_id": "FP1-S1",
+                    "object_id": "incidental_04_04_pot",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S1/04_pot",
+                    "anchor_uuid": "4d542fc9-a858-4a2b-88d9-0adab95714df",
+                    "fallback_x": -15.932427406311036,
+                    "fallback_y": 0.6183338165283203,
+                    "fallback_z": -7.241588592529297,
+                    "fallback_rotation_x": 0.11258357763290405,
+                    "fallback_rotation_y": 0.7794554829597473,
+                    "fallback_rotation_z": -0.193220317363739,
+                    "fallback_rotation_w": 0.58518385887146,
+                    "saved_at_utc": "2026-07-17T22:13:09.5197650Z"
+                },
+                {
+                    "set_id": "FP1-S1",
+                    "object_id": "incidental_05_05_watering_can",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S1/05_watering_can",
+                    "anchor_uuid": "8340dde1-0d37-671c-4fa9-97c68089ad3a",
+                    "fallback_x": -3.8243227005004885,
+                    "fallback_y": 0.13955122232437135,
+                    "fallback_z": -4.20078182220459,
+                    "fallback_rotation_x": 0.006278428714722395,
+                    "fallback_rotation_y": 0.8775001764297485,
+                    "fallback_rotation_z": -0.11109109222888947,
+                    "fallback_rotation_w": 0.4664900600910187,
+                    "saved_at_utc": "2026-07-17T22:13:29.8963780Z"
+                }
+            ]
+        },
+        {
+            "set_id": "FP1-S2",
+            "objects": [
+                {
+                    "set_id": "FP1-S2",
+                    "object_id": "incidental_01_01_drill",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S2/01_drill",
+                    "anchor_uuid": "280f24dc-01f5-1733-eae8-8da8f3f82bf6",
+                    "fallback_x": -11.226273536682129,
+                    "fallback_y": 0.8576351404190064,
+                    "fallback_z": 1.6297070980072022,
+                    "fallback_rotation_x": 0.008098290301859379,
+                    "fallback_rotation_y": 0.22924688458442689,
+                    "fallback_rotation_z": -0.0606449730694294,
+                    "fallback_rotation_w": 0.9714435338973999,
+                    "saved_at_utc": "2026-07-17T22:14:25.9387540Z"
+                },
+                {
+                    "set_id": "FP1-S2",
+                    "object_id": "incidental_02_02_jar",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S2/02_jar",
+                    "anchor_uuid": "1f978ae5-077d-6c2d-4ed3-9da47abf5cca",
+                    "fallback_x": -6.094016075134277,
+                    "fallback_y": 0.14480000734329225,
+                    "fallback_z": -3.0885674953460695,
+                    "fallback_rotation_x": 0.05020742490887642,
+                    "fallback_rotation_y": -0.03357556834816933,
+                    "fallback_rotation_z": -0.04373128339648247,
+                    "fallback_rotation_w": 0.9972158670425415,
+                    "saved_at_utc": "2026-07-17T22:14:54.9264900Z"
+                },
+                {
+                    "set_id": "FP1-S2",
+                    "object_id": "incidental_03_03_kettle",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S2/03_kettle",
+                    "anchor_uuid": "8599d4cf-50de-eda6-d323-95eb6206880d",
+                    "fallback_x": -26.632654190063478,
+                    "fallback_y": 0.8563907742500305,
+                    "fallback_z": -3.6628286838531496,
+                    "fallback_rotation_x": 0.0725049376487732,
+                    "fallback_rotation_y": -0.6018531918525696,
+                    "fallback_rotation_z": -0.01999705657362938,
+                    "fallback_rotation_w": 0.7950571775436401,
+                    "saved_at_utc": "2026-07-17T22:15:21.9612620Z"
+                },
+                {
+                    "set_id": "FP1-S2",
+                    "object_id": "incidental_04_04_lantern",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S2/04_lantern",
+                    "anchor_uuid": "906b7d29-57df-835d-e02a-b7a7bf72121e",
+                    "fallback_x": -7.395333766937256,
+                    "fallback_y": 0.8557192087173462,
+                    "fallback_z": 0.2933647036552429,
+                    "fallback_rotation_x": -0.05342086777091026,
+                    "fallback_rotation_y": 0.753732442855835,
+                    "fallback_rotation_z": -0.005664830561727285,
+                    "fallback_rotation_w": 0.6549821496009827,
+                    "saved_at_utc": "2026-07-17T22:15:52.8203070Z"
+                },
+                {
+                    "set_id": "FP1-S2",
+                    "object_id": "incidental_05_05_sewingMachin",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S2/05_sewingMachin",
+                    "anchor_uuid": "fd5f0159-1e45-cedd-b7f7-bbd6ac15402c",
+                    "fallback_x": -13.995414733886719,
+                    "fallback_y": 0.8094554543495178,
+                    "fallback_z": -3.9332802295684816,
+                    "fallback_rotation_x": 0.033929094672203067,
+                    "fallback_rotation_y": -0.7292157411575317,
+                    "fallback_rotation_z": 0.05127677693963051,
+                    "fallback_rotation_w": 0.6815159320831299,
+                    "saved_at_utc": "2026-07-17T22:16:18.8532160Z"
+                }
+            ]
+        },
+        {
+            "set_id": "FP1-S3",
+            "objects": [
+                {
+                    "set_id": "FP1-S3",
+                    "object_id": "incidental_01_01_Globe",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S3/01_Globe",
+                    "anchor_uuid": "ef474ac6-8092-c667-af01-b7ba34201aa2",
+                    "fallback_x": -17.746950149536134,
+                    "fallback_y": 0.8545184135437012,
+                    "fallback_z": 1.9200876951217652,
+                    "fallback_rotation_x": 0.013892607763409615,
+                    "fallback_rotation_y": -0.06965573877096176,
+                    "fallback_rotation_z": -0.033642347902059558,
+                    "fallback_rotation_w": 0.9969068765640259,
+                    "saved_at_utc": "2026-07-17T22:16:42.3509960Z"
+                },
+                {
+                    "set_id": "FP1-S3",
+                    "object_id": "incidental_02_02_hairDryer",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S3/02_hairDryer",
+                    "anchor_uuid": "d1a124b6-9cd1-5ab0-c127-2029c3ca9e6b",
+                    "fallback_x": 1.3964662551879883,
+                    "fallback_y": 0.887068510055542,
+                    "fallback_z": 4.920686721801758,
+                    "fallback_rotation_x": 0.0011411249870434404,
+                    "fallback_rotation_y": -0.5292890071868897,
+                    "fallback_rotation_z": -0.03434829041361809,
+                    "fallback_rotation_w": 0.8477452993392944,
+                    "saved_at_utc": "2026-07-17T22:17:19.0770240Z"
+                },
+                {
+                    "set_id": "FP1-S3",
+                    "object_id": "incidental_03_03_heamer",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S3/03_heamer",
+                    "anchor_uuid": "eefa618b-308e-c78c-1857-5e32bef4bc2b",
+                    "fallback_x": -1.123827338218689,
+                    "fallback_y": 1.356414556503296,
+                    "fallback_z": -3.5258419513702394,
+                    "fallback_rotation_x": -0.026559587568044664,
+                    "fallback_rotation_y": 0.9789280891418457,
+                    "fallback_rotation_z": -0.033747341483831409,
+                    "fallback_rotation_w": 0.1996387541294098,
+                    "saved_at_utc": "2026-07-17T22:17:35.1914580Z"
+                },
+                {
+                    "set_id": "FP1-S3",
+                    "object_id": "incidental_04_04_riceCooker",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S3/04_riceCooker",
+                    "anchor_uuid": "3df42889-56d7-75c9-0da1-8df33b8dd77f",
+                    "fallback_x": -27.0355167388916,
+                    "fallback_y": 0.8658052682876587,
+                    "fallback_z": -3.6263983249664308,
+                    "fallback_rotation_x": -0.01896940916776657,
+                    "fallback_rotation_y": 0.9612853527069092,
+                    "fallback_rotation_z": -0.06973250955343247,
+                    "fallback_rotation_w": -0.26590994000434878,
+                    "saved_at_utc": "2026-07-17T22:18:09.5599890Z"
+                },
+                {
+                    "set_id": "FP1-S3",
+                    "object_id": "incidental_05_05_sandClock",
+                    "prefab_resource_path": "IncidentalObjects/FP1-S3/05_sandClock",
+                    "anchor_uuid": "f41d3351-971c-98ff-1f8b-0370d548e7c0",
+                    "fallback_x": -26.585718154907228,
+                    "fallback_y": 0.9340818524360657,
+                    "fallback_z": -7.0088725090026859,
+                    "fallback_rotation_x": -0.04650326445698738,
+                    "fallback_rotation_y": 0.9983378648757935,
+                    "fallback_rotation_z": 0.022191785275936128,
+                    "fallback_rotation_w": 0.025815308094024659,
+                    "saved_at_utc": "2026-07-17T22:18:20.0502900Z"
+                }
+            ]
+        }
+    ]
+}

@@ -1,0 +1,3 @@
+Put the visual-only incidental object prefabs for FP1-S1 in this folder.
+AnchorSpawn saves them in ordinal prefab-name order. Prefix names with 01_, 02_, etc.
+Use one uniquely named prefab asset per intended placed instance.

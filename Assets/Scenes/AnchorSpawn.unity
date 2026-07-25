@@ -331,7 +331,7 @@ RectTransform:
   m_GameObject: {fileID: 45184731}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.25, y: 0.25, z: 0.25}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2078489108}
@@ -1267,7 +1267,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &453080126
 Transform:
   m_ObjectHideFlags: 0
@@ -1387,7 +1387,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &480286566
 Transform:
   m_ObjectHideFlags: 0
@@ -1583,7 +1583,7 @@ Transform:
   m_GameObject: {fileID: 511846688}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 1}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1602,6 +1602,10 @@ GameObject:
   - component: {fileID: 536207149}
   - component: {fileID: 536207151}
   - component: {fileID: 536207152}
+  - component: {fileID: 536207153}
+  - component: {fileID: 536207154}
+  - component: {fileID: 536207155}
+  - component: {fileID: 536207156}
   m_Layer: 0
   m_Name: SpatialAnchorManager
   m_TagString: Untagged
@@ -1622,6 +1626,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   anchorPrefab: {fileID: 6508694823310335948, guid: ae096c9560ece4943815c5974aec6235, type: 3}
+  redAnchorPrefab: {fileID: 6508694823310335948, guid: 6eb75ad486ea40a6b59d98e013b19010, type: 3}
+  blueAnchorPrefab: {fileID: 6508694823310335948, guid: be5b820f25e946028a1b91da7309ebd1, type: 3}
+  greenAnchorPrefab: {fileID: 6508694823310335948, guid: a6e223985cae4db48f95b210a7056f5a, type: 3}
+  yellowAnchorPrefab: {fileID: 6508694823310335948, guid: 57fc3e077d7c432caa6fda11f804c656, type: 3}
+  enableManualSetAuthoring: 1
 --- !u!4 &536207150
 Transform:
   m_ObjectHideFlags: 0
@@ -1664,6 +1673,149 @@ MonoBehaviour:
   headTransform: {fileID: 118821223}
   statusText: {fileID: 2078489109}
   interval: 0.1
+--- !u!114 &536207153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9e15d8eabf04c1b95e2288ac6f3d4a1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  exportOnStart: 1
+  waitForMrukSeconds: 20
+  showRuntimeDiagnostics: 1
+  manualRoomMappings: []
+--- !u!114 &536207154
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5c28ee0ac30e4a3da7ac55890176b819, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  hmdTransform: {fileID: 118821223}
+  displayText: {fileID: 2078489109}
+  refreshIntervalSeconds: 0.1
+--- !u!114 &536207155
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 31898bfa62de464fb002d9c079c88f0d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  floorPlanId: FP1
+  waitForMrukSeconds: 20
+--- !u!114 &536207156
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 536207148}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e273bbca82ce42719b52b7e664d9f3f4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  candidateBankTopNPerSet: 4
+  maxQualityDropRatio: 0.15
+  crossSetExclusionRadiusMeters: 0.35
+  maximumCrossSetSlotReuse: 2
+  sameColorCrossSetExclusionRadiusMeters: 0.6
+  maxRouteLengthDifferenceRatio: 0.15
+  equivalenceDispersionMetric: 0
+  maxDispersionDifferenceRatio: 0.15
+  maxRoomCountDifferencePerUuid: 1
+  maxZoneCountDifference: 1
+  maxPlacementTypeRatioDifference: 0.2
+  maxEntranceVisibleMarkerDifference: 2
+  maxMeanDiscoverabilityDifferenceRatio: 0.25
+  maxVisibleCountDifference: 0
+  experimentStartPoint: {fileID: 0}
+  navMeshSampleRadiusMeters: 0.5
+  unlockConfirmationWindowSeconds: 10
+  manualHotspotAdjacencyMeters: 0.75
+  hotspotAnchorLoadTimeoutSeconds: 10
+  ignoreLegacyPlayerPrefsForPersistenceTest: 0
+  room2MaximumMarkers: 5
+  room3MaximumMarkers: 3
+  spaceValidator: {fileID: 536207155}
+  hmdTransform: {fileID: 118821223}
+  hmdCamera: {fileID: 118821224}
+  initialSetIndex: 0
+  enableQuestControls: 1
+  enableKeyboardControls: 1
+  gripSwitchDebounceSeconds: 0.35
+  showNextSetFallbackButton: 1
+  showNextCandidateFallbackButton: 1
+  nextCandidateDebounceSeconds: 0.35
+  leftTrackedHand: {fileID: 480286572}
+  rightTrackedHand: {fileID: 2088031742}
+  minimumWallDistanceMeters: 0.35
+  minimumObjectDistanceMeters: 1
+  floorGapMeters: 0.02
+  floorAlignmentToleranceMeters: 0.015
+  minimumObstacleDistanceMeters: 0.5
+  generationSafetyMarginMeters: 0.01
+  validationEpsilonMeters: 0.0001
+  minimumCornerDistanceMeters: 0.45
+  maximumCornerDistanceMeters: 1.25
+  maximumCornerAngleDegrees: 145
+  minimumCornerAdjacentEdgeLengthMeters: 0.5
+  minimumDoorwayDistanceMeters: 0.8
+  minimumWalkingPathDistanceMeters: 0.55
+  minimumAngularSeparationDegrees: 65
+  candidateGridSpacingMeters: 0.25
+  preferredWallBandWidthMeters: 0.35
+  narrowHallAspectRatioThreshold: 2.5
+  deterministicVariationWeight: 0.2
+  cornerProximityWeight: 2
+  wallBandWeight: 2
+  doorwayDistanceWeight: 0.5
+  walkingPathDistanceWeight: 1.25
+  entranceVisibilityPenaltyWeight: 1
+  sameRoomCoVisibilityPenaltyWeight: 2
+  objectDistanceWeight: 0.75
+  sameWallSegmentPenaltyWeight: 0.75
+  zoneReusePenaltyWeight: 0.5
+  roomDistributionWeight: 1
+  roomDistributionMode: 0
+  minimumRoomsUsed: 6
+  zoneGridColumns: 2
+  zoneGridRows: 2
+  maximumMarkersPerZone: 2
+  zoneGroupOverrides: []
+  zoneGroupMinimumSharedFloorSamples: 3
+  maximumMarkersPerZoneGroup: 2
+  placementTypeDiversityWeight: 1.5
+  easyDiscoverabilityPenaltyWeight: 0.2
+  postSelectionOptimizationPasses: 3
+  difficultyDistanceMetric: 0
+  maxVisibleObjectsPerView: 1
+  minimumDiscoverableObservationCount: 1
+  observationEyeHeightMeters: 1.6
+  observationGridSize: 3
+  observationPointWallClearanceMeters: 0.35
+  doorwayObservationInsetMeters: 0.8
+  fp1S1Seed: 11031
+  fp1S2Seed: 22063
+  fp1S3Seed: 33091
+  previewMarkerDiameterMeters: 0.18
+  drawCandidateDiagnostics: 1
+  diagnosticPointRadiusMeters: 0.025
 --- !u!1 &711473128
 GameObject:
   m_ObjectHideFlags: 0
@@ -2194,7 +2346,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 71a155ece80369d4e99bdaf5e59169b5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _occlusionShadersMode: 2
+  _occlusionShadersMode: 1
   _removeHands: 0
   CustomTrackingSpace: {fileID: 0}
   <MaskMeshFilters>k__BackingField: []
@@ -2707,7 +2859,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &2088031736
 Transform:
   m_ObjectHideFlags: 0
