@@ -101,6 +101,12 @@ public sealed class AAGGuide : MonoBehaviour
 
     private float lastUtteranceTime = float.NegativeInfinity;
     private float lastAdaptationTime = float.NegativeInfinity;
+    // Last clip that actually played (not merely attempted). Used to avoid
+    // speaking the exact same line twice in a row: on a repeat we swap to the
+    // sibling variant so long runs alternate (e.g. N-01/N-02) instead of
+    // reading as a stuck loop. Only updated after a successful play so a
+    // suppressed/failed attempt never drives the next swap decision.
+    private string lastPlayedClipId = string.Empty;
     private AagSupportLevel currentSupportLevel = AagSupportLevel.Normal;
     private readonly Queue<string> recentZoneVotes = new Queue<string>(4);
 
@@ -121,6 +127,7 @@ public sealed class AAGGuide : MonoBehaviour
         if (utterancePlayer != null) utterancePlayer.StopAndReset(interruptionReason);
         lastUtteranceTime = float.NegativeInfinity;
         lastAdaptationTime = float.NegativeInfinity;
+        lastPlayedClipId = string.Empty;
         recentZoneVotes.Clear();
         currentSupportLevel = config != null ? config.initialSupportLevel : AagSupportLevel.Normal;
         gatePassed = false;
@@ -178,6 +185,7 @@ public sealed class AAGGuide : MonoBehaviour
         var nextClipId = !snapshot.aesGatePassed
             ? "GF-01"
             : BuildClipId(proposedLevel, choice, out effectiveLevel);
+        nextClipId = ApplyAntiRepeat(nextClipId);
         var decision = new DecisionLog
         {
             t = loggingManager.SessionTime,
@@ -287,6 +295,7 @@ public sealed class AAGGuide : MonoBehaviour
             decision.level = currentSupportLevel.ToString();
         }
         lastUtteranceTime = loggingManager.SessionTime;
+        lastPlayedClipId = nextClipId;
         decision.played = true;
         decision.playedClipId = nextClipId;
         decision.outputMode = emittedMode;
@@ -441,6 +450,58 @@ public sealed class AAGGuide : MonoBehaviour
     {
         effectiveLevel = AagSupportLevel.Normal;
         return "N-01";
+    }
+
+    // If this clip would repeat the one just played, swap to its sibling
+    // variant so consecutive utterances are never identical. Room-independent
+    // families (GF/N/H/VH) each have a 01/02 pair; room-specific VE/E clips are
+    // left alone (their U/V variants already track visited state). The swap only
+    // happens when the sibling is actually available for the current output mode
+    // so a binding gap can never turn a repeated line into silence.
+    private string ApplyAntiRepeat(string clipId)
+    {
+        if (string.IsNullOrEmpty(clipId) || clipId != lastPlayedClipId)
+        {
+            return clipId;
+        }
+        var sibling = SiblingClipId(clipId);
+        if (sibling != null && IsClipAvailable(sibling))
+        {
+            return sibling;
+        }
+        return clipId;
+    }
+
+    private bool IsClipAvailable(string clipId)
+    {
+        if (config == null)
+        {
+            return false;
+        }
+        var binding = config.FindAagClip(clipId);
+        if (binding == null)
+        {
+            return false;
+        }
+        return config.aagTextModeEnabled
+            ? !string.IsNullOrWhiteSpace(binding.captionText)
+            : binding.clip != null;
+    }
+
+    private static string SiblingClipId(string clipId)
+    {
+        switch (clipId)
+        {
+            case "N-01": return "N-02";
+            case "N-02": return "N-01";
+            case "H-01": return "H-02";
+            case "H-02": return "H-01";
+            case "VH-01": return "VH-02";
+            case "VH-02": return "VH-01";
+            case "GF-01": return "GF-02";
+            case "GF-02": return "GF-01";
+            default: return null;
+        }
     }
 
     private void FinishSuppressed(DecisionLog decision, string reason)
