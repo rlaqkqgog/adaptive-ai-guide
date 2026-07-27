@@ -43,6 +43,22 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             ?? new Dictionary<Guid, AagIncidentalAnchorEntry>();
         if (normalized.Count == 0) return;
 
+        if (string.Equals(
+                ExperimentSpaceRuntime.FloorPlanId,
+                AagExperimentSpaceCatalog.Fp2Id,
+                StringComparison.Ordinal))
+        {
+            foreach (var uuid in normalized.Keys)
+                failures[uuid] = "deterministic_fp2_room_local";
+            IsLoading = true;
+            TrySpawnFp2RoomLocalRoots(normalized, setId);
+            IsLoading = false;
+            Debug.Log(
+                $"[Incidental Load] FP2 room-local mode set={setId}; "
+                + $"ready={LoadedCount}/{normalized.Count}", this);
+            return;
+        }
+
         if (useGlobalSolutionOnly && globalRecoverySolution.HasValue)
         {
             foreach (var uuid in normalized.Keys)
@@ -259,6 +275,54 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
         }
         LastRecoverySummary =
             $"set={setId}; status=success; source=room_local_20260721; recovered={placements.Count}";
+        return true;
+    }
+
+    private bool TrySpawnFp2RoomLocalRoots(
+        IReadOnlyDictionary<Guid, AagIncidentalAnchorEntry> entries,
+        string setId)
+    {
+        var placements = new List<(
+            Guid uuid,
+            AagIncidentalAnchorEntry entry,
+            Vector3 position,
+            Quaternion rotation)>();
+        foreach (var pair in entries.OrderBy(value => value.Value.object_id, StringComparer.Ordinal))
+        {
+            if (!AagIncidentalRoomLocalStore.TryResolve(
+                    setId,
+                    pair.Value.object_id,
+                    out var position,
+                    out var rotation,
+                    out var resolveFailure))
+            {
+                LastRecoverySummary =
+                    $"set={setId}; status=failed; source=fp2_room_local; "
+                    + $"object={pair.Value.object_id}; reason={resolveFailure}";
+                failures[pair.Key] = resolveFailure;
+                return false;
+            }
+            if (!AagRecoveryPlacementValidator.TryValidate(
+                    position, out _, out var placementFailure))
+            {
+                Debug.LogWarning(
+                    $"[AAG FP2] Incidental {pair.Value.object_id} geometry warning: "
+                    + $"{placementFailure}; continuing with saved room-local pose.",
+                    this);
+            }
+            placements.Add((pair.Key, pair.Value, position, rotation));
+        }
+
+        foreach (var placement in placements)
+        {
+            var root = new GameObject($"IncidentalFp2RoomLocalAnchor {placement.entry.object_id}");
+            root.transform.SetPositionAndRotation(placement.position, placement.rotation);
+            approximateRoots[placement.uuid] = root;
+            approximateReasons[placement.uuid] = "deterministic_fp2_room_local";
+            failures.Remove(placement.uuid);
+        }
+        LastRecoverySummary =
+            $"set={setId}; status=success; source=fp2_room_local; recovered={placements.Count}";
         return true;
     }
 

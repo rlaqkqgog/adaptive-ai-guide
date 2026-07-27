@@ -4,8 +4,8 @@ using Meta.XR.MRUtilityKit;
 using UnityEngine;
 
 /// <summary>
-/// Authoring marker for the physical Room3 hybrid board. The scene transform is
-/// an editor preview; runtime resolution uses the saved Room3 floor-local pose
+/// Backward-compatible authoring marker for an FP1/FP2 physical hybrid board.
+/// The scene transform is an editor preview; runtime resolution uses the saved floor-local pose
 /// so MRUK World Lock can move the live floor without invalidating the marker.
 /// </summary>
 [ExecuteAlways]
@@ -17,7 +17,10 @@ public sealed class AagRoom3TagReference : MonoBehaviour
     public const float PrintedBoardSizeMeters = 0.171f;
     public const float DetectionBorderSizeMeters = 0.095f;
 
-    [Header("Confirm after placing this transform on the Room3 wall")]
+    [Header("Reference identity")]
+    [SerializeField] private string referenceLabel = "FP1 Room3";
+
+    [Header("Confirm after placing this transform on the physical wall")]
     [Tooltip("Alignment is fail-closed until this is checked after the tag center has been positioned.")]
     [SerializeField] private bool referencePlacementConfirmed;
 
@@ -25,19 +28,25 @@ public sealed class AagRoom3TagReference : MonoBehaviour
     [SerializeField] private string roomUuid = Room3Uuid;
     [SerializeField] private string floorAnchorUuid = Room3FloorAnchorUuid;
 
-    [Header("2026-07-21 Room3 export frame")]
+    [Header("Space Setup export frame")]
+    [Tooltip("Resolve this reference from the bundled immutable FP2 scene instead of live device MRUK transforms.")]
+    [SerializeField] private bool useBakedFloorPose;
     [SerializeField] private Vector3 exportFloorWorldPosition =
         new Vector3(0.15373255f, -0.01663506f, 1.2934226f);
     [SerializeField] private Quaternion exportFloorWorldRotation =
         new Quaternion(0.5104028f, -0.48937613f, -0.48937613f, -0.51040286f);
 
-    [Header("Runtime Room3 floor-local reference")]
+    [Header("Runtime floor-local reference")]
     [SerializeField] private Vector3 floorLocalPosition;
     [SerializeField] private Quaternion floorLocalRotation = Quaternion.identity;
 
     public bool ReferencePlacementConfirmed => referencePlacementConfirmed;
+    public string ReferenceLabel => string.IsNullOrWhiteSpace(referenceLabel)
+        ? "AprilTag"
+        : referenceLabel.Trim();
     public string ExpectedRoomUuid => roomUuid;
     public string ExpectedFloorAnchorUuid => floorAnchorUuid;
+    public bool UseBakedFloorPose => useBakedFloorPose;
     public Vector3 FloorLocalPosition => floorLocalPosition;
     public Quaternion FloorLocalRotation => floorLocalRotation;
 
@@ -69,14 +78,27 @@ public sealed class AagRoom3TagReference : MonoBehaviour
 
         if (!referencePlacementConfirmed)
         {
-            failure = "room3_tag_reference_not_confirmed";
+            failure = "tag_reference_not_confirmed";
             return false;
         }
         if (!Guid.TryParse(roomUuid, out var expectedRoomUuid)
             || !Guid.TryParse(floorAnchorUuid, out var expectedFloorUuid))
         {
-            failure = "room3_tag_reference_uuid_invalid";
+            failure = "tag_reference_uuid_invalid";
             return false;
+        }
+        if (useBakedFloorPose)
+        {
+            if (!AagFp2BakedSpace.TryGetFloor(
+                    expectedFloorUuid,
+                    out var bakedFloorPose,
+                    out _,
+                    out failure))
+                return false;
+            pose = AagFiducialMarkerStore.Compose(
+                bakedFloorPose,
+                new Pose(floorLocalPosition, floorLocalRotation));
+            return AagFiducialMarkerStore.IsFinite(pose);
         }
         if (MRUK.Instance == null || !MRUK.Instance.IsInitialized)
         {
@@ -88,7 +110,7 @@ public sealed class AagRoom3TagReference : MonoBehaviour
             value != null && value.Anchor != null && value.Anchor.Uuid == expectedRoomUuid);
         if (room == null)
         {
-            failure = $"room3_missing_{expectedRoomUuid}";
+            failure = $"tag_reference_room_missing_{expectedRoomUuid}";
             return false;
         }
 
@@ -96,7 +118,7 @@ public sealed class AagRoom3TagReference : MonoBehaviour
             value != null && value.Anchor != null && value.Anchor.Uuid == expectedFloorUuid);
         if (floor == null)
         {
-            failure = $"room3_floor_changed_or_missing_{expectedFloorUuid}";
+            failure = $"tag_reference_floor_changed_or_missing_{expectedFloorUuid}";
             return false;
         }
 

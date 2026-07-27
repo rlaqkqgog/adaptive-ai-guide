@@ -149,8 +149,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5178bc8574ce2bf4388e787a2e2af326, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   opMode: 1
   resetHmdPoseOnRelease: 1
   resetHmdPoseByMiddleMouseButton: 1
@@ -174,8 +174,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e933e81d3c20c74ea6fdc708a67e3a5, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   _monoscopic: 0
   _sharpenType: 0
   _disableRecording: 0
@@ -263,8 +263,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: df9f338034892c44ebb62d97894772f1, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   usePerEyeCameras: 0
   useFixedUpdateForTracking: 0
   disableEyeAnchorCameras: 0
@@ -278,8 +278,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5b023183069df224080314a560e6e1ff, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
+  m_Name: 
+  m_EditorClassIdentifier: 
   blockId: e47682b9-c270-40b1-b16d-90b627a5ce1b
   instanceId: fefa3c00-2708-4feb-9e1b-7ed243a6216f
   version: 1
@@ -2508,14 +2508,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   room3TagReference: {fileID: 1966065806}
   fixedSpaceOffset: {fileID: 920000043}
+  expectedTagId: 0
+  tagSizeMeters: 0.095
+  alignmentLabel: FP1 ROOM3
   previewOnly: 0
   allowQuestControllerApply: 1
   horizontalOnly: 0
   requireAppliedAlignmentBeforeSession: 1
+  recordDetectedYaw: 0
+  applyDetectedYawRotation: 0
+  maximumStableYawJitterDegrees: 0.75
   contentAlongWallBaselineMeters: -0.65
   contentAlongWallAdjustmentMeters: 0.15
   contentWallClearanceMeters: 0.25
   showRuntimeHud: 1
+  hideReferenceVisualsAfterApply: 1
 --- !u!114 &920000043
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3751,6 +3758,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7b4f23b7e5d4fc1a2b8b633e0f88411, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  referenceLabel: FP1 Room3
   referencePlacementConfirmed: 1
   roomUuid: 0d537c33-3e47-2606-3ea9-897c2bc9f1ce
   floorAnchorUuid: 62768480-a2ae-7bb5-3d77-e8de8355e2cb

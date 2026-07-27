@@ -22,6 +22,7 @@ public sealed class AAGGuide : MonoBehaviour
     {
         public string roomUuid;
         public string roomId;
+        public string aagClipRoomId;
         public int remainingCount;
         public bool visited;
         public float lastVisitedAt;
@@ -312,6 +313,7 @@ public sealed class AAGGuide : MonoBehaviour
                 {
                     roomUuid = group.Key,
                     roomId = mapping != null ? mapping.roomId : first.roomId,
+                    aagClipRoomId = mapping != null ? mapping.ResolveAagClipRoomId() : first.roomId,
                     remainingCount = group.Count(),
                     visited = visited,
                     lastVisitedAt = behaviorMetrics.GetLastVisitedAt(group.Key),
@@ -423,10 +425,10 @@ public sealed class AAGGuide : MonoBehaviour
         effectiveLevel = level;
         return level switch
         {
-            AagSupportLevel.VeryEasy when choice != null && !choice.visited => $"VE-U-{choice.roomId}",
-            AagSupportLevel.VeryEasy when choice != null => $"VE-V-{choice.roomId}",
+            AagSupportLevel.VeryEasy when choice != null && !choice.visited => $"VE-U-{choice.aagClipRoomId}",
+            AagSupportLevel.VeryEasy when choice != null => $"VE-V-{choice.aagClipRoomId}",
             AagSupportLevel.VeryEasy => FallbackToNormal(out effectiveLevel),
-            AagSupportLevel.Easy when choice != null => $"E-{choice.roomId}",
+            AagSupportLevel.Easy when choice != null => $"E-{choice.aagClipRoomId}",
             AagSupportLevel.Easy => FallbackToNormal(out effectiveLevel),
             AagSupportLevel.Normal => "N-01",
             AagSupportLevel.Hard when choice != null && !choice.visited => "H-01",

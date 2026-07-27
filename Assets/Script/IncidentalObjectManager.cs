@@ -118,10 +118,24 @@ public sealed class IncidentalObjectManager : MonoBehaviour
             DisableAllInteraction(instance);
             EnvironmentDepthOcclusion.ApplyToRenderers(instance.transform);
             instance.SetActive(true);
+            if (ExperimentSpaceRuntime.IsFp2)
+                RaiseVisualBottomToHeight(instance, anchorTransform.position.y);
             spawnedContents.Add(instance);
             spawnedByObjectId[pair.Value.object_id] = instance;
         }
         return true;
+    }
+
+    private static void RaiseVisualBottomToHeight(GameObject instance, float desiredBottomWorldY)
+    {
+        var renderers = instance.GetComponentsInChildren<Renderer>(true)
+            .Where(value => value != null && value.enabled)
+            .ToArray();
+        if (renderers.Length == 0) return;
+        var minimumWorldY = renderers.Min(value => value.bounds.min.y);
+        var lift = desiredBottomWorldY - minimumWorldY;
+        if (!float.IsNaN(lift) && !float.IsInfinity(lift) && Mathf.Abs(lift) >= 0.001f)
+            instance.transform.position += Vector3.up * lift;
     }
 
     public int ResolveHorizontalWallPenetrations(Action<string, string> writeCorrection)

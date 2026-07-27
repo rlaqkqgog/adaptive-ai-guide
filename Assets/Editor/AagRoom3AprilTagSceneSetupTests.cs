@@ -6,6 +6,7 @@ using UnityEngine;
 public sealed class AagRoom3AprilTagSceneSetupTests
 {
     private const string ScenePath = "Assets/Scenes/MainTest_FP1.unity";
+    private const string Fp2ScenePath = "Assets/Scenes/MainTest_FP2.unity";
 
     [Test]
     public void MainTestFp1_HasWiredArmedRoom3AlignmentSetup()
@@ -30,9 +31,12 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(reference.ExpectedFloorAnchorUuid, Is.EqualTo(AagRoom3TagReference.Room3FloorAnchorUuid));
         Assert.That(aligner.Room3TagReference, Is.SameAs(reference));
         Assert.That(aligner.FixedSpaceOffset, Is.SameAs(fixedOffset));
+        Assert.That(aligner.ExpectedTagId, Is.Zero);
+        Assert.That(aligner.TagSizeMeters, Is.EqualTo(0.095f).Within(0.0001f));
         Assert.That(aligner.PreviewOnly, Is.False);
         Assert.That(aligner.AllowQuestControllerApply, Is.True);
         Assert.That(aligner.HorizontalOnly, Is.False);
+        Assert.That(aligner.ApplyDetectedYawRotation, Is.False);
         Assert.That(fixedOffset.HorizontalOnly, Is.False);
         Assert.That(aligner.ContentAlongWallBaselineMeters, Is.EqualTo(-0.65f).Within(0.0001f));
         Assert.That(aligner.ContentAlongWallAdjustmentMeters, Is.EqualTo(0.15f).Within(0.0001f));
@@ -65,6 +69,74 @@ public sealed class AagRoom3AprilTagSceneSetupTests
     }
 
     [Test]
+    public void MainTestFp2_HasFailClosedRoom8IdOneAlignmentSetup()
+    {
+        EditorSceneManager.OpenScene(Fp2ScenePath, OpenSceneMode.Single);
+
+        var preview = Object.FindFirstObjectByType<AagFp2Room8ReferencePreview>(
+            FindObjectsInactive.Include);
+        var reference = Object.FindFirstObjectByType<AagRoom3TagReference>(
+            FindObjectsInactive.Include);
+        var aligner = Object.FindFirstObjectByType<AagAprilTagTranslationAligner>(
+            FindObjectsInactive.Include);
+        var fixedOffset = Object.FindFirstObjectByType<AagFixedSpaceOffset>(
+            FindObjectsInactive.Include);
+        var experimentMain = Object.FindFirstObjectByType<ExperimentMain>(
+            FindObjectsInactive.Include);
+
+        Assert.That(preview, Is.Not.Null);
+        Assert.That(reference, Is.Not.Null);
+        Assert.That(aligner, Is.Not.Null);
+        Assert.That(fixedOffset, Is.Not.Null);
+        Assert.That(experimentMain, Is.Not.Null);
+        Assert.That(reference.ReferenceLabel, Is.EqualTo("FP2 Room8"));
+        Assert.That(reference.ReferencePlacementConfirmed, Is.True);
+        Assert.That(reference.UseBakedFloorPose, Is.True);
+        Assert.That(
+            AagFp2BakedSpace.TryGetFloor(
+                System.Guid.Parse(reference.ExpectedFloorAnchorUuid),
+                out _,
+                out var bakedBoundary,
+                out var bakedFailure),
+            Is.True,
+            bakedFailure);
+        Assert.That(bakedBoundary, Has.Count.GreaterThanOrEqualTo(3));
+        Assert.That(AagIncidentalRoomLocalStore.Fp2FloorHeightMeters, Is.EqualTo(0.20f));
+        Assert.That(
+            reference.ExpectedRoomUuid,
+            Is.EqualTo("2d4f4c7d-9189-0198-a0ff-ecd07d843c6a"));
+        Assert.That(
+            reference.ExpectedFloorAnchorUuid,
+            Is.EqualTo("fcd5cb7d-e3ad-844a-9a18-9a6a165124b3"));
+        Assert.That(aligner.Room3TagReference, Is.SameAs(reference));
+        Assert.That(aligner.FixedSpaceOffset, Is.SameAs(fixedOffset));
+        Assert.That(aligner.ExpectedTagId, Is.EqualTo(1));
+        Assert.That(aligner.TagSizeMeters, Is.EqualTo(0.095f).Within(0.0001f));
+        Assert.That(aligner.AlignmentLabel, Is.EqualTo("FP2 ROOM8"));
+        Assert.That(aligner.PreviewOnly, Is.False);
+        Assert.That(aligner.AllowQuestControllerApply, Is.True);
+        Assert.That(aligner.RequireAppliedAlignmentBeforeSession, Is.True);
+        Assert.That(aligner.RecordDetectedYaw, Is.True);
+        Assert.That(aligner.ApplyDetectedYawRotation, Is.True);
+        Assert.That(aligner.MaximumStableYawJitterDegrees, Is.EqualTo(3f).Within(0.001f));
+        Assert.That(aligner.ContentFineTuneMeters.sqrMagnitude, Is.LessThan(0.000001f));
+
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP2ExperimentConfig.asset");
+        Assert.That(config, Is.Not.Null);
+        Assert.That(config.startRoomId, Is.EqualTo("room8"));
+        Assert.That(config.rooms, Has.Length.EqualTo(8));
+        Assert.That(config.TryGetStartRoomUuid(out var startRoomUuid), Is.True);
+        Assert.That(
+            startRoomUuid.ToString(),
+            Is.EqualTo("2d4f4c7d-9189-0198-a0ff-ecd07d843c6a"));
+
+        var cube = reference.transform.Find("FP2_Room8_TagReference_RedCube_10cm");
+        Assert.That(cube, Is.Not.Null);
+        Assert.That(cube.GetComponent<Collider>(), Is.Null);
+    }
+
+    [Test]
     public void ReferenceFineTune_FollowsRoomYawWithoutChangingHeight()
     {
         var yaw = Quaternion.Euler(0f, 37f, 0f);
@@ -76,6 +148,32 @@ public sealed class AagRoom3AprilTagSceneSetupTests
 
         Assert.That(Vector3.Distance(result, expected), Is.LessThan(0.0001f));
         Assert.That(Mathf.Abs(result.y), Is.LessThan(0.0001f));
+    }
+
+    [Test]
+    public void StableTagYaw_ResolvesSmallCorrectionAndRejectsPoseFlipAmbiguity()
+    {
+        var expected = Quaternion.Euler(0f, 42f, 0f);
+        var observed = new[]
+        {
+            Quaternion.Euler(0f, 224.0f, 0f),
+            Quaternion.Euler(0f, 224.2f, 0f),
+            Quaternion.Euler(0f, 223.8f, 0f),
+        };
+
+        Assert.That(
+            AagAprilTagTranslationAligner.TryResolveStableYawCorrection(
+                expected,
+                observed,
+                out var correction,
+                out var yaw,
+                out var jitter),
+            Is.True);
+        Assert.That(yaw, Is.EqualTo(2f).Within(0.01f));
+        Assert.That(jitter, Is.LessThan(0.21f));
+        Assert.That(
+            Quaternion.Angle(correction, Quaternion.Euler(0f, 2f, 0f)),
+            Is.LessThan(0.01f));
     }
 
     [Test]

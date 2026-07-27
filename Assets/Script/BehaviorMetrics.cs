@@ -234,7 +234,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         var physicalRoomUuid = physicalRoomProvider?.Invoke();
         UpdateStableRoom(
             string.IsNullOrWhiteSpace(physicalRoomUuid)
-                ? ResolveRoomUuid(position)
+                ? ResolveObservedRoomUuid(position)
                 : physicalRoomUuid,
             sampleDelta);
 
@@ -479,6 +479,22 @@ public sealed class BehaviorMetrics : MonoBehaviour
         }
         if (containing == null || containing.Anchor == null || containing.Anchor.Uuid == Guid.Empty) return string.Empty;
         return containing.Anchor.Uuid.ToString();
+    }
+
+    /// <summary>
+    /// Resolves a physical HMD or already-aligned content position against the
+    /// unchanged MRUK floor geometry. Raw MRUK-generated positions must continue
+    /// to use <see cref="ResolveRoomUuid"/> directly.
+    /// </summary>
+    public string ResolveObservedRoomUuid(Vector3 observedWorldPosition)
+    {
+        var canonicalPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+            observedWorldPosition);
+        if (ExperimentSpaceRuntime.IsFp2 && AagMrukSpaceCorrection.IsApplied)
+            return AagFp2BakedSpace.TryResolveRoom(canonicalPosition, out var bakedRoomUuid)
+                ? bakedRoomUuid.ToString()
+                : string.Empty;
+        return ResolveRoomUuid(canonicalPosition);
     }
 
     private void UpdateStableRoom(string rawRoomUuid, float sampleDelta)

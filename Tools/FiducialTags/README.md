@@ -21,6 +21,19 @@ Run from the project root:
 python Tools/FiducialTags/generate_hybrid_tags.py
 ```
 
+Generate the FP2 Room8 reference without overwriting FP1:
+
+```powershell
+python Tools/FiducialTags/generate_hybrid_tags.py `
+  --config Tools/FiducialTags/fp2_hybrid_tags.json `
+  --output-dir Documentation/FiducialTags/Generated/FP2 `
+  --runtime-manifest Assets/StreamingAssets/AAG/fp2_hybrid_tag_manifest.json
+```
+
+FP2 uses `tagStandard41h12` ID 1 and QR payload
+`AAG-FP2-ZONE:room8`. Its complete Room8 UUID is retained in the JSON
+manifest because the compact Version 2-Q QR payload is limited to 20 bytes.
+
 The standard-library-only script generates:
 
 - One A4-landscape hybrid board for the Room3 startup reference.

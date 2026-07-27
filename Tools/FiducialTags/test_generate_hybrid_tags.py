@@ -30,6 +30,16 @@ class HybridTagGeneratorTests(unittest.TestCase):
             "9bb9e2bd33c9a27e9103e05b029cb2529ab0808e3afd92af4a4abaad82fa6e8c",
         )
 
+    def test_official_apriltag_id_one_matrix_is_stable(self):
+        matrix = generator.decode_rgba_png_matrix(
+            generator.APRILTAG_PNG_BASE64[1]
+        )
+        self.assertEqual((len(matrix), len(matrix[0])), (9, 9))
+        self.assertEqual(
+            matrix_digest(matrix),
+            "935571ba41b0c3aad923bad31ef13e92679425c1b2a9c3dd56f5bdbd18404904",
+        )
+
     def test_room3_qr_matrix_matches_reference_vector(self):
         matrix = generator.qr_matrix("AAG-FP1-ZONE:room3")
         self.assertEqual((len(matrix), len(matrix[0])), (25, 25))
@@ -62,6 +72,32 @@ class HybridTagGeneratorTests(unittest.TestCase):
             self.assertEqual(svg.attrib["width"], "297mm")
             self.assertEqual(svg.attrib["height"], "210mm")
             self.assertEqual(svg.attrib["viewBox"], "0 0 297 210")
+
+    def test_fp2_room8_generation_is_namespaced(self):
+        config = SCRIPT.with_name("fp2_hybrid_tags.json")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / "generated"
+            runtime = root / "fp2_hybrid_tag_manifest.json"
+            generator.write_outputs(config, output, runtime)
+
+            manifest = json.loads(runtime.read_text(encoding="utf-8"))
+            reference = manifest["referenceTag"]
+            self.assertEqual(manifest["spaceId"], "FP2")
+            self.assertEqual(reference["roomId"], "room8")
+            self.assertEqual(
+                reference["roomUuid"],
+                "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a",
+            )
+            self.assertEqual(reference["aprilTagId"], 1)
+            self.assertEqual(reference["qrPayload"], "AAG-FP2-ZONE:room8")
+            self.assertEqual(
+                reference["hybridBoardFile"],
+                "aag_fp2_room8_hybrid_reference_a4.svg",
+            )
+            self.assertTrue((output / reference["hybridBoardFile"]).is_file())
+            self.assertTrue((output / "fp2_hybrid_tag_manifest.json").is_file())
+            self.assertFalse((output / "fp1_hybrid_tag_manifest.json").exists())
 
 
 if __name__ == "__main__":

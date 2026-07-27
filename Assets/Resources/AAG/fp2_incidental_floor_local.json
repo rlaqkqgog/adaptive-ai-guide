@@ -1,0 +1,310 @@
+{
+    "schemaVersion": "aag-incidental-floor-local/v1",
+    "floorPlanId": "FP2",
+    "updatedAtUtc": "2026-07-26T06:15:21.526234Z",
+    "sets": [
+        {
+            "setId": "FP2-S1",
+            "placements": [
+                {
+                    "objectId": "incidental_01_01_birdcage_open",
+                    "roomUuid": "0e4e8223-3c13-735b-a552-4acf2ba915a7",
+                    "floorAnchorUuid": "472be941-9cde-dd31-577f-88ff3a417821",
+                    "localX": -0.109317195415497,
+                    "localY": 0.33592582941055316,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5019272530408863,
+                    "localRotationY": 0.4980652893192173,
+                    "localRotationZ": 0.49806522971457295,
+                    "localRotationW": 0.5019273126455306
+                },
+                {
+                    "objectId": "incidental_02_02_bowlingBall",
+                    "roomUuid": "d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b",
+                    "floorAnchorUuid": "8de5471a-9f06-4b08-a338-be1e71baeb77",
+                    "localX": -0.005713939666748047,
+                    "localY": -4.3392181396484375e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.005866064430687376,
+                    "localRotationY": 0.7070824191264482,
+                    "localRotationZ": 0.7070824787310903,
+                    "localRotationW": 0.00586601413927057
+                },
+                {
+                    "objectId": "incidental_03_03_iron",
+                    "roomUuid": "28e81069-81b3-b60a-0166-50599f88ce42",
+                    "floorAnchorUuid": "067222dc-9621-c5fe-e341-7f1bb7f81abf",
+                    "localX": 2.7176001965999603,
+                    "localY": 0.00010442733764648438,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5033049007206125,
+                    "localRotationY": 0.4966731389051782,
+                    "localRotationZ": 0.4966731389051782,
+                    "localRotationW": 0.5033048411159675
+                },
+                {
+                    "objectId": "incidental_04_04_pot",
+                    "roomUuid": "133adc09-ce31-302f-1b53-788b59deeb4f",
+                    "floorAnchorUuid": "7b2eb8ee-670a-1682-98b8-c59e59afdede",
+                    "localX": -2.4919687509536743,
+                    "localY": 0.1474299788475033,
+                    "localZ": 0.02,
+                    "localRotationX": -0.7070884006959671,
+                    "localRotationY": 0.005085988362826492,
+                    "localRotationZ": 0.0050859660110850234,
+                    "localRotationW": -0.7070885795098989
+                },
+                {
+                    "objectId": "incidental_05_05_watering_can",
+                    "roomUuid": "7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b",
+                    "floorAnchorUuid": "54865dfb-f0fd-40a5-6b03-d06cc925aee6",
+                    "localX": -0.0012650489807128906,
+                    "localY": -0.2978684663772584,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0033362828641500934,
+                    "localRotationY": 0.7070989403410171,
+                    "localRotationZ": 0.7070988807363691,
+                    "localRotationW": 0.0033362623750523195
+                },
+                {
+                    "objectId": "incidental_06_01_birdcage_open",
+                    "roomUuid": "e2e79df2-facb-0150-67b4-a43dfaad9218",
+                    "floorAnchorUuid": "10732fd7-e282-31d1-21f4-14a0e29b9f2e",
+                    "localX": -1.4741310000419616,
+                    "localY": -0.002032041549682617,
+                    "localZ": 0.02,
+                    "localRotationX": 0.004597475266489962,
+                    "localRotationY": 0.7070918052302938,
+                    "localRotationZ": 0.7070918648349382,
+                    "localRotationW": 0.004597486442360809
+                },
+                {
+                    "objectId": "incidental_07_02_bowlingBall",
+                    "roomUuid": "96a223f3-baf3-7044-2958-6f2468b35c72",
+                    "floorAnchorUuid": "99cafbbb-f370-f0d7-294e-6a0dbceedcd4",
+                    "localX": 1.5611445903778076,
+                    "localY": -0.02380170822143557,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0053179651634077335,
+                    "localRotationY": 0.70708687300479,
+                    "localRotationZ": 0.7070866941908678,
+                    "localRotationW": 0.005317910215379541
+                },
+                {
+                    "objectId": "incidental_08_03_iron",
+                    "roomUuid": "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a",
+                    "floorAnchorUuid": "fcd5cb7d-e3ad-844a-9a18-9a6a165124b3",
+                    "localX": -1.1081874072551727,
+                    "localY": -1.1920928955078125e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5227573889111334,
+                    "localRotationY": 0.4761562146186197,
+                    "localRotationZ": 0.47615615501397746,
+                    "localRotationW": 0.5227573889111334
+                }
+            ]
+        },
+        {
+            "setId": "FP2-S2",
+            "placements": [
+                {
+                    "objectId": "incidental_01_01_drill",
+                    "roomUuid": "0e4e8223-3c13-735b-a552-4acf2ba915a7",
+                    "floorAnchorUuid": "472be941-9cde-dd31-577f-88ff3a417821",
+                    "localX": -0.109317195415497,
+                    "localY": 0.33592582941055316,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5019272530408863,
+                    "localRotationY": 0.4980652893192173,
+                    "localRotationZ": 0.49806522971457295,
+                    "localRotationW": 0.5019273126455306
+                },
+                {
+                    "objectId": "incidental_02_02_jar",
+                    "roomUuid": "d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b",
+                    "floorAnchorUuid": "8de5471a-9f06-4b08-a338-be1e71baeb77",
+                    "localX": -0.005713939666748047,
+                    "localY": -4.3392181396484375e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.005866064430687376,
+                    "localRotationY": 0.7070824191264482,
+                    "localRotationZ": 0.7070824787310903,
+                    "localRotationW": 0.00586601413927057
+                },
+                {
+                    "objectId": "incidental_03_03_kettle",
+                    "roomUuid": "28e81069-81b3-b60a-0166-50599f88ce42",
+                    "floorAnchorUuid": "067222dc-9621-c5fe-e341-7f1bb7f81abf",
+                    "localX": 2.7176001965999603,
+                    "localY": 0.00010442733764648438,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5033049007206125,
+                    "localRotationY": 0.4966731389051782,
+                    "localRotationZ": 0.4966731389051782,
+                    "localRotationW": 0.5033048411159675
+                },
+                {
+                    "objectId": "incidental_04_04_lantern",
+                    "roomUuid": "133adc09-ce31-302f-1b53-788b59deeb4f",
+                    "floorAnchorUuid": "7b2eb8ee-670a-1682-98b8-c59e59afdede",
+                    "localX": -2.4919687509536743,
+                    "localY": 0.1474299788475033,
+                    "localZ": 0.02,
+                    "localRotationX": -0.7070884006959671,
+                    "localRotationY": 0.005085988362826492,
+                    "localRotationZ": 0.0050859660110850234,
+                    "localRotationW": -0.7070885795098989
+                },
+                {
+                    "objectId": "incidental_05_05_sewingMachin",
+                    "roomUuid": "7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b",
+                    "floorAnchorUuid": "54865dfb-f0fd-40a5-6b03-d06cc925aee6",
+                    "localX": -0.0012650489807128906,
+                    "localY": -0.2978684663772584,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0033362828641500934,
+                    "localRotationY": 0.7070989403410171,
+                    "localRotationZ": 0.7070988807363691,
+                    "localRotationW": 0.0033362623750523195
+                },
+                {
+                    "objectId": "incidental_06_01_drill",
+                    "roomUuid": "e2e79df2-facb-0150-67b4-a43dfaad9218",
+                    "floorAnchorUuid": "10732fd7-e282-31d1-21f4-14a0e29b9f2e",
+                    "localX": -1.4741310000419616,
+                    "localY": -0.002032041549682617,
+                    "localZ": 0.02,
+                    "localRotationX": 0.004597475266489962,
+                    "localRotationY": 0.7070918052302938,
+                    "localRotationZ": 0.7070918648349382,
+                    "localRotationW": 0.004597486442360809
+                },
+                {
+                    "objectId": "incidental_07_02_jar",
+                    "roomUuid": "96a223f3-baf3-7044-2958-6f2468b35c72",
+                    "floorAnchorUuid": "99cafbbb-f370-f0d7-294e-6a0dbceedcd4",
+                    "localX": 1.5611445903778076,
+                    "localY": -0.02380170822143557,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0053179651634077335,
+                    "localRotationY": 0.70708687300479,
+                    "localRotationZ": 0.7070866941908678,
+                    "localRotationW": 0.005317910215379541
+                },
+                {
+                    "objectId": "incidental_08_03_kettle",
+                    "roomUuid": "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a",
+                    "floorAnchorUuid": "fcd5cb7d-e3ad-844a-9a18-9a6a165124b3",
+                    "localX": -1.1081874072551727,
+                    "localY": -1.1920928955078125e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5227573889111334,
+                    "localRotationY": 0.4761562146186197,
+                    "localRotationZ": 0.47615615501397746,
+                    "localRotationW": 0.5227573889111334
+                }
+            ]
+        },
+        {
+            "setId": "FP2-S3",
+            "placements": [
+                {
+                    "objectId": "incidental_01_01_Globe",
+                    "roomUuid": "0e4e8223-3c13-735b-a552-4acf2ba915a7",
+                    "floorAnchorUuid": "472be941-9cde-dd31-577f-88ff3a417821",
+                    "localX": -0.109317195415497,
+                    "localY": 0.33592582941055316,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5019272530408863,
+                    "localRotationY": 0.4980652893192173,
+                    "localRotationZ": 0.49806522971457295,
+                    "localRotationW": 0.5019273126455306
+                },
+                {
+                    "objectId": "incidental_02_02_hairDryer",
+                    "roomUuid": "d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b",
+                    "floorAnchorUuid": "8de5471a-9f06-4b08-a338-be1e71baeb77",
+                    "localX": -0.005713939666748047,
+                    "localY": -4.3392181396484375e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.005866064430687376,
+                    "localRotationY": 0.7070824191264482,
+                    "localRotationZ": 0.7070824787310903,
+                    "localRotationW": 0.00586601413927057
+                },
+                {
+                    "objectId": "incidental_03_03_heamer",
+                    "roomUuid": "28e81069-81b3-b60a-0166-50599f88ce42",
+                    "floorAnchorUuid": "067222dc-9621-c5fe-e341-7f1bb7f81abf",
+                    "localX": 2.7176001965999603,
+                    "localY": 0.00010442733764648438,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5033049007206125,
+                    "localRotationY": 0.4966731389051782,
+                    "localRotationZ": 0.4966731389051782,
+                    "localRotationW": 0.5033048411159675
+                },
+                {
+                    "objectId": "incidental_04_04_riceCooker",
+                    "roomUuid": "133adc09-ce31-302f-1b53-788b59deeb4f",
+                    "floorAnchorUuid": "7b2eb8ee-670a-1682-98b8-c59e59afdede",
+                    "localX": -2.4919687509536743,
+                    "localY": 0.1474299788475033,
+                    "localZ": 0.02,
+                    "localRotationX": -0.7070884006959671,
+                    "localRotationY": 0.005085988362826492,
+                    "localRotationZ": 0.0050859660110850234,
+                    "localRotationW": -0.7070885795098989
+                },
+                {
+                    "objectId": "incidental_05_05_sandClock",
+                    "roomUuid": "7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b",
+                    "floorAnchorUuid": "54865dfb-f0fd-40a5-6b03-d06cc925aee6",
+                    "localX": -0.0012650489807128906,
+                    "localY": -0.2978684663772584,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0033362828641500934,
+                    "localRotationY": 0.7070989403410171,
+                    "localRotationZ": 0.7070988807363691,
+                    "localRotationW": 0.0033362623750523195
+                },
+                {
+                    "objectId": "incidental_06_01_Globe",
+                    "roomUuid": "e2e79df2-facb-0150-67b4-a43dfaad9218",
+                    "floorAnchorUuid": "10732fd7-e282-31d1-21f4-14a0e29b9f2e",
+                    "localX": -1.4741310000419616,
+                    "localY": -0.002032041549682617,
+                    "localZ": 0.02,
+                    "localRotationX": 0.004597475266489962,
+                    "localRotationY": 0.7070918052302938,
+                    "localRotationZ": 0.7070918648349382,
+                    "localRotationW": 0.004597486442360809
+                },
+                {
+                    "objectId": "incidental_07_02_hairDryer",
+                    "roomUuid": "96a223f3-baf3-7044-2958-6f2468b35c72",
+                    "floorAnchorUuid": "99cafbbb-f370-f0d7-294e-6a0dbceedcd4",
+                    "localX": 1.5611445903778076,
+                    "localY": -0.02380170822143557,
+                    "localZ": 0.02,
+                    "localRotationX": 0.0053179651634077335,
+                    "localRotationY": 0.70708687300479,
+                    "localRotationZ": 0.7070866941908678,
+                    "localRotationW": 0.005317910215379541
+                },
+                {
+                    "objectId": "incidental_08_03_heamer",
+                    "roomUuid": "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a",
+                    "floorAnchorUuid": "fcd5cb7d-e3ad-844a-9a18-9a6a165124b3",
+                    "localX": -1.1081874072551727,
+                    "localY": -1.1920928955078125e-05,
+                    "localZ": 0.02,
+                    "localRotationX": 0.5227573889111334,
+                    "localRotationY": 0.4761562146186197,
+                    "localRotationZ": 0.47615615501397746,
+                    "localRotationW": 0.5227573889111334
+                }
+            ]
+        }
+    ]
+}

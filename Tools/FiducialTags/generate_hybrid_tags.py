@@ -24,6 +24,12 @@ from xml.sax.saxutils import escape
 
 APRILTAG_PNG_BASE64 = {
     0: "iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAAOElEQVR4XmP4DwUMDAwwJhyAxKAYzsCNYTqwAQyTsAGYOIoidA1YTcJJI3PQAYZJeDGyLmTdyGwADR65RztR+ssAAAAASUVORK5CYII=",
+    1: "iVBORw0KGgoAAAANSUhEUgAAAAkAAAAJCAYAAADgkQYQAAAANklEQVR4XmP4DwUMDAwwJhzAxBhADIIYWQc6QFIIYWADWE1CVwwXR5dEZ5NuHS4MlcftHpgYAASlyzVXCPCDAAAAAElFTkSuQmCC",
+}
+
+APRILTAG_SOURCE_BLOB_SHA = {
+    0: "cdbeebd32c17c99c2aa4791537379bf01dd994cd",
+    1: "ae6045ff4ff6456dd685c70273cb166b51a51bb8",
 }
 
 QR_VERSION = 2
@@ -348,8 +354,11 @@ def svg_document(width_mm: float, height_mm: float, content: str) -> str:
 
 def manifest(config: dict[str, object]) -> dict[str, object]:
     zone = config["referenceTag"]
+    space_id = str(config["spaceId"]).strip()
+    space_slug = space_id.lower()
     tag_id = int(zone["aprilTagId"])
     room_id = str(zone["roomId"])
+    room_uuid = str(zone.get("roomUuid", ""))
     payload = str(zone["qrPayload"])
     qr_codewords(payload)
     if tag_id not in APRILTAG_PNG_BASE64:
@@ -357,10 +366,14 @@ def manifest(config: dict[str, object]) -> dict[str, object]:
     reference = {
         "role": "startupGlobalTranslationReference",
         "roomId": room_id,
+        "roomUuid": room_uuid,
         "aprilTagFamily": "tagStandard41h12",
         "aprilTagId": tag_id,
-        "aprilTagSource": "https://github.com/AprilRobotics/apriltag-imgs/blob/master/tagStandard41h12/tag41_12_00000.png",
-        "aprilTagSourceBlobSha": "cdbeebd32c17c99c2aa4791537379bf01dd994cd",
+        "aprilTagSource": (
+            "https://github.com/AprilRobotics/apriltag-imgs/blob/master/"
+            f"tagStandard41h12/tag41_12_{tag_id:05d}.png"
+        ),
+        "aprilTagSourceBlobSha": APRILTAG_SOURCE_BLOB_SHA[tag_id],
         "aprilTagFamilyDefinition": "https://github.com/AprilRobotics/apriltag/blob/master/tagStandard41h12.c",
         "aprilTagTotalModuleCount": APRILTAG_TOTAL_MODULES,
         "aprilTagWidthAtBorderModules": APRILTAG_WIDTH_AT_BORDER_MODULES,
@@ -382,13 +395,15 @@ def manifest(config: dict[str, object]) -> dict[str, object]:
         },
         "poseFusionPolicy": "useAprilTagPoseOnly",
         "qrPosePolicy": "crossValidationOnlyDoNotAverage",
-        "hybridBoardFile": f"aag_fp1_{room_id}_hybrid_reference_a4.svg",
+        "hybridBoardFile": (
+            f"aag_{space_slug}_{room_id}_hybrid_reference_a4.svg"
+        ),
         "aprilTagOnlyFile": f"tagStandard41h12_id_{tag_id}.svg",
-        "qrOnlyFile": f"aag_fp1_{room_id}_qr.svg",
+        "qrOnlyFile": f"aag_{space_slug}_{room_id}_qr.svg",
     }
     return {
         "schemaVersion": "aag-fiducial-hybrid-tags/v1",
-        "spaceId": config["spaceId"],
+        "spaceId": space_id,
         "printScalePercent": 100,
         "pageSizeMillimeters": {"width": 297.0, "height": 210.0},
         "referenceTag": reference,
@@ -402,10 +417,10 @@ def write_outputs(config_path: Path, output_dir: Path, runtime_manifest: Path) -
     runtime_manifest.parent.mkdir(parents=True, exist_ok=True)
 
     zone = config["referenceTag"]
-    room_id = str(zone["roomId"])
     tag_id = int(zone["aprilTagId"])
     payload = str(zone["qrPayload"])
-    (output_dir / f"aag_fp1_{room_id}_hybrid_reference_a4.svg").write_text(
+    reference = result["referenceTag"]
+    (output_dir / reference["hybridBoardFile"]).write_text(
         svg_document(297.0, 210.0, hybrid_board(zone)),
         encoding="utf-8",
         newline="\n",
@@ -415,18 +430,19 @@ def write_outputs(config_path: Path, output_dir: Path, runtime_manifest: Path) -
         encoding="utf-8",
         newline="\n",
     )
-    (output_dir / f"aag_fp1_{room_id}_qr.svg").write_text(
+    (output_dir / reference["qrOnlyFile"]).write_text(
         svg_document(66.0, 66.0, qr_only(payload)),
         encoding="utf-8",
         newline="\n",
     )
 
     manifest_text = json.dumps(result, ensure_ascii=False, indent=2) + "\n"
-    (output_dir / "fp1_hybrid_tag_manifest.json").write_text(
+    manifest_stem = f"{str(result['spaceId']).lower()}_hybrid_tag_manifest"
+    (output_dir / f"{manifest_stem}.json").write_text(
         manifest_text, encoding="utf-8", newline="\n"
     )
     runtime_manifest.write_text(manifest_text, encoding="utf-8", newline="\n")
-    with (output_dir / "fp1_hybrid_tag_manifest.csv").open(
+    with (output_dir / f"{manifest_stem}.csv").open(
         "w", encoding="utf-8", newline=""
     ) as stream:
         writer = csv.writer(stream, lineterminator="\n")

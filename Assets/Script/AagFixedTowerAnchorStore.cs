@@ -40,6 +40,8 @@ public static class AagFixedTowerAnchorStore
     public const int RequiredTowerCount = 4;
     public static string ManifestFileName =>
         ExperimentSpaceRuntime.NamespacedFileName("fixed_tower_anchors");
+    private static string SeedResourcePath =>
+        $"AAG/{ExperimentSpaceRuntime.StorageKey}_fixed_tower_anchors";
     public static readonly string[] TowerIds = { "Tower-1", "Tower-2", "Tower-3", "Tower-4" };
     public static readonly string[] TowerColors = { "Red", "Blue", "Yellow", "Green" };
 
@@ -58,10 +60,21 @@ public static class AagFixedTowerAnchorStore
     public static AagFixedTowerAnchorManifest LoadOrCreate()
     {
         AagFixedTowerAnchorManifest manifest = null;
+        var loadedBundledSeed = false;
         try
         {
             if (File.Exists(ManifestPath))
                 manifest = JsonUtility.FromJson<AagFixedTowerAnchorManifest>(File.ReadAllText(ManifestPath));
+
+            if (manifest == null)
+            {
+                var seed = Resources.Load<TextAsset>(SeedResourcePath);
+                manifest = seed == null
+                    ? null
+                    : JsonUtility.FromJson<AagFixedTowerAnchorManifest>(
+                        seed.text.TrimStart('\uFEFF'));
+                loadedBundledSeed = manifest != null;
+            }
         }
         catch (Exception exception)
         {
@@ -72,6 +85,9 @@ public static class AagFixedTowerAnchorStore
         manifest.schema_version = $"aag-{ExperimentSpaceRuntime.StorageKey}-fixed-tower-anchors/v3";
         manifest.floor_plan_id = ExperimentSpaceRuntime.FloorPlanId;
         manifest.towers ??= new List<AagFixedTowerAnchorEntry>();
+        if (loadedBundledSeed && !Save(manifest, out var seedWriteFailure))
+            Debug.LogWarning(
+                $"[FixedTower Store] using bundled seed without persistent copy: {seedWriteFailure}");
         return manifest;
     }
 

@@ -8,32 +8,41 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// Detects the Room3 AprilTag in the left passthrough camera, converts its pose
+/// Detects the configured AprilTag in the left passthrough camera, converts its pose
 /// to Unity world space using the image-timestamp camera pose, and previews a
-/// translation from the authored Room3 reference to the observed physical tag.
-/// Application is explicit and delegates to AagFixedSpaceOffset, which refuses
-/// to move MRUK, TrackingSpace, or the camera rig.
+/// yaw-only rigid correction from the authored reference to the observed physical tag.
+/// MRUK and the tracking rig remain unchanged. The measured translation is
+/// applied only to experiment-owned content. FP2 can additionally use a filtered
+/// tag yaw after position and yaw stability both pass strict acceptance gates.
 /// </summary>
 [DisallowMultipleComponent]
 [DefaultExecutionOrder(8400)]
 public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 {
-    public const int ExpectedTagId = 0;
-    public const float TagSizeMeters = 0.095f;
-    public const float SampleWindowSeconds = 2f;
+    public const int DefaultExpectedTagId = 0;
+    public const float DefaultTagSizeMeters = 0.095f;
+    public const float SampleWindowSeconds = 3f;
     public const float MarkerFreshnessSeconds = 12f;
     public const float MaximumAcceptedCorrectionMeters = 40f;
     public const float MaximumAcceptedVerticalCorrectionMeters = 0.5f;
+    public const float MaximumAcceptedYawCorrectionDegrees = 15f;
 
     private const int Decimation = 2;
     private const float ProcessingIntervalSeconds = 0.10f;
-    private const int MinimumStableSamples = 12;
-    private const float MaximumStableJitterMeters = 0.045f;
+    private const int MinimumStableSamples = 20;
+    private const float MaximumStableJitterMeters = 0.035f;
     private const float ControllerApplyHoldSeconds = 1.5f;
 
     [Header("Scene references")]
     [SerializeField] private AagRoom3TagReference room3TagReference;
     [SerializeField] private AagFixedSpaceOffset fixedSpaceOffset;
+
+    [Header("Marker identity")]
+    [Min(0)]
+    [SerializeField] private int expectedTagId = DefaultExpectedTagId;
+    [Min(0.001f)]
+    [SerializeField] private float tagSizeMeters = DefaultTagSizeMeters;
+    [SerializeField] private string alignmentLabel = "FP1 ROOM3";
 
     [Header("Safety")]
     [Tooltip("Keep enabled while positioning the reference. ApplyPreview is rejected in this mode.")]
@@ -42,17 +51,25 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     [SerializeField] private bool allowQuestControllerApply;
     [SerializeField] private bool horizontalOnly = true;
     [SerializeField] private bool requireAppliedAlignmentBeforeSession = true;
+    [Tooltip("Measure filtered tag yaw for HUD and logs without using it for alignment.")]
+    [SerializeField] private bool recordDetectedYaw;
+    [Tooltip("Apply the measured yaw to content. Keep disabled while yaw is diagnostic-only.")]
+    [SerializeField] private bool applyDetectedYawRotation;
+    [Range(0.1f, 5f)]
+    [SerializeField] private float maximumStableYawJitterDegrees = 0.75f;
 
     [Header("Content fine tuning")]
-    [Tooltip("Fixed on-site baseline along the Room3 wall. Keep this at the confirmed -0.65 m reference.")]
+    [Tooltip("Fixed on-site baseline along the tagged wall. FP2 starts at zero until measured.")]
     [SerializeField] private float contentAlongWallBaselineMeters = -0.65f;
     [Tooltip("Adjustment measured from the fixed -0.65 m baseline. The current +0.15 m produces -0.50 m.")]
     [SerializeField] private float contentAlongWallAdjustmentMeters = 0.15f;
-    [Tooltip("Moves experiment content horizontally away from the tagged Room3 wall and into the room.")]
+    [Tooltip("Moves experiment content horizontally away from the tagged wall and into the room.")]
     [SerializeField] private float contentWallClearanceMeters = 0.25f;
 
     [Header("Runtime display")]
     [SerializeField] private bool showRuntimeHud = true;
+    [Tooltip("Hide the red reference cube and any other reference renderers after alignment is applied.")]
+    [SerializeField] private bool hideReferenceVisualsAfterApply = true;
 
     private readonly List<ObservationSample> samples = new List<ObservationSample>(32);
     private PassthroughCameraAccess cameraAccess;
@@ -70,6 +87,10 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     private Vector3 lastCameraPosition;
     private Vector3 lastCameraLocalTagPosition;
     private Vector3 medianDetectedWorldPosition;
+    private Quaternion previewYawRotation = Quaternion.identity;
+    private float previewYawDegrees;
+    private float previewYawJitterDegrees;
+    private bool hasYawDiagnostic;
     private Vector3 expectedReferenceWorldPosition;
     private Vector3 previewOffsetMeters;
     private float previewJitterMeters;
@@ -82,14 +103,25 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     {
         public float Time;
         public Vector3 WorldPosition;
+        public Quaternion WorldRotation;
     }
 
     public bool PreviewOnly => previewOnly;
     public bool AllowQuestControllerApply => allowQuestControllerApply;
     public bool HorizontalOnly => horizontalOnly;
+    public int ExpectedTagId => expectedTagId;
+    public float TagSizeMeters => tagSizeMeters;
+    public string AlignmentLabel => string.IsNullOrWhiteSpace(alignmentLabel)
+        ? "APRILTAG"
+        : alignmentLabel.Trim();
     public AagRoom3TagReference Room3TagReference => room3TagReference;
     public AagFixedSpaceOffset FixedSpaceOffset => fixedSpaceOffset;
     public bool RequireAppliedAlignmentBeforeSession => requireAppliedAlignmentBeforeSession;
+    public bool RecordDetectedYaw => recordDetectedYaw;
+    public bool ApplyDetectedYawRotation => applyDetectedYawRotation;
+    public float MaximumStableYawJitterDegrees => maximumStableYawJitterDegrees;
+    public bool ShowRuntimeHud => showRuntimeHud;
+    public bool HideReferenceVisualsAfterApply => hideReferenceVisualsAfterApply;
     public bool HasStablePreview => hasStablePreview;
     public bool IsApplied => isApplied;
     public Vector3 PreviewOffsetMeters => previewOffsetMeters;
@@ -98,12 +130,19 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public float ContentAlongWallBackMeters =>
         contentAlongWallBaselineMeters + contentAlongWallAdjustmentMeters;
     public float ContentWallClearanceMeters => contentWallClearanceMeters;
-    public Vector3 ContentFineTuneMeters => ResolveContentFineTuneMeters();
+    public Quaternion PreviewYawRotation => previewYawRotation;
+    public float PreviewYawDegrees => previewYawDegrees;
+    public float PreviewYawJitterDegrees => previewYawJitterDegrees;
+    public bool HasYawDiagnostic => hasYawDiagnostic;
+    public Vector3 ContentFineTuneMeters => ResolveContentFineTuneMeters(AppliedYawRotation);
     public Vector3 ContentOffsetMeters => previewOffsetMeters + ContentFineTuneMeters;
     public Vector3 MedianDetectedWorldPosition => medianDetectedWorldPosition;
     public Vector3 ExpectedReferenceWorldPosition => expectedReferenceWorldPosition;
     public float PreviewJitterMeters => previewJitterMeters;
     public string StatusLine => runtimeStatus;
+
+    private Quaternion AppliedYawRotation =>
+        applyDetectedYawRotation ? previewYawRotation : Quaternion.identity;
 
     public void HideRuntimeHud()
     {
@@ -112,6 +151,9 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
     private void Awake()
     {
+        // Domain reload can be disabled in the Unity Editor. Never inherit an
+        // applied query correction from a previous play session or scene.
+        AagMrukSpaceCorrection.Reset();
         Application.runInBackground = true;
         if (room3TagReference == null)
             room3TagReference = FindFirstObjectByType<AagRoom3TagReference>();
@@ -121,13 +163,21 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         if (showRuntimeHud) CreateHud();
         CreateCameraAccess();
         Debug.Log(
-            $"[AAG AprilTag Align] Started. family=tagStandard41h12 id={ExpectedTagId} "
+            $"[AAG AprilTag Align] Started. label={AlignmentLabel} family=tagStandard41h12 id={expectedTagId} "
             + $"tagSize={TagSizeMeters:F3}m previewOnly={previewOnly} horizontalOnly={horizontalOnly}",
             this);
     }
 
     private void Update()
     {
+        // FP2 uses AprilTag as a one-shot session alignment. Once accepted,
+        // release the passthrough camera and keep all setup UI hidden.
+        if (isApplied)
+        {
+            SetHudVisible(false);
+            return;
+        }
+
         PruneSamples();
         UpdateExpectedReference();
 
@@ -162,6 +212,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
     private void OnDestroy()
     {
+        AagMrukSpaceCorrection.Reset();
         detector?.Dispose();
         detector = null;
         if (hudRoot != null) Destroy(hudRoot);
@@ -174,16 +225,6 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         if (!isApplied)
         {
             failure = "apriltag_translation_not_applied";
-            return false;
-        }
-        if (Time.unscaledTime - lastDetectionTime > MarkerFreshnessSeconds)
-        {
-            failure = "apriltag_translation_marker_stale";
-            return false;
-        }
-        if (!hasStablePreview)
-        {
-            failure = "apriltag_translation_preview_unstable";
             return false;
         }
         return true;
@@ -215,7 +256,17 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             return false;
         }
 
-        var contentFineTuneMeters = ContentFineTuneMeters;
+        if (!room3TagReference.TryResolveExpectedWorldPose(out var referencePose, out var referenceFailure))
+        {
+            RejectApply(referenceFailure);
+            return false;
+        }
+        var appliedYawRotation = AppliedYawRotation;
+        var alignedReferenceRotation = appliedYawRotation * referencePose.rotation;
+        var contentFineTuneMeters = ResolveHorizontalReferenceFineTune(
+            alignedReferenceRotation,
+            ContentAlongWallBackMeters,
+            contentWallClearanceMeters);
         var contentOffsetMeters = previewOffsetMeters + contentFineTuneMeters;
         if (!IsFinite(contentOffsetMeters)
             || contentOffsetMeters.magnitude > MaximumAcceptedCorrectionMeters)
@@ -223,18 +274,40 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             RejectApply($"content_correction_rejected_{contentOffsetMeters.magnitude:F3}m");
             return false;
         }
-
         // Keep the reference visual centered on the detected physical tag. The
         // optional fine tune is deliberately applied only to experiment content.
         if (room3TagReference != null)
-            room3TagReference.transform.position = medianDetectedWorldPosition;
+            room3TagReference.transform.SetPositionAndRotation(
+                medianDetectedWorldPosition,
+                alignedReferenceRotation);
 
-        fixedSpaceOffset.Configure(true, contentOffsetMeters, horizontalOnly);
-        fixedSpaceOffset.ApplyCorrection();
+        // Translation-only is the active FP2 field mode. The rigid branch stays
+        // available for a later, explicit trial after diagnostic yaw evidence is reviewed.
+        if (applyDetectedYawRotation)
+        {
+            if (!AagMrukSpaceCorrection.TryApplyRigid(
+                    contentOffsetMeters,
+                    appliedYawRotation,
+                    out var rigidFailure))
+            {
+                RejectApply(rigidFailure);
+                return false;
+            }
+            fixedSpaceOffset.Configure(false, Vector3.zero, horizontalOnly);
+        }
+        else
+        {
+            fixedSpaceOffset.Configure(true, contentOffsetMeters, horizontalOnly);
+            fixedSpaceOffset.ApplyCorrection();
+        }
         isApplied = true;
-        runtimeStatus = $"APPLIED CONTENT {contentOffsetMeters:F3}";
+        runtimeStatus = applyDetectedYawRotation
+            ? $"APPLIED CONTENT {contentOffsetMeters:F3} YAW {previewYawDegrees:F2}deg"
+            : $"APPLIED TRANSLATION {contentOffsetMeters:F3} | YAW DIAGNOSTIC ONLY";
+        if (hideReferenceVisualsAfterApply) SetReferenceVisualsVisible(false);
+        StopDetectionAfterApply();
         var residual = Vector3.Distance(
-            expectedReferenceWorldPosition + previewOffsetMeters,
+            appliedYawRotation * expectedReferenceWorldPosition + previewOffsetMeters,
             medianDetectedWorldPosition);
         Debug.Log(
             $"[AAG AprilTag Align] APPLY detected={medianDetectedWorldPosition:F4} "
@@ -245,6 +318,8 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             + $"alongWallFinal={ContentAlongWallBackMeters:F3}m "
             + $"wallClearance={contentWallClearanceMeters:F3}m contentOffset={contentOffsetMeters:F4} "
             + $"residual={residual:F4}m jitter={previewJitterMeters:F4}m "
+            + $"yawDiagnosticAvailable={hasYawDiagnostic} yawDiagnostic={previewYawDegrees:F3}deg "
+            + $"yawJitter={previewYawJitterDegrees:F3}deg yawApplied={applyDetectedYawRotation} "
             + $"horizontalOnly={horizontalOnly}",
             this);
         SetHudVisible(false);
@@ -255,8 +330,17 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public void ResetAppliedAlignment()
     {
         fixedSpaceOffset?.ResetCorrection();
+        AagMrukSpaceCorrection.Reset();
         isApplied = false;
-        runtimeStatus = hasStablePreview ? "STABLE PREVIEW - NOT APPLIED" : "ALIGNMENT RESET";
+        samples.Clear();
+        hasStablePreview = false;
+        previewYawRotation = Quaternion.identity;
+        previewYawDegrees = 0f;
+        previewYawJitterDegrees = 0f;
+        hasYawDiagnostic = false;
+        runtimeStatus = "ALIGNMENT RESET";
+        SetReferenceVisualsVisible(true);
+        if (cameraAccess != null && !cameraAccess.enabled) cameraAccess.enabled = true;
         SetHudVisible(true);
         Debug.Log("[AAG AprilTag Align] Applied alignment reset.", this);
     }
@@ -321,7 +405,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             }
 
             NativeArray<Color32>.Copy(colors, pixels, pixelCount);
-            detector.ProcessImage(pixels, verticalFovRadians, TagSizeMeters);
+            detector.ProcessImage(pixels, verticalFovRadians, tagSizeMeters);
             var detections = detector.DetectedTags.ToArray();
             lastSeenIds = detections.Length == 0
                 ? "none"
@@ -330,7 +414,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             TagPose tag = default;
             foreach (var candidate in detections)
             {
-                if (candidate.ID != ExpectedTagId) continue;
+                if (candidate.ID != expectedTagId) continue;
                 tag = candidate;
                 found = true;
                 break;
@@ -339,7 +423,8 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
             var detectedWorld = frameCameraPose.position
                 + frameCameraPose.rotation * tag.Position;
-            if (!IsFinite(detectedWorld)) return;
+            var detectedWorldRotation = frameCameraPose.rotation * tag.Rotation;
+            if (!IsFinite(detectedWorld) || !IsFinite(detectedWorldRotation)) return;
 
             lastCameraPosition = frameCameraPose.position;
             lastCameraLocalTagPosition = tag.Position;
@@ -348,6 +433,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             {
                 Time = Time.unscaledTime,
                 WorldPosition = detectedWorld,
+                WorldRotation = detectedWorldRotation,
             });
         }
         catch (Exception exception)
@@ -401,8 +487,40 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             return;
         }
 
+        previewYawRotation = Quaternion.identity;
+        previewYawDegrees = 0f;
+        previewYawJitterDegrees = 0f;
+        hasYawDiagnostic = false;
+        if (recordDetectedYaw || applyDetectedYawRotation)
+        {
+            hasYawDiagnostic = TryResolveStableYawCorrection(
+                    referencePose.rotation,
+                    samples.Select(value => value.WorldRotation),
+                    out previewYawRotation,
+                    out previewYawDegrees,
+                    out previewYawJitterDegrees);
+            if (!hasYawDiagnostic && applyDetectedYawRotation)
+            {
+                runtimeStatus = "TAG YAW UNAVAILABLE";
+                return;
+            }
+            if (applyDetectedYawRotation
+                && previewYawJitterDegrees > maximumStableYawJitterDegrees)
+            {
+                runtimeStatus = $"UNSTABLE TAG YAW {previewYawJitterDegrees:F2}deg";
+                return;
+            }
+            if (applyDetectedYawRotation
+                && Mathf.Abs(previewYawDegrees) > MaximumAcceptedYawCorrectionDegrees)
+            {
+                runtimeStatus = $"REJECTED TAG YAW {previewYawDegrees:F2}deg";
+                return;
+            }
+        }
+
         expectedReferenceWorldPosition = referencePose.position;
-        previewOffsetMeters = medianDetectedWorldPosition - expectedReferenceWorldPosition;
+        previewOffsetMeters = medianDetectedWorldPosition
+            - AppliedYawRotation * expectedReferenceWorldPosition;
         if (horizontalOnly) previewOffsetMeters.y = 0f;
         if (!IsFinite(previewOffsetMeters)
             || previewOffsetMeters.magnitude > MaximumAcceptedCorrectionMeters)
@@ -434,6 +552,8 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
                 $"[AAG AprilTag Align] PREVIEW detected={medianDetectedWorldPosition:F4} "
                 + $"reference={expectedReferenceWorldPosition:F4} offset={previewOffsetMeters:F4} "
                 + $"magnitude={previewOffsetMeters.magnitude:F3}m jitter={previewJitterMeters:F4}m "
+                + $"yawDiagnosticAvailable={hasYawDiagnostic} yawDiagnostic={previewYawDegrees:F3}deg "
+                + $"yawJitter={previewYawJitterDegrees:F3}deg yawApplied={applyDetectedYawRotation} "
                 + $"samples={samples.Count} camera={lastCameraPosition:F4} tagCamera={lastCameraLocalTagPosition:F4}",
                 this);
         }
@@ -539,13 +659,16 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         if (hud == null || hudRoot == null || !hudRoot.activeSelf) return;
         var color = isApplied ? "#55FF88" : hasStablePreview ? "#FFD966" : "#FF8888";
         hud.text =
-            "<b>ROOM3 APRILTAG TRANSLATION</b>\n"
+            $"<b>{AlignmentLabel} APRILTAG {(applyDetectedYawRotation ? "RIGID" : "TRANSLATION")} ALIGNMENT</b>\n"
             + $"<color={color}><b>{runtimeStatus}</b></color>\n\n"
             + $"Detected median: {medianDetectedWorldPosition:F3}\n"
             + $"MRUK reference:  {expectedReferenceWorldPosition:F3}\n"
             + $"Tag offset:      {previewOffsetMeters:F3} ({previewOffsetMeters.magnitude:F2}m)\n"
+            + $"Yaw diagnostic:  {(hasYawDiagnostic ? $"{previewYawDegrees:F2}deg" : "unavailable")} "
+            + $"(jitter {previewYawJitterDegrees:F2}deg, "
+            + $"{(applyDetectedYawRotation ? "APPLIED" : "NOT APPLIED")})\n"
             + $"Content fine:    {ContentFineTuneMeters:F3}\n"
-            + $"Room3 axes:      base {contentAlongWallBaselineMeters:F2}m + adjust "
+            + $"Reference axes:  base {contentAlongWallBaselineMeters:F2}m + adjust "
             + $"{contentAlongWallAdjustmentMeters:F2}m = {ContentAlongWallBackMeters:F2}m | "
             + $"wall {contentWallClearanceMeters:F2}m\n"
             + $"Content offset:  {ContentOffsetMeters:F3}\n"
@@ -562,13 +685,75 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         if (hudRoot != null) hudRoot.SetActive(visible);
     }
 
-    private Vector3 ResolveContentFineTuneMeters()
+    private void SetReferenceVisualsVisible(bool visible)
+    {
+        if (room3TagReference == null) return;
+        foreach (var renderer in room3TagReference.GetComponentsInChildren<Renderer>(true))
+            renderer.enabled = visible;
+    }
+
+    private void StopDetectionAfterApply()
+    {
+        detector?.Dispose();
+        detector = null;
+        pixels = null;
+        if (cameraAccess != null) cameraAccess.enabled = false;
+    }
+
+    private Vector3 ResolveContentFineTuneMeters(Quaternion yawCorrection)
     {
         if (room3TagReference == null) return Vector3.zero;
+        var uncorrectedReferenceRotation = room3TagReference.TryResolveExpectedWorldPose(
+            out var referencePose,
+            out _)
+            ? referencePose.rotation
+            : room3TagReference.transform.rotation;
         return ResolveHorizontalReferenceFineTune(
-            room3TagReference.transform.rotation,
+            yawCorrection * uncorrectedReferenceRotation,
             ContentAlongWallBackMeters,
             contentWallClearanceMeters);
+    }
+
+    public static bool TryResolveStableYawCorrection(
+        Quaternion expectedReferenceRotation,
+        IEnumerable<Quaternion> observedWorldRotations,
+        out Quaternion yawCorrection,
+        out float yawDegrees,
+        out float jitterDegrees)
+    {
+        yawCorrection = Quaternion.identity;
+        yawDegrees = 0f;
+        jitterDegrees = 0f;
+        if (!TryGetYawDegrees(expectedReferenceRotation, out var expectedYaw)) return false;
+
+        var corrections = new List<float>();
+        foreach (var observed in observedWorldRotations ?? Array.Empty<Quaternion>())
+        {
+            if (!TryGetYawDegrees(observed, out var observedYaw)) continue;
+            var direct = Mathf.DeltaAngle(expectedYaw, observedYaw);
+            var flipped = Mathf.DeltaAngle(expectedYaw, observedYaw + 180f);
+            corrections.Add(Mathf.Abs(direct) <= Mathf.Abs(flipped) ? direct : flipped);
+        }
+        if (corrections.Count == 0) return false;
+
+        var medianYaw = Median(corrections);
+        var maximumJitter = corrections.Max(value =>
+            Mathf.Abs(Mathf.DeltaAngle(medianYaw, value)));
+        yawDegrees = medianYaw;
+        jitterDegrees = maximumJitter;
+        yawCorrection = Quaternion.Euler(0f, medianYaw, 0f);
+        return IsFinite(yawCorrection);
+    }
+
+    private static bool TryGetYawDegrees(Quaternion rotation, out float yawDegrees)
+    {
+        yawDegrees = 0f;
+        if (!IsFinite(rotation)) return false;
+        var forward = Vector3.ProjectOnPlane(rotation * Vector3.forward, Vector3.up);
+        if (forward.sqrMagnitude < 0.000001f) return false;
+        forward.Normalize();
+        yawDegrees = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg;
+        return IsFinite(yawDegrees);
     }
 
     public static Vector3 ResolveHorizontalReferenceFineTune(
@@ -577,7 +762,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         float wallClearanceMeters)
     {
         // The board's local +Z points away from its wall. Its local -X is the
-        // authored Room3 "back" direction. Rebuild a level basis so small MRUK
+        // authored wall "back" direction. Rebuild a level basis so small MRUK
         // floor pitch/roll never changes experiment content height.
         var awayFromWall = Vector3.ProjectOnPlane(
             referenceRotation * Vector3.forward,
@@ -626,6 +811,9 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
     private static bool IsFinite(Vector3 value) =>
         IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z);
+
+    private static bool IsFinite(Quaternion value) =>
+        IsFinite(value.x) && IsFinite(value.y) && IsFinite(value.z) && IsFinite(value.w);
 
     private static bool IsFinite(float value) =>
         !float.IsNaN(value) && !float.IsInfinity(value);

@@ -24,8 +24,14 @@ public sealed class ExperimentRoomMapping
 {
     public string roomUuid = string.Empty;
     public string roomId = string.Empty;
+    [Tooltip("Optional room suffix used only for AAG clip IDs. Empty values fall back to roomId.")]
+    public string aagClipRoomId = string.Empty;
     public string displayName = string.Empty;
     public int tieOrder;
+
+    public string ResolveAagClipRoomId() => string.IsNullOrWhiteSpace(aagClipRoomId)
+        ? roomId
+        : aagClipRoomId.Trim();
 }
 
 [Serializable]

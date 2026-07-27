@@ -116,12 +116,19 @@ public static class MrukRoomLocalPlacementStore
         var placements = new List<Placement>();
         foreach (var pose in poses.OrderBy(value => value.ObjectId, StringComparer.Ordinal))
         {
+            // Runtime content is translated into the physical AprilTag frame.
+            // Persist it against the unchanged MRUK floor only after undoing the
+            // tag translation; the separate content fine tune intentionally stays.
+            var mrukWorldPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+                pose.Position);
+            var mrukWorldRotation = AagMrukSpaceCorrection.ObservedToMrukRotation(
+                pose.Rotation);
             var floorFailure = string.Empty;
             MRUKRoom room = null;
             MRUKAnchor floor = null;
-            if (!AagRigidPoseRecovery.IsFinite(pose.Position)
+            if (!AagRigidPoseRecovery.IsFinite(mrukWorldPosition)
                 || !AagRigidPoseRecovery.IsFinite(pose.Rotation)
-                || !TryFindContainingFloor(pose.Position, out room, out floor, out floorFailure))
+                || !TryFindContainingFloor(mrukWorldPosition, out room, out floor, out floorFailure))
             {
                 failure = string.IsNullOrEmpty(floorFailure)
                     ? $"invalid_pose_{pose.ObjectId}"
@@ -129,7 +136,7 @@ public static class MrukRoomLocalPlacementStore
                 return false;
             }
 
-            ToLocalPose(floor.transform, pose.Position, pose.Rotation,
+            ToLocalPose(floor.transform, mrukWorldPosition, mrukWorldRotation,
                 out var localPosition, out var localRotation);
             placements.Add(new Placement
             {
@@ -185,6 +192,25 @@ public static class MrukRoomLocalPlacementStore
             failure = $"invalid_room_or_floor_uuid_{placement?.objectId ?? "NULL"}";
             return false;
         }
+        if (ExperimentSpaceRuntime.IsFp2)
+        {
+            if (!AagFp2BakedSpace.TryResolveFloorLocalPose(
+                    floorUuid,
+                    placement.LocalPosition,
+                    placement.LocalRotation,
+                    out position,
+                    out rotation,
+                    out failure))
+                return false;
+            position = AagMrukSpaceCorrection.MrukToObservedPosition(position);
+            rotation = AagMrukSpaceCorrection.MrukToObservedRotation(rotation);
+            if (!AagRigidPoseRecovery.IsFinite(position) || !AagRigidPoseRecovery.IsFinite(rotation))
+            {
+                failure = $"non_finite_baked_world_pose_{placement.objectId}";
+                return false;
+            }
+            return true;
+        }
         var room = MRUK.Instance?.Rooms?.FirstOrDefault(value =>
             value != null && value.Anchor != null && value.Anchor.Uuid == roomUuid);
         if (room == null)
@@ -202,6 +228,8 @@ public static class MrukRoomLocalPlacementStore
 
         ToWorldPose(floor.transform, placement.LocalPosition, placement.LocalRotation,
             out position, out rotation);
+        position = AagMrukSpaceCorrection.MrukToObservedPosition(position);
+        rotation = AagMrukSpaceCorrection.MrukToObservedRotation(rotation);
         if (!AagRigidPoseRecovery.IsFinite(position) || !AagRigidPoseRecovery.IsFinite(rotation))
         {
             failure = $"non_finite_world_pose_{placement.objectId}";
@@ -269,6 +297,41 @@ public static class MrukRoomLocalPlacementStore
         worldRotation = reference.rotation * localRotation;
     }
 
+    public static bool TryConvertObservedPoseToFloorLocal(
+        Vector3 observedWorldPosition,
+        Quaternion observedWorldRotation,
+        out string roomUuid,
+        out string floorAnchorUuid,
+        out Vector3 localPosition,
+        out Quaternion localRotation,
+        out string failure)
+    {
+        roomUuid = string.Empty;
+        floorAnchorUuid = string.Empty;
+        localPosition = Vector3.zero;
+        localRotation = Quaternion.identity;
+        failure = string.Empty;
+        var mrukWorldPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+            observedWorldPosition);
+        var mrukWorldRotation = AagMrukSpaceCorrection.ObservedToMrukRotation(
+            observedWorldRotation);
+        if (!AagRigidPoseRecovery.IsFinite(mrukWorldPosition)
+            || !AagRigidPoseRecovery.IsFinite(observedWorldRotation)
+            || !TryFindContainingFloor(
+                mrukWorldPosition, out var room, out var floor, out failure))
+            return false;
+
+        ToLocalPose(
+            floor.transform,
+            mrukWorldPosition,
+            mrukWorldRotation,
+            out localPosition,
+            out localRotation);
+        roomUuid = room.Anchor.Uuid.ToString();
+        floorAnchorUuid = floor.Anchor.Uuid.ToString();
+        return true;
+    }
+
     private static bool TryFindContainingFloor(
         Vector3 worldPosition,
         out MRUKRoom selectedRoom,
@@ -320,11 +383,7 @@ public static class MrukRoomLocalPlacementStore
             if (File.Exists(CatalogPath))
             {
                 catalog = JsonUtility.FromJson<Catalog>(File.ReadAllText(CatalogPath));
-                if (catalog != null
-                    && string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
-                    && catalog.sets != null
-                    && catalog.sets.Count == ExperimentSpaceRuntime.SetIds.Count
-                    && catalog.sets.All(value => TryValidateSet(value, out _)))
+                if (IsStructurallyValidCatalog(catalog))
                     return true;
             }
 
@@ -332,12 +391,10 @@ public static class MrukRoomLocalPlacementStore
             // audited v2 seed atomically supersedes the stale v1 device catalog
             // once, then the persistent copy remains authoritative on restarts.
             var seed = Resources.Load<TextAsset>(SeedResourcePath);
-            catalog = seed == null ? null : JsonUtility.FromJson<Catalog>(seed.text);
-            if (catalog == null
-                || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
-                || catalog.sets == null
-                || catalog.sets.Count != ExperimentSpaceRuntime.SetIds.Count
-                || catalog.sets.Any(value => !TryValidateSet(value, out _)))
+            catalog = seed == null
+                ? null
+                : JsonUtility.FromJson<Catalog>(seed.text.TrimStart('\uFEFF'));
+            if (!IsStructurallyValidCatalog(catalog))
             {
                 failure = "catalog_and_bundled_seed_invalid";
                 catalog = null;
@@ -390,4 +447,24 @@ public static class MrukRoomLocalPlacementStore
         updatedAtUtc = DateTime.UtcNow.ToString("O"),
         sets = new List<SetRecord>(),
     };
+
+    private static bool IsStructurallyValidCatalog(Catalog catalog)
+    {
+        if (catalog == null
+            || !string.Equals(catalog.schemaVersion, SchemaVersion, StringComparison.Ordinal)
+            || catalog.sets == null
+            || catalog.sets.Count == 0
+            || catalog.sets.Count > ExperimentSpaceRuntime.SetIds.Count
+            || catalog.sets.Any(value => !TryValidateSet(value, out _)))
+            return false;
+
+        var supported = new HashSet<string>(
+            ExperimentSpaceRuntime.SetIds,
+            StringComparer.Ordinal);
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        return catalog.sets.All(value =>
+            value != null
+            && supported.Contains(value.setId)
+            && ids.Add(value.setId));
+    }
 }

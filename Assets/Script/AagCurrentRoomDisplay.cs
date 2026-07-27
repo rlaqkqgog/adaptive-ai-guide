@@ -42,6 +42,25 @@ public class AagCurrentRoomDisplay : MonoBehaviour
 
     private void UpdateCurrentRoomDisplay()
     {
+        if (ExperimentSpaceRuntime.IsFp2
+            && AagMrukSpaceCorrection.IsApplied
+            && hmdTransform != null)
+        {
+            var canonicalPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+                hmdTransform.position);
+            var bakedRoomId = AagFp2BakedSpace.TryResolveRoom(
+                canonicalPosition, out var bakedRoomUuid)
+                ? bakedRoomUuid.ToString()
+                : null;
+            if (string.IsNullOrEmpty(bakedRoomId))
+                SetDisplay(NoRoomDetectedText, null);
+            else
+                SetDisplay(
+                    $"CURRENT ROOM UUID\n{bakedRoomId}\nSHORT: {bakedRoomId.Substring(0, 8)}",
+                    bakedRoomId);
+            return;
+        }
+
         var room = FindContainingRoom();
         var roomId = room == null || room.Anchor.Uuid == Guid.Empty
             ? null
@@ -86,6 +105,8 @@ public class AagCurrentRoomDisplay : MonoBehaviour
 
     private bool IsHmdInsideAnyFloorPolygon(MRUKRoom room)
     {
+        var mrukQueryPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+            hmdTransform.position);
         foreach (var floor in room.FloorAnchors)
         {
             if (floor == null || floor.PlaneBoundary2D == null || floor.PlaneBoundary2D.Count < 3)
@@ -93,7 +114,7 @@ public class AagCurrentRoomDisplay : MonoBehaviour
                 continue;
             }
 
-            var hmdInFloorSpace = floor.transform.InverseTransformPoint(hmdTransform.position);
+            var hmdInFloorSpace = floor.transform.InverseTransformPoint(mrukQueryPosition);
             if (floor.IsPositionInBoundary(new Vector2(hmdInFloorSpace.x, hmdInFloorSpace.y)))
             {
                 return true;

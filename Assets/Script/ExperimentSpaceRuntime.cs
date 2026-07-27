@@ -30,6 +30,8 @@ public static class ExperimentSpaceRuntime
     public static string FloorPlanId => floorPlanId;
     public static string StorageKey => storageKey;
     public static IReadOnlyList<string> SetIds => setIds;
+    public static bool IsFp2 =>
+        string.Equals(spaceId, AagExperimentSpaceCatalog.Fp2Id, StringComparison.Ordinal);
     public static bool UsesLegacyFp1Storage =>
         string.Equals(storageKey, "fp1", StringComparison.Ordinal);
     public static string LogFolderName => $"{spaceId}Logs";
