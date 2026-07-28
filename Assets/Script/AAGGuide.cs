@@ -50,6 +50,8 @@ public sealed class AAGGuide : MonoBehaviour
         public float proxyRevisitSeconds;
         public float proxyEmptyHandSeconds;
         public float consecutiveEmptyHandSeconds;
+        public float stagnationSeconds;
+        public string stagnationLevel;
         public int carrying;
         public bool directRoomPrompt;
         public bool playbackEnabled;
@@ -200,6 +202,36 @@ public sealed class AAGGuide : MonoBehaviour
                 ? "GF-01"
                 : BuildClipId(proposedLevel, choice, out effectiveLevel);
         nextClipId = ApplyAntiRepeat(nextClipId);
+
+        // --- Stagnation model (time-since-last-find) ---
+        // When configured (either threshold > 0), the AAG clip is driven by
+        // empty-hand seconds since the last find instead of the revisit proxy.
+        // The proxy + lostness zone above stay computed and logged as behavioral
+        // indicators only; they no longer select the clip. AES gate still gates
+        // (pass -> level-based hint, fail -> GF), rotation still applies.
+        var stagnationSeconds = behaviorMetrics.Carrying == 0 ? snapshot.consecutiveEmptyHandSeconds : 0f;
+        var stagnationActive = config.stagnationIndirectSeconds > 0f || config.stagnationMaxSeconds > 0f;
+        var stagnationLevel = stagnationActive ? ResolveStagnationLevel(stagnationSeconds) : "disabled";
+        if (stagnationActive)
+        {
+            var wantsRoomHint = snapshot.aesGatePassed && stagnationLevel != "encourage";
+            choice = wantsRoomHint
+                ? ChooseRoom(choices, loggingManager.SessionTime, stagnationLevel == "top")
+                : null;
+            selectionRule = choice?.selectionRule
+                ?? (!snapshot.aesGatePassed
+                    ? "none"
+                    : stagnationLevel == "encourage"
+                        ? "stagnation_low"
+                        : !hasRemainingTargets ? "no_remaining_targets" : "recent_floor_fallback");
+            effectiveLevel = AagSupportLevel.VeryEasy;
+            nextClipId = stagnationLevel == "encourage"
+                ? string.Empty
+                : !snapshot.aesGatePassed
+                    ? "GF-01"
+                    : BuildClipId(AagSupportLevel.VeryEasy, choice, out effectiveLevel);
+            nextClipId = ApplyAntiRepeat(nextClipId);
+        }
         var decision = new DecisionLog
         {
             t = loggingManager.SessionTime,
@@ -215,6 +247,8 @@ public sealed class AAGGuide : MonoBehaviour
             proxyRevisitSeconds = snapshot.proxyRevisitSeconds,
             proxyEmptyHandSeconds = snapshot.proxyEmptyHandSeconds,
             consecutiveEmptyHandSeconds = snapshot.consecutiveEmptyHandSeconds,
+            stagnationSeconds = stagnationSeconds,
+            stagnationLevel = stagnationLevel,
             carrying = behaviorMetrics.Carrying,
             directRoomPrompt = directRoomPrompt,
             playbackEnabled = config.aagPlaybackEnabled,
@@ -270,6 +304,13 @@ public sealed class AAGGuide : MonoBehaviour
         if (!outputEnabled)
         {
             FinishSuppressed(decision, "decision_only");
+            return;
+        }
+        if (string.IsNullOrEmpty(nextClipId))
+        {
+            // Stagnation below T1 (or otherwise nothing to say): stay silent —
+            // the participant is finding stones at a normal pace.
+            FinishSuppressed(decision, "stagnation_low");
             return;
         }
         if (directRoomMode && !directRoomDue)
@@ -397,7 +438,7 @@ public sealed class AAGGuide : MonoBehaviour
         return choice;
     }
 
-    private static RoomChoice ChooseRoom(IEnumerable<RoomChoice> choices, float now)
+    private static RoomChoice ChooseRoom(IEnumerable<RoomChoice> choices, float now, bool allowCooldownOverride = false)
     {
         var unvisited = choices
             .Where(choice => !choice.visited && !choice.currentRoom)
@@ -416,8 +457,32 @@ public sealed class AAGGuide : MonoBehaviour
             .ThenByDescending(choice => choice.remainingCount)
             .ThenBy(choice => choice.tieOrder)
             .FirstOrDefault();
-        if (stalest != null) stalest.selectionRule = "stalest_visited";
-        return stalest;
+        if (stalest != null)
+        {
+            stalest.selectionRule = "stalest_visited";
+            return stalest;
+        }
+
+        // Terminal fallback (top stagnation only): once the search has narrowed
+        // to a single visited room still inside its stalest cooldown, returning
+        // null would demote the room hint to the generic N-01 clip. When the
+        // caller is in a long-stagnation state, point at the stalest visited
+        // (non-current) room even while its cooldown is active so a stuck
+        // participant still gets a concrete room to re-check. Guarding on a
+        // single remaining non-current room keeps this from firing mid-search;
+        // the current room stays excluded (a stone there is a "search here" case).
+        if (!allowCooldownOverride || choices.Count(choice => !choice.currentRoom) > 1)
+        {
+            return null;
+        }
+        var forced = choices
+            .Where(choice => choice.visited && !choice.currentRoom)
+            .OrderBy(choice => choice.lastMeaningfulVisitAt)
+            .ThenByDescending(choice => choice.remainingCount)
+            .ThenBy(choice => choice.tieOrder)
+            .FirstOrDefault();
+        if (forced != null) forced.selectionRule = "final_room_cooldown_override";
+        return forced;
     }
 
     private void UpdateZoneVotes(string lostnessZone)
@@ -483,6 +548,18 @@ public sealed class AAGGuide : MonoBehaviour
         if (snapshot.proxyRatio < config.proxyLowBoundary) return "underload";
         if (snapshot.proxyRatio < config.proxyHighBoundary) return "optimal";
         return "overload";
+    }
+
+    /// <summary>
+    /// Time-since-last-find stagnation level. Single place mapping empty-hand
+    /// seconds to a hint tier (see §4 of the rework spec — top may later become
+    /// direct guidance; keep this mapping centralized so that change is one edit).
+    /// </summary>
+    private string ResolveStagnationLevel(float stagnationSeconds)
+    {
+        if (config.stagnationMaxSeconds > 0f && stagnationSeconds >= config.stagnationMaxSeconds) return "top";
+        if (config.stagnationIndirectSeconds > 0f && stagnationSeconds >= config.stagnationIndirectSeconds) return "indirect";
+        return "encourage";
     }
 
     private static string BuildClipId(

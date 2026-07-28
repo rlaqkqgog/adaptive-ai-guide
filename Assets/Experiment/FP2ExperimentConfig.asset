@@ -133,8 +133,11 @@ MonoBehaviour:
   aagTextModeEnabled: 0
   aagPlaybackEnabled: 1
   captionVisibleSeconds: 3
-  minimumUtteranceGapSeconds: 10
-  directRoomPromptAfterEmptyHandSeconds: 10
+  minimumUtteranceGapSeconds: 25
+  directRoomPromptAfterEmptyHandSeconds: 0
+  stagnationIndirectSeconds: 25
+  stagnationMaxSeconds: 70
+  participantExperience: 0
   stalestRecencyFloorSeconds: 30
   stalestMeaningfulDwellSeconds: 3
   initialSupportLevel: 0

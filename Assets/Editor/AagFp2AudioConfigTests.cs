@@ -13,8 +13,10 @@ public sealed class AagFp2AudioConfigTests
         var config = AssetDatabase.LoadAssetAtPath<Fp1ExperimentConfig>(ConfigPath);
 
         Assert.That(config, Is.Not.Null);
-        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(10f));
-        Assert.That(config.directRoomPromptAfterEmptyHandSeconds, Is.EqualTo(10f));
+        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(25f));
+        Assert.That(config.directRoomPromptAfterEmptyHandSeconds, Is.EqualTo(0f));
+        Assert.That(config.stagnationIndirectSeconds, Is.EqualTo(25f));
+        Assert.That(config.stagnationMaxSeconds, Is.EqualTo(70f));
         Assert.That(config.aagClips, Has.Length.EqualTo(32));
         Assert.That(config.aagClips.Select(binding => binding.clipId).Distinct().Count(), Is.EqualTo(32));
         foreach (var binding in config.aagClips)
@@ -92,7 +94,7 @@ public sealed class AagFp2AudioConfigTests
         Assert.That(config.proxyWindowSeconds, Is.EqualTo(24f));
         Assert.That(config.proxyLowBoundary, Is.EqualTo(0.2f));
         Assert.That(config.proxyHighBoundary, Is.EqualTo(0.55f));
-        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(12f));
+        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(25f));
         Assert.That(config.stalestRecencyFloorSeconds, Is.EqualTo(30f));
         Assert.That(config.stalestMeaningfulDwellSeconds, Is.EqualTo(3f));
     }

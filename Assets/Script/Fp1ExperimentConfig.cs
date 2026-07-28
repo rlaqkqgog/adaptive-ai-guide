@@ -69,6 +69,13 @@ public sealed class ExperimentTowerAnchor
     public bool requireGrabBeforeDelivery = true;
 }
 
+public enum ParticipantExperience
+{
+    Unspecified,
+    Novice,
+    Expert,
+}
+
 public class ExperimentConfig : ScriptableObject
 {
     [Header("Experiment space identity")]
@@ -144,6 +151,11 @@ public class ExperimentConfig : ScriptableObject
     [Min(0f)] public float minimumUtteranceGapSeconds = 15f;
     [Tooltip("When greater than zero, suppress generic AAG output and give a room-specific prompt after this many consecutive non-carrying seconds.")]
     [Min(0f)] public float directRoomPromptAfterEmptyHandSeconds;
+    [Tooltip("Stagnation model (time-since-last-find). When either threshold is > 0 the AAG clip is driven by empty-hand seconds since the last find instead of the revisit proxy. Below T1 = silence, T1..T2 = indirect room hint, >= T2 = top (room hint + cooldown-ignore fallback). Proxy is still computed and logged.")]
+    [Min(0f)] public float stagnationIndirectSeconds;
+    [Min(0f)] public float stagnationMaxSeconds;
+    [Tooltip("Participant experience level for this session (logged in config_snapshot; required for main study cohorting).")]
+    public ParticipantExperience participantExperience = ParticipantExperience.Unspecified;
     [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
     [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
     [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]
