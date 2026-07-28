@@ -142,6 +142,8 @@ public class ExperimentConfig : ScriptableObject
     public bool aagPlaybackEnabled;
     [Min(0.1f)] public float captionVisibleSeconds = 3f;
     [Min(0f)] public float minimumUtteranceGapSeconds = 15f;
+    [Tooltip("When greater than zero, suppress generic AAG output and give a room-specific prompt after this many consecutive non-carrying seconds.")]
+    [Min(0f)] public float directRoomPromptAfterEmptyHandSeconds;
     [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
     [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
     [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]

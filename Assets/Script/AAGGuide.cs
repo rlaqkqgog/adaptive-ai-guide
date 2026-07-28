@@ -49,7 +49,9 @@ public sealed class AAGGuide : MonoBehaviour
         public float proxyRatio;
         public float proxyRevisitSeconds;
         public float proxyEmptyHandSeconds;
+        public float consecutiveEmptyHandSeconds;
         public int carrying;
+        public bool directRoomPrompt;
         public bool playbackEnabled;
         public bool textModeEnabled;
         public string lostnessZone;
@@ -165,7 +167,17 @@ public sealed class AAGGuide : MonoBehaviour
         var previousLevel = currentSupportLevel;
         var choices = BuildRoomChoices(targets);
         var hasRemainingTargets = HasRemainingTargets(targets);
-        var choice = snapshot.aesGatePassed ? ChooseRoom(choices, loggingManager.SessionTime) : null;
+        var directRoomMode = config.directRoomPromptAfterEmptyHandSeconds > 0f;
+        var directRoomDue = directRoomMode
+            && behaviorMetrics.Carrying == 0
+            && snapshot.consecutiveEmptyHandSeconds
+                >= config.directRoomPromptAfterEmptyHandSeconds;
+        var choice = directRoomDue
+            ? ChooseDirectRoom(choices)
+            : snapshot.aesGatePassed
+                ? ChooseRoom(choices, loggingManager.SessionTime)
+                : null;
+        var directRoomPrompt = directRoomDue && choice != null;
         var selectionRule = choice?.selectionRule
             ?? (!snapshot.aesGatePassed
                 ? "none"
@@ -182,9 +194,11 @@ public sealed class AAGGuide : MonoBehaviour
             ? ApplyLevelAdjustment(previousLevel, voteAdjustment)
             : previousLevel;
         var effectiveLevel = proposedLevel;
-        var nextClipId = !snapshot.aesGatePassed
-            ? "GF-01"
-            : BuildClipId(proposedLevel, choice, out effectiveLevel);
+        var nextClipId = directRoomPrompt
+            ? BuildClipId(AagSupportLevel.VeryEasy, choice, out effectiveLevel)
+            : !snapshot.aesGatePassed
+                ? "GF-01"
+                : BuildClipId(proposedLevel, choice, out effectiveLevel);
         nextClipId = ApplyAntiRepeat(nextClipId);
         var decision = new DecisionLog
         {
@@ -200,7 +214,9 @@ public sealed class AAGGuide : MonoBehaviour
             proxyRatio = snapshot.proxyRatio,
             proxyRevisitSeconds = snapshot.proxyRevisitSeconds,
             proxyEmptyHandSeconds = snapshot.proxyEmptyHandSeconds,
+            consecutiveEmptyHandSeconds = snapshot.consecutiveEmptyHandSeconds,
             carrying = behaviorMetrics.Carrying,
+            directRoomPrompt = directRoomPrompt,
             playbackEnabled = config.aagPlaybackEnabled,
             textModeEnabled = config.aagTextModeEnabled,
             lostnessZone = zone,
@@ -212,7 +228,9 @@ public sealed class AAGGuide : MonoBehaviour
             proposedLevel = proposedLevel.ToString(),
             levelAdjustment = 0,
             level = previousLevel.ToString(),
-            effectiveLevel = snapshot.aesGatePassed ? effectiveLevel.ToString() : "GateFailure",
+            effectiveLevel = directRoomPrompt
+                ? effectiveLevel.ToString()
+                : snapshot.aesGatePassed ? effectiveLevel.ToString() : "GateFailure",
             candidateRooms = string.Join("|", choices.Select(value =>
                 $"{value.roomId}:{value.remainingCount}:{(value.visited ? "visited" : "unvisited")}:"
                 + $"{(value.currentRoom ? "current" : "other")}:"
@@ -254,7 +272,12 @@ public sealed class AAGGuide : MonoBehaviour
             FinishSuppressed(decision, "decision_only");
             return;
         }
-        if (loggingManager.SessionTime < config.aesWindowSeconds)
+        if (directRoomMode && !directRoomDue)
+        {
+            FinishSuppressed(decision, "direct_room_wait");
+            return;
+        }
+        if (!directRoomDue && loggingManager.SessionTime < config.aesWindowSeconds)
         {
             FinishSuppressed(decision, "aes_cold_start");
             return;
@@ -311,18 +334,36 @@ public sealed class AAGGuide : MonoBehaviour
     private List<RoomChoice> BuildRoomChoices(IReadOnlyCollection<AagGuideTarget> targets)
     {
         return (targets ?? Array.Empty<AagGuideTarget>())
-            .Where(target => target != null && !target.delivered && !string.IsNullOrEmpty(target.roomUuid))
-            .GroupBy(target => target.roomUuid, StringComparer.OrdinalIgnoreCase)
+            .Where(target => target != null && !target.delivered)
+            .Select(target =>
+            {
+                var mapping = config.FindRoom(target.roomUuid)
+                    ?? (config.rooms ?? Array.Empty<ExperimentRoomMapping>())
+                        .FirstOrDefault(room => room != null && string.Equals(
+                            room.roomId,
+                            target.roomId,
+                            StringComparison.OrdinalIgnoreCase));
+                return new
+                {
+                    target,
+                    mapping,
+                    roomUuid = mapping?.roomUuid ?? target.roomUuid,
+                };
+            })
+            .Where(value => !string.IsNullOrEmpty(value.roomUuid))
+            .GroupBy(value => value.roomUuid, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var first = group.First();
-                var mapping = config.FindRoom(group.Key);
+                var mapping = first.mapping ?? config.FindRoom(group.Key);
                 var visited = behaviorMetrics.HasVisited(group.Key);
                 return new RoomChoice
                 {
                     roomUuid = group.Key,
-                    roomId = mapping != null ? mapping.roomId : first.roomId,
-                    aagClipRoomId = mapping != null ? mapping.ResolveAagClipRoomId() : first.roomId,
+                    roomId = mapping != null ? mapping.roomId : first.target.roomId,
+                    aagClipRoomId = mapping != null
+                        ? mapping.ResolveAagClipRoomId()
+                        : first.target.roomId,
                     remainingCount = group.Count(),
                     visited = visited,
                     lastVisitedAt = behaviorMetrics.GetLastVisitedAt(group.Key),
@@ -336,6 +377,24 @@ public sealed class AAGGuide : MonoBehaviour
                 };
             })
             .ToList();
+    }
+
+    private static RoomChoice ChooseDirectRoom(IEnumerable<RoomChoice> choices)
+    {
+        var choice = choices
+            .OrderBy(value => value.currentRoom ? 1 : 0)
+            .ThenBy(value => value.visited ? 1 : 0)
+            .ThenByDescending(value => value.remainingCount)
+            .ThenBy(value => value.lastMeaningfulVisitAt)
+            .ThenBy(value => value.tieOrder)
+            .FirstOrDefault();
+        if (choice != null)
+            choice.selectionRule = choice.currentRoom
+                ? "direct_empty_hand_current_room"
+                : choice.visited
+                    ? "direct_empty_hand_visited_room"
+                    : "direct_empty_hand_unvisited_room";
+        return choice;
     }
 
     private static RoomChoice ChooseRoom(IEnumerable<RoomChoice> choices, float now)

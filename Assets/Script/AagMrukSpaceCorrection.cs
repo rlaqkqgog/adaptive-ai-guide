@@ -123,8 +123,21 @@ public static class AagFp2BakedSpace
         public Vector2[] Boundary { get; }
     }
 
+    private readonly struct WallSegment
+    {
+        public WallSegment(Vector2 start, Vector2 end)
+        {
+            Start = start;
+            End = end;
+        }
+
+        public Vector2 Start { get; }
+        public Vector2 End { get; }
+    }
+
     private static Dictionary<Guid, FloorRecord> floorsByUuid;
     private static Dictionary<Guid, FloorRecord> floorsByRoomUuid;
+    private static Dictionary<Guid, List<WallSegment>> wallsByRoomUuid;
     private static string loadFailure;
 
     public static bool TryGetFloor(
@@ -198,6 +211,32 @@ public static class AagFp2BakedSpace
         return roomUuid != Guid.Empty;
     }
 
+    public static bool TryGetMinimumWallClearance(
+        Guid roomUuid,
+        Vector3 canonicalPosition,
+        out float clearanceMeters)
+    {
+        clearanceMeters = float.PositiveInfinity;
+        if (!EnsureLoaded(out _)
+            || !wallsByRoomUuid.TryGetValue(roomUuid, out var walls)
+            || walls.Count == 0)
+            return false;
+
+        var point = new Vector2(canonicalPosition.x, canonicalPosition.z);
+        foreach (var wall in walls)
+        {
+            var segment = wall.End - wall.Start;
+            var denominator = segment.sqrMagnitude;
+            var amount = denominator <= 0.000001f
+                ? 0f
+                : Mathf.Clamp01(Vector2.Dot(point - wall.Start, segment) / denominator);
+            clearanceMeters = Mathf.Min(
+                clearanceMeters,
+                Vector2.Distance(point, wall.Start + segment * amount));
+        }
+        return IsFinite(clearanceMeters);
+    }
+
     private static bool EnsureLoaded(out string failure)
     {
         if (floorsByUuid != null)
@@ -208,6 +247,7 @@ public static class AagFp2BakedSpace
 
         floorsByUuid = new Dictionary<Guid, FloorRecord>();
         floorsByRoomUuid = new Dictionary<Guid, FloorRecord>();
+        wallsByRoomUuid = new Dictionary<Guid, List<WallSegment>>();
         var asset = Resources.Load<TextAsset>(ResourcePath);
         if (asset == null)
         {
@@ -263,6 +303,19 @@ public static class AagFp2BakedSpace
                 boundary);
             floorsByUuid[floorUuid] = record;
             floorsByRoomUuid[roomUuid] = record;
+            var walls = new List<WallSegment>();
+            foreach (var anchorToken in anchors)
+            {
+                if (!(anchorToken is JObject anchor)
+                    || !HasWallClassification(anchor["SemanticClassifications"])
+                    || !TryBuildPose(anchor["Transform"], out var wallPose)
+                    || !TryBuildBoundary(anchor["PlaneBoundary2D"], out var wallBoundary))
+                    continue;
+                if (TryBuildHorizontalWallSegment(
+                        wallPose, wallBoundary, out var wallSegment))
+                    walls.Add(wallSegment);
+            }
+            wallsByRoomUuid[roomUuid] = walls;
         }
 
         if (floorsByRoomUuid.Count != 8)
@@ -297,6 +350,47 @@ public static class AagFp2BakedSpace
             result[index] = new Vector2((float)point[0], (float)point[1]);
         }
         boundary = result;
+        return true;
+    }
+
+    private static bool HasWallClassification(JToken value)
+    {
+        if (!(value is JArray classifications)) return false;
+        foreach (var classification in classifications)
+            if (((string)classification)?.IndexOf(
+                    "WALL_FACE", StringComparison.OrdinalIgnoreCase) >= 0)
+                return true;
+        return false;
+    }
+
+    private static bool TryBuildHorizontalWallSegment(
+        Pose wallPose,
+        IReadOnlyList<Vector2> boundary,
+        out WallSegment segment)
+    {
+        segment = default;
+        var maximumDistanceSquared = 0f;
+        var start = Vector2.zero;
+        var end = Vector2.zero;
+        for (var first = 0; first < boundary.Count; first++)
+        {
+            var firstWorld = wallPose.position
+                + wallPose.rotation * new Vector3(boundary[first].x, boundary[first].y, 0f);
+            var firstHorizontal = new Vector2(firstWorld.x, firstWorld.z);
+            for (var second = first + 1; second < boundary.Count; second++)
+            {
+                var secondWorld = wallPose.position
+                    + wallPose.rotation * new Vector3(boundary[second].x, boundary[second].y, 0f);
+                var secondHorizontal = new Vector2(secondWorld.x, secondWorld.z);
+                var distanceSquared = (secondHorizontal - firstHorizontal).sqrMagnitude;
+                if (distanceSquared <= maximumDistanceSquared) continue;
+                maximumDistanceSquared = distanceSquared;
+                start = firstHorizontal;
+                end = secondHorizontal;
+            }
+        }
+        if (maximumDistanceSquared < 0.0025f) return false;
+        segment = new WallSegment(start, end);
         return true;
     }
 

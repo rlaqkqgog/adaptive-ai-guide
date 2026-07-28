@@ -13,6 +13,8 @@ public sealed class AagFp2AudioConfigTests
         var config = AssetDatabase.LoadAssetAtPath<Fp1ExperimentConfig>(ConfigPath);
 
         Assert.That(config, Is.Not.Null);
+        Assert.That(config.minimumUtteranceGapSeconds, Is.EqualTo(10f));
+        Assert.That(config.directRoomPromptAfterEmptyHandSeconds, Is.EqualTo(10f));
         Assert.That(config.aagClips, Has.Length.EqualTo(32));
         Assert.That(config.aagClips.Select(binding => binding.clipId).Distinct().Count(), Is.EqualTo(32));
         foreach (var binding in config.aagClips)

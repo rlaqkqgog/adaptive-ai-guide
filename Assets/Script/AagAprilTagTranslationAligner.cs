@@ -25,7 +25,11 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public const float MarkerFreshnessSeconds = 12f;
     public const float MaximumAcceptedCorrectionMeters = 40f;
     public const float MaximumAcceptedVerticalCorrectionMeters = 0.5f;
-    public const float MaximumAcceptedYawCorrectionDegrees = 15f;
+    // A bundled baked scene and the current headset tracking frame may have
+    // arbitrary horizontal headings. Tag-pose front/back ambiguity is folded
+    // to the smaller correction below, so every valid result is within 90 deg.
+    // Stability is enforced separately by the yaw-jitter gate.
+    public const float MaximumAcceptedYawCorrectionDegrees = 90f;
 
     private const int Decimation = 2;
     private const float ProcessingIntervalSeconds = 0.10f;
@@ -666,7 +670,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             + $"Tag offset:      {previewOffsetMeters:F3} ({previewOffsetMeters.magnitude:F2}m)\n"
             + $"Yaw diagnostic:  {(hasYawDiagnostic ? $"{previewYawDegrees:F2}deg" : "unavailable")} "
             + $"(jitter {previewYawJitterDegrees:F2}deg, "
-            + $"{(applyDetectedYawRotation ? "APPLIED" : "NOT APPLIED")})\n"
+            + $"{(applyDetectedYawRotation ? "USED FOR ALIGNMENT" : "DIAGNOSTIC ONLY")})\n"
             + $"Content fine:    {ContentFineTuneMeters:F3}\n"
             + $"Reference axes:  base {contentAlongWallBaselineMeters:F2}m + adjust "
             + $"{contentAlongWallAdjustmentMeters:F2}m = {ContentAlongWallBackMeters:F2}m | "

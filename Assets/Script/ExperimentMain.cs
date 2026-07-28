@@ -36,9 +36,11 @@ public sealed class ExperimentMain : MonoBehaviour
     private const float InventoryDeliveryDwellSeconds = 3f;
     private const int RequiredRoomInteriorGridSize = 11;
     private const float RequiredRoomMinimumMarkerSeparationMeters = 1.5f;
-    private const float Fp2PreferredWallClearanceMeters = 0.20f;
-    private const float Fp2MinimumWallClearanceMeters = 0.05f;
+    private const float Fp2PreferredWallClearanceMeters = 1.00f;
+    private const float Fp2MinimumWallClearanceMeters = 0.30f;
     private const float Fp2WallSafetySearchStepMeters = 0.10f;
+    private const float Fp2VerandaTowerSafeLocalX = 3.75f;
+    private const float Fp2VerandaTowerSafeLocalY = 0f;
     private static readonly Vector3 HudHeadLockedLocalPosition = new Vector3(0f, -0.02f, 0.85f);
     private static readonly Vector3 HudHeadLockedLocalScale = Vector3.one * 0.001f;
 
@@ -2222,7 +2224,12 @@ public sealed class ExperimentMain : MonoBehaviour
                 DestroyImmediate(anchor);
             instance.SetActive(true);
             approximatedObjects.Add(instance);
-            RegisterTarget(placement.entry, instance.transform, true, "MRUK_ROOM_LOCAL");
+            RegisterTarget(
+                placement.entry,
+                instance.transform,
+                true,
+                "MRUK_ROOM_LOCAL",
+                ExperimentSpaceRuntime.IsFp2 ? placement.roomIds : null);
             WriteSystem(
                 "target_room_local_loaded",
                 $"object={placement.entry.marker_id}; rooms={placement.roomIds}; "
@@ -2666,7 +2673,18 @@ public sealed class ExperimentMain : MonoBehaviour
             var wallSafetyDetail = string.Empty;
             if (useFp2PersistentCatalog)
             {
+                var authoredLocal = local;
+                if (string.Equals(definition.towerId, "Tower-4", StringComparison.Ordinal))
+                {
+                    local.x = Fp2VerandaTowerSafeLocalX;
+                    local.y = Fp2VerandaTowerSafeLocalY;
+                }
+                var fieldSafetyMove = Vector2.Distance(
+                    new Vector2(authoredLocal.x, authoredLocal.y),
+                    new Vector2(local.x, local.y));
                 if (!TryResolveFp2WallSafeFloorPoint(
+                        placement.RoomUuid,
+                        bakedFloorPose,
                         floorBoundary,
                         new Vector2(local.x, local.y),
                         out var safePoint,
@@ -2681,7 +2699,12 @@ public sealed class ExperimentMain : MonoBehaviour
                 var movedMeters = Vector2.Distance(originalPoint, safePoint);
                 local.x = safePoint.x;
                 local.y = safePoint.y;
-                wallSafetyDetail = $",wallMove={movedMeters:F3},wallClearance={achievedClearance:F3}";
+                wallSafetyDetail = $",fieldMove={fieldSafetyMove:F3},wallMove={movedMeters:F3},wallClearance={achievedClearance:F3}";
+                if (fieldSafetyMove >= 0.01f)
+                    Debug.LogWarning(
+                        $"[AAG FP2 Field Safety] tower={definition.towerId}; "
+                        + $"moved={fieldSafetyMove:F3}m; from={authoredLocal:F3}; to={local:F3}",
+                        this);
                 if (movedMeters >= 0.01f)
                     Debug.LogWarning(
                         $"[AAG FP2 Wall Safety] tower={definition.towerId}; "
@@ -2761,6 +2784,8 @@ public sealed class ExperimentMain : MonoBehaviour
         var originalLocal = Quaternion.Inverse(bakedFloorPose.rotation)
             * (originalCanonicalPosition - bakedFloorPose.position);
         if (!TryResolveFp2WallSafeFloorPoint(
+                roomUuid,
+                bakedFloorPose,
                 floorBoundary,
                 new Vector2(originalLocal.x, originalLocal.y),
                 out var safePoint,
@@ -2790,6 +2815,8 @@ public sealed class ExperimentMain : MonoBehaviour
     }
 
     private static bool TryResolveFp2WallSafeFloorPoint(
+        Guid roomUuid,
+        Pose floorPose,
         IReadOnlyList<Vector2> boundary,
         Vector2 originalPoint,
         out Vector2 resolvedPoint,
@@ -2805,9 +2832,20 @@ public sealed class ExperimentMain : MonoBehaviour
             return false;
         }
 
+        float Clearance(Vector2 point)
+        {
+            var floorClearance = DistanceToPolygonBoundary(point, boundary);
+            var canonical = floorPose.position
+                + floorPose.rotation * new Vector3(point.x, point.y, 0f);
+            return AagFp2BakedSpace.TryGetMinimumWallClearance(
+                    roomUuid, canonical, out var wallClearance)
+                ? Mathf.Min(floorClearance, wallClearance)
+                : floorClearance;
+        }
+
         if (IsPointInPolygon(originalPoint, boundary))
         {
-            achievedClearance = DistanceToPolygonBoundary(originalPoint, boundary);
+            achievedClearance = Clearance(originalPoint);
             if (achievedClearance >= Fp2PreferredWallClearanceMeters) return true;
         }
 
@@ -2822,7 +2860,7 @@ public sealed class ExperimentMain : MonoBehaviour
         void Consider(Vector2 candidate)
         {
             if (!IsPointInPolygon(candidate, boundary)) return;
-            var clearance = DistanceToPolygonBoundary(candidate, boundary);
+            var clearance = Clearance(candidate);
             var distanceSquared = (candidate - originalPoint).sqrMagnitude;
             if (clearance >= Fp2PreferredWallClearanceMeters
                 && distanceSquared < preferredDistanceSquared)
@@ -2873,7 +2911,7 @@ public sealed class ExperimentMain : MonoBehaviour
         if (preferredFound)
         {
             resolvedPoint = preferredPoint;
-            achievedClearance = DistanceToPolygonBoundary(preferredPoint, boundary);
+            achievedClearance = Clearance(preferredPoint);
             return true;
         }
         if (fallbackFound && fallbackClearance >= Fp2MinimumWallClearanceMeters)

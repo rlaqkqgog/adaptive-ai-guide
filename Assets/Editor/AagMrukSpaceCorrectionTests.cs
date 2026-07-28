@@ -78,4 +78,23 @@ public sealed class AagMrukSpaceCorrectionTests
         Assert.That(failure, Is.EqualTo("mruk_query_translation_non_finite"));
         Assert.That(AagMrukSpaceCorrection.IsApplied, Is.False);
     }
+
+    [Test]
+    public void Fp2BakedSpace_ExposesRoomWallClearance()
+    {
+        var roomUuid = new System.Guid("96a223f3-baf3-7044-2958-6f2468b35c72");
+        Assert.That(
+            AagFp2BakedSpace.TryGetRoomFloor(
+                roomUuid, out var floorPose, out _, out var failure),
+            Is.True,
+            failure);
+        var corridorCenter = floorPose.position
+            + floorPose.rotation * new Vector3(3.75f, 0f, 0f);
+
+        Assert.That(
+            AagFp2BakedSpace.TryGetMinimumWallClearance(
+                roomUuid, corridorCenter, out var clearance),
+            Is.True);
+        Assert.That(clearance, Is.GreaterThan(0.70f));
+    }
 }

@@ -16,6 +16,7 @@ public sealed class BehaviorMetricsSnapshot
     public bool proxyHasValue;
     public float proxyRevisitSeconds;
     public float proxyEmptyHandSeconds;
+    public float consecutiveEmptyHandSeconds;
     public float proxyRatio;
     public bool proxyColdStart;
 }
@@ -89,6 +90,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         public float totalAccumulatedEmptyHandSeconds;
         public float revisitEmptyHandSeconds;
         public float windowEmptyHandSeconds;
+        public float consecutiveEmptyHandSeconds;
         public float proxyRatio;
         public bool hasValue;
         public bool coldStart;
@@ -148,6 +150,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     private string candidateRoomUuid = string.Empty;
     private float candidateRoomDwell;
     private float currentRoomEnteredAt;
+    private float consecutiveEmptyHandSeconds;
     private Func<string> physicalRoomProvider;
 
     public int Carrying => carrying ? 1 : 0;
@@ -215,6 +218,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
         lastVisitedRoom = string.Empty;
         totalFoundTargets = 0;
         lastTargetFoundAt = -1f;
+        consecutiveEmptyHandSeconds = 0f;
     }
 
     public void Sample(float sampleDelta, ExperimentGuideMode guideMode)
@@ -262,6 +266,9 @@ public sealed class BehaviorMetrics : MonoBehaviour
         TrimMetricWindow();
 
         windowFrozen = carrying;
+        consecutiveEmptyHandSeconds = carrying
+            ? 0f
+            : consecutiveEmptyHandSeconds + Mathf.Max(0f, sampleDelta);
         revisitWindow.Sample(sampleDelta, !carrying, currentRoomIsRevisit);
 
         loggingManager.Write(new TrackLog
@@ -310,6 +317,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
             && emptyHandSeconds > 0f;
         snapshot.proxyRevisitSeconds = revisitSeconds;
         snapshot.proxyEmptyHandSeconds = emptyHandSeconds;
+        snapshot.consecutiveEmptyHandSeconds = consecutiveEmptyHandSeconds;
         snapshot.proxyRatio = emptyHandSeconds > 0f ? revisitSeconds / emptyHandSeconds : 0f;
         snapshot.proxyColdStart = !snapshot.proxyHasValue;
 
@@ -342,6 +350,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
             totalAccumulatedEmptyHandSeconds = revisitWindow.TotalAccumulatedEmptyHandSeconds,
             revisitEmptyHandSeconds = snapshot.proxyRevisitSeconds,
             windowEmptyHandSeconds = snapshot.proxyEmptyHandSeconds,
+            consecutiveEmptyHandSeconds = snapshot.consecutiveEmptyHandSeconds,
             proxyRatio = snapshot.proxyRatio,
             hasValue = snapshot.proxyHasValue,
             coldStart = snapshot.proxyColdStart,
@@ -386,6 +395,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
             return false;
         }
         carrying = true;
+        consecutiveEmptyHandSeconds = 0f;
         carriedObjectId = objectId;
         windowFrozen = true;
         return true;
@@ -395,6 +405,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     {
         if (!string.Equals(carriedObjectId, objectId ?? string.Empty, StringComparison.Ordinal)) return;
         carrying = false;
+        consecutiveEmptyHandSeconds = 0f;
         carriedObjectId = string.Empty;
         windowFrozen = false;
     }
@@ -402,6 +413,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     public void ForceClearCarry()
     {
         carrying = false;
+        consecutiveEmptyHandSeconds = 0f;
         carriedObjectId = string.Empty;
         windowFrozen = false;
     }

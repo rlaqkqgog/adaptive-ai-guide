@@ -47,6 +47,7 @@ public sealed class LoggingManager : MonoBehaviour
         public float proxyLowBoundary;
         public float proxyHighBoundary;
         public float minimumUtteranceGapSeconds;
+        public float directRoomPromptAfterEmptyHandSeconds;
         public bool aagPlaybackEnabled;
         public bool aagTextModeEnabled;
         public float captionVisibleSeconds;
@@ -158,6 +159,7 @@ public sealed class LoggingManager : MonoBehaviour
                 proxyLowBoundary = config.proxyLowBoundary,
                 proxyHighBoundary = config.proxyHighBoundary,
                 minimumUtteranceGapSeconds = config.minimumUtteranceGapSeconds,
+                directRoomPromptAfterEmptyHandSeconds = config.directRoomPromptAfterEmptyHandSeconds,
                 aagPlaybackEnabled = config.aagPlaybackEnabled,
                 aagTextModeEnabled = config.aagTextModeEnabled,
                 captionVisibleSeconds = config.captionVisibleSeconds,

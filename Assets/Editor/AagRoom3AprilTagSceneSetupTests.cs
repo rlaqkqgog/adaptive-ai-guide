@@ -177,6 +177,36 @@ public sealed class AagRoom3AprilTagSceneSetupTests
     }
 
     [Test]
+    public void StableTagYaw_AcceptsLargeBakedFrameHeadingDifference()
+    {
+        var expected = Quaternion.Euler(0f, 12f, 0f);
+        var observed = new[]
+        {
+            Quaternion.Euler(0f, -66.4f, 0f),
+            Quaternion.Euler(0f, -66.2f, 0f),
+            Quaternion.Euler(0f, -66.6f, 0f),
+        };
+
+        Assert.That(
+            AagAprilTagTranslationAligner.TryResolveStableYawCorrection(
+                expected,
+                observed,
+                out var correction,
+                out var yaw,
+                out var jitter),
+            Is.True);
+        Assert.That(yaw, Is.EqualTo(-78.4f).Within(0.01f));
+        Assert.That(jitter, Is.LessThan(0.21f));
+        Assert.That(
+            Mathf.Abs(yaw),
+            Is.LessThanOrEqualTo(
+                AagAprilTagTranslationAligner.MaximumAcceptedYawCorrectionDegrees));
+        Assert.That(
+            Quaternion.Angle(correction, Quaternion.Euler(0f, -78.4f, 0f)),
+            Is.LessThan(0.01f));
+    }
+
+    [Test]
     public void Room3Reference_FloorLocalPoseRoundTripsToSceneTransform()
     {
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);

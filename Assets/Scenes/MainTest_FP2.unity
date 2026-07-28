@@ -3077,9 +3077,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   referenceLabel: FP2 Room8
   referencePlacementConfirmed: 1
-  useBakedFloorPose: 1
   roomUuid: 2d4f4c7d-9189-0198-a0ff-ecd07d843c6a
   floorAnchorUuid: fcd5cb7d-e3ad-844a-9a18-9a6a165124b3
+  useBakedFloorPose: 1
   exportFloorWorldPosition: {x: -0.05573343, y: -0.04048982, z: 2.3066323}
   exportFloorWorldRotation: {x: 0.64618343, y: -0.28713578, z: -0.28713575, w: -0.6461835}
   floorLocalPosition: {x: 2.509832, y: 2.2296185, z: 1.35}
