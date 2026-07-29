@@ -26,10 +26,10 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public const float MaximumAcceptedCorrectionMeters = 40f;
     public const float MaximumAcceptedVerticalCorrectionMeters = 0.5f;
     // A bundled baked scene and the current headset tracking frame may have
-    // arbitrary horizontal headings. Tag-pose front/back ambiguity is folded
-    // to the smaller correction below, so every valid result is within 90 deg.
-    // Stability is enforced separately by the yaw-jitter gate.
-    public const float MaximumAcceptedYawCorrectionDegrees = 90f;
+    // arbitrary horizontal headings. The correct tag-pose branch can therefore
+    // exceed 90 degrees. FP2 accepts it only after the candidate rigid transform
+    // maps the tracked head into the configured baked start room.
+    public const float MaximumAcceptedYawCorrectionDegrees = 180f;
 
     private const int Decimation = 2;
     private const float ProcessingIntervalSeconds = 0.10f;
@@ -95,6 +95,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     private float previewYawDegrees;
     private float previewYawJitterDegrees;
     private bool hasYawDiagnostic;
+    private string yawBranchStatus = "not_evaluated";
     private Vector3 expectedReferenceWorldPosition;
     private Vector3 previewOffsetMeters;
     private float previewJitterMeters;
@@ -138,6 +139,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
     public float PreviewYawDegrees => previewYawDegrees;
     public float PreviewYawJitterDegrees => previewYawJitterDegrees;
     public bool HasYawDiagnostic => hasYawDiagnostic;
+    public string YawBranchStatus => yawBranchStatus;
     public Vector3 ContentFineTuneMeters => ResolveContentFineTuneMeters(AppliedYawRotation);
     public Vector3 ContentOffsetMeters => previewOffsetMeters + ContentFineTuneMeters;
     public Vector3 MedianDetectedWorldPosition => medianDetectedWorldPosition;
@@ -324,6 +326,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             + $"residual={residual:F4}m jitter={previewJitterMeters:F4}m "
             + $"yawDiagnosticAvailable={hasYawDiagnostic} yawDiagnostic={previewYawDegrees:F3}deg "
             + $"yawJitter={previewYawJitterDegrees:F3}deg yawApplied={applyDetectedYawRotation} "
+            + $"yawBranch={yawBranchStatus} "
             + $"horizontalOnly={horizontalOnly}",
             this);
         SetHudVisible(false);
@@ -342,6 +345,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         previewYawDegrees = 0f;
         previewYawJitterDegrees = 0f;
         hasYawDiagnostic = false;
+        yawBranchStatus = "not_evaluated";
         runtimeStatus = "ALIGNMENT RESET";
         SetReferenceVisualsVisible(true);
         if (cameraAccess != null && !cameraAccess.enabled) cameraAccess.enabled = true;
@@ -495,6 +499,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         previewYawDegrees = 0f;
         previewYawJitterDegrees = 0f;
         hasYawDiagnostic = false;
+        yawBranchStatus = "not_evaluated";
         if (recordDetectedYaw || applyDetectedYawRotation)
         {
             hasYawDiagnostic = TryResolveStableYawCorrection(
@@ -513,6 +518,32 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             {
                 runtimeStatus = $"UNSTABLE TAG YAW {previewYawJitterDegrees:F2}deg";
                 return;
+            }
+            if (applyDetectedYawRotation
+                && room3TagReference.UseBakedFloorPose)
+            {
+                var trackedHead = ResolveTrackedHeadTransform();
+                if (trackedHead == null)
+                {
+                    runtimeStatus = "TAG YAW BLOCKED: HEAD TRACKING UNAVAILABLE";
+                    return;
+                }
+                if (!TryResolveBakedRoomValidatedYaw(
+                        referencePose.position,
+                        medianDetectedWorldPosition,
+                        trackedHead.position,
+                        room3TagReference.ExpectedRoomUuid,
+                        previewYawDegrees,
+                        horizontalOnly,
+                        out previewYawRotation,
+                        out previewYawDegrees,
+                        out _,
+                        out yawBranchStatus,
+                        out var branchFailure))
+                {
+                    runtimeStatus = $"TAG YAW BLOCKED: {branchFailure}";
+                    return;
+                }
             }
             if (applyDetectedYawRotation
                 && Mathf.Abs(previewYawDegrees) > MaximumAcceptedYawCorrectionDegrees)
@@ -558,6 +589,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
                 + $"magnitude={previewOffsetMeters.magnitude:F3}m jitter={previewJitterMeters:F4}m "
                 + $"yawDiagnosticAvailable={hasYawDiagnostic} yawDiagnostic={previewYawDegrees:F3}deg "
                 + $"yawJitter={previewYawJitterDegrees:F3}deg yawApplied={applyDetectedYawRotation} "
+                + $"yawBranch={yawBranchStatus} "
                 + $"samples={samples.Count} camera={lastCameraPosition:F4} tagCamera={lastCameraLocalTagPosition:F4}",
                 this);
         }
@@ -671,6 +703,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
             + $"Yaw diagnostic:  {(hasYawDiagnostic ? $"{previewYawDegrees:F2}deg" : "unavailable")} "
             + $"(jitter {previewYawJitterDegrees:F2}deg, "
             + $"{(applyDetectedYawRotation ? "USED FOR ALIGNMENT" : "DIAGNOSTIC ONLY")})\n"
+            + $"Yaw branch:      {yawBranchStatus}\n"
             + $"Content fine:    {ContentFineTuneMeters:F3}\n"
             + $"Reference axes:  base {contentAlongWallBaselineMeters:F2}m + adjust "
             + $"{contentAlongWallAdjustmentMeters:F2}m = {ContentAlongWallBackMeters:F2}m | "
@@ -747,6 +780,118 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         jitterDegrees = maximumJitter;
         yawCorrection = Quaternion.Euler(0f, medianYaw, 0f);
         return IsFinite(yawCorrection);
+    }
+
+    public static bool TryResolveBakedRoomValidatedYaw(
+        Vector3 expectedReferencePosition,
+        Vector3 detectedReferencePosition,
+        Vector3 observedHeadPosition,
+        string expectedRoomUuidText,
+        float foldedYawDegrees,
+        bool horizontalOnly,
+        out Quaternion yawCorrection,
+        out float yawDegrees,
+        out Vector3 translation,
+        out string branchStatus,
+        out string failure)
+    {
+        yawCorrection = Quaternion.identity;
+        yawDegrees = 0f;
+        translation = Vector3.zero;
+        branchStatus = "not_resolved";
+        failure = string.Empty;
+        if (!Guid.TryParse(expectedRoomUuidText, out var expectedRoomUuid))
+        {
+            failure = "EXPECTED START ROOM UUID INVALID";
+            return false;
+        }
+        if (!IsFinite(expectedReferencePosition)
+            || !IsFinite(detectedReferencePosition)
+            || !IsFinite(observedHeadPosition)
+            || !IsFinite(foldedYawDegrees))
+        {
+            failure = "NON-FINITE YAW BRANCH INPUT";
+            return false;
+        }
+
+        var folded = Mathf.DeltaAngle(0f, foldedYawDegrees);
+        var opposite = Mathf.DeltaAngle(0f, folded + 180f);
+        var foldedMatches = EvaluateBakedRoomYawCandidate(
+            expectedReferencePosition,
+            detectedReferencePosition,
+            observedHeadPosition,
+            expectedRoomUuid,
+            folded,
+            horizontalOnly,
+            out var foldedRotation,
+            out var foldedTranslation,
+            out var foldedRoom);
+        var oppositeMatches = EvaluateBakedRoomYawCandidate(
+            expectedReferencePosition,
+            detectedReferencePosition,
+            observedHeadPosition,
+            expectedRoomUuid,
+            opposite,
+            horizontalOnly,
+            out var oppositeRotation,
+            out var oppositeTranslation,
+            out var oppositeRoom);
+
+        if (foldedMatches == oppositeMatches)
+        {
+            var reason = foldedMatches ? "AMBIGUOUS BOTH MATCH" : "NO ROOM8 MATCH";
+            failure = $"{reason}; stand inside Room8 "
+                + $"(folded={FormatResolvedRoom(foldedRoom)}, opposite={FormatResolvedRoom(oppositeRoom)})";
+            return false;
+        }
+
+        if (foldedMatches)
+        {
+            yawCorrection = foldedRotation;
+            yawDegrees = folded;
+            translation = foldedTranslation;
+            branchStatus = "folded_expected_room";
+        }
+        else
+        {
+            yawCorrection = oppositeRotation;
+            yawDegrees = opposite;
+            translation = oppositeTranslation;
+            branchStatus = "opposite_expected_room";
+        }
+        return true;
+    }
+
+    private static bool EvaluateBakedRoomYawCandidate(
+        Vector3 expectedReferencePosition,
+        Vector3 detectedReferencePosition,
+        Vector3 observedHeadPosition,
+        Guid expectedRoomUuid,
+        float candidateYawDegrees,
+        bool horizontalOnly,
+        out Quaternion candidateRotation,
+        out Vector3 candidateTranslation,
+        out Guid resolvedRoomUuid)
+    {
+        candidateRotation = Quaternion.Euler(0f, candidateYawDegrees, 0f);
+        candidateTranslation = detectedReferencePosition
+            - candidateRotation * expectedReferencePosition;
+        if (horizontalOnly) candidateTranslation.y = 0f;
+        var canonicalHeadPosition = Quaternion.Inverse(candidateRotation)
+            * (observedHeadPosition - candidateTranslation);
+        return AagFp2BakedSpace.TryResolveRoom(canonicalHeadPosition, out resolvedRoomUuid)
+            && resolvedRoomUuid == expectedRoomUuid;
+    }
+
+    private static string FormatResolvedRoom(Guid roomUuid) =>
+        roomUuid == Guid.Empty ? "outside" : roomUuid.ToString();
+
+    private static Transform ResolveTrackedHeadTransform()
+    {
+        var trackedHead = GameObject.Find("CenterEyeAnchor")?.transform;
+        return trackedHead != null || Camera.main == null
+            ? trackedHead
+            : Camera.main.transform;
     }
 
     private static bool TryGetYawDegrees(Quaternion rotation, out float yawDegrees)

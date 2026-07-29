@@ -36,11 +36,16 @@ public sealed class ExperimentMain : MonoBehaviour
     private const float InventoryDeliveryDwellSeconds = 3f;
     private const int RequiredRoomInteriorGridSize = 11;
     private const float RequiredRoomMinimumMarkerSeparationMeters = 1.5f;
-    private const float Fp2PreferredWallClearanceMeters = 1.00f;
     private const float Fp2MinimumWallClearanceMeters = 0.30f;
     private const float Fp2WallSafetySearchStepMeters = 0.10f;
-    private const float Fp2VerandaTowerSafeLocalX = 3.75f;
-    private const float Fp2VerandaTowerSafeLocalY = 0f;
+    private const float Fp2VerandaTowerSafeLocalX = 2.65f;
+    private const float Fp2VerandaTowerSafeLocalY = 0.10f;
+    private const float Fp2VerandaBathroomNoSpawnMinLocalX = 3.10f;
+    private const float Fp2VerandaHiddenWallPocketMinLocalX = 0f;
+    private const float Fp2VerandaHiddenWallPocketMaxLocalX = 1.30f;
+    private const float Fp2VerandaHiddenWallPocketMaxLocalY = 0.25f;
+    private static readonly Guid Fp2VerandaRoomUuid =
+        Guid.Parse("96a223f3-baf3-7044-2958-6f2468b35c72");
     private static readonly Vector3 HudHeadLockedLocalPosition = new Vector3(0f, -0.02f, 0.85f);
     private static readonly Vector3 HudHeadLockedLocalScale = Vector3.one * 0.001f;
 
@@ -1197,7 +1202,8 @@ public sealed class ExperimentMain : MonoBehaviour
                 + $"yawDiagnosticAvailable={aprilTagTranslationAligner.HasYawDiagnostic}; "
                 + $"yawDiagnostic={aprilTagTranslationAligner.PreviewYawDegrees:F3}; "
                 + $"yawJitter={aprilTagTranslationAligner.PreviewYawJitterDegrees:F3}; "
-                + $"yawApplied={aprilTagTranslationAligner.ApplyDetectedYawRotation}");
+                + $"yawApplied={aprilTagTranslationAligner.ApplyDetectedYawRotation}; "
+                + $"yawBranch={aprilTagTranslationAligner.YawBranchStatus}");
         }
         if (!BeginSessionTrackingSpaceLock(out var trackingLockFailure))
         {
@@ -2697,9 +2703,20 @@ public sealed class ExperimentMain : MonoBehaviour
 
                 var originalPoint = new Vector2(local.x, local.y);
                 var movedMeters = Vector2.Distance(originalPoint, safePoint);
-                local.x = safePoint.x;
-                local.y = safePoint.y;
-                wallSafetyDetail = $",fieldMove={fieldSafetyMove:F3},wallMove={movedMeters:F3},wallClearance={achievedClearance:F3}";
+                if (!AagFp2WalkablePath.TryConstrain(
+                        placement.RoomUuid,
+                        safePoint,
+                        out var walkablePoint,
+                        out var distanceToPath,
+                        out var pathMove))
+                {
+                    failure = $"tower_walkable_path_{definition.towerId}_{placement.RoomUuid}";
+                    return false;
+                }
+                local.x = walkablePoint.x;
+                local.y = walkablePoint.y;
+                wallSafetyDetail = $",fieldMove={fieldSafetyMove:F3},wallMove={movedMeters:F3},"
+                    + $"wallClearance={achievedClearance:F3},pathDistance={distanceToPath:F3},pathMove={pathMove:F3}";
                 if (fieldSafetyMove >= 0.01f)
                     Debug.LogWarning(
                         $"[AAG FP2 Field Safety] tower={definition.towerId}; "
@@ -2710,6 +2727,12 @@ public sealed class ExperimentMain : MonoBehaviour
                         $"[AAG FP2 Wall Safety] tower={definition.towerId}; "
                         + $"moved={movedMeters:F3}m; clearance={achievedClearance:F3}m; "
                         + $"from={originalPoint:F3}; to={safePoint:F3}",
+                        this);
+                if (pathMove >= 0.01f)
+                    Debug.LogWarning(
+                        $"[AAG FP2 Walkable Path] tower={definition.towerId}; "
+                        + $"distanceToPath={distanceToPath:F3}m; moved={pathMove:F3}m; "
+                        + $"from={safePoint:F3}; to={walkablePoint:F3}",
                         this);
             }
             if (!useFp2PersistentCatalog
@@ -2796,18 +2819,30 @@ public sealed class ExperimentMain : MonoBehaviour
             return false;
         }
 
-        var safeLocal = new Vector3(safePoint.x, safePoint.y, originalLocal.z);
+        if (!AagFp2WalkablePath.TryConstrain(
+                roomUuid,
+                safePoint,
+                out var walkablePoint,
+                out var distanceToPath,
+                out var pathMove))
+        {
+            failure = $"target_walkable_path_{saved.objectId}_{roomUuid}";
+            return false;
+        }
+
+        var safeLocal = new Vector3(walkablePoint.x, walkablePoint.y, originalLocal.z);
         var resolvedMrukPosition = bakedFloorPose.position
             + bakedFloorPose.rotation * safeLocal;
         resolvedWorldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(
             resolvedMrukPosition);
         var movedMeters = Vector2.Distance(
             new Vector2(originalLocal.x, originalLocal.y),
-            safePoint);
+            walkablePoint);
         if (movedMeters >= 0.01f)
         {
             detail = $"object={saved.objectId}; moved={movedMeters:F3}; "
-                + $"clearance={achievedClearance:F3}; "
+                + $"clearance={achievedClearance:F3}; pathDistance={distanceToPath:F3}; "
+                + $"pathMove={pathMove:F3}; "
                 + $"from=({originalWorldPosition.x:F4},{originalWorldPosition.y:F4},{originalWorldPosition.z:F4}); "
                 + $"to=({resolvedWorldPosition.x:F4},{resolvedWorldPosition.y:F4},{resolvedWorldPosition.z:F4})";
         }
@@ -2843,46 +2878,43 @@ public sealed class ExperimentMain : MonoBehaviour
                 : floorClearance;
         }
 
-        if (IsPointInPolygon(originalPoint, boundary))
+        if (IsPointInPolygon(originalPoint, boundary)
+            && !IsFp2ExplicitNoSpawnPoint(roomUuid, originalPoint, out _))
         {
             achievedClearance = Clearance(originalPoint);
-            if (achievedClearance >= Fp2PreferredWallClearanceMeters) return true;
+            // Preserve authored placements as soon as the hard minimum is met.
+            // Searching for a preferred 1 m clearance moved some narrow-corridor
+            // targets 3-5 m into unrelated physical pockets.
+            if (achievedClearance >= Fp2MinimumWallClearanceMeters) return true;
         }
 
-        var preferredFound = false;
-        var preferredPoint = originalPoint;
-        var preferredDistanceSquared = float.PositiveInfinity;
-        var fallbackFound = false;
-        var fallbackPoint = originalPoint;
-        var fallbackClearance = -1f;
-        var fallbackDistanceSquared = float.PositiveInfinity;
+        var safePointFound = false;
+        var nearestSafePoint = originalPoint;
+        var nearestSafeClearance = -1f;
+        var nearestSafeDistanceSquared = float.PositiveInfinity;
 
         void Consider(Vector2 candidate)
         {
             if (!IsPointInPolygon(candidate, boundary)) return;
+            if (IsFp2ExplicitNoSpawnPoint(roomUuid, candidate, out _)) return;
             var clearance = Clearance(candidate);
+            if (clearance < Fp2MinimumWallClearanceMeters) return;
             var distanceSquared = (candidate - originalPoint).sqrMagnitude;
-            if (clearance >= Fp2PreferredWallClearanceMeters
-                && distanceSquared < preferredDistanceSquared)
+            if (!safePointFound
+                || distanceSquared < nearestSafeDistanceSquared - 0.000001f
+                || (Mathf.Abs(distanceSquared - nearestSafeDistanceSquared) <= 0.000001f
+                    && clearance > nearestSafeClearance))
             {
-                preferredFound = true;
-                preferredPoint = candidate;
-                preferredDistanceSquared = distanceSquared;
-            }
-            if (clearance > fallbackClearance + 0.001f
-                || (Mathf.Abs(clearance - fallbackClearance) <= 0.001f
-                    && distanceSquared < fallbackDistanceSquared))
-            {
-                fallbackFound = true;
-                fallbackPoint = candidate;
-                fallbackClearance = clearance;
-                fallbackDistanceSquared = distanceSquared;
+                safePointFound = true;
+                nearestSafePoint = candidate;
+                nearestSafeClearance = clearance;
+                nearestSafeDistanceSquared = distanceSquared;
             }
         }
 
         Consider(originalPoint);
         for (var radius = Fp2WallSafetySearchStepMeters;
-             radius <= 4f && !preferredFound;
+             radius <= 4f && !safePointFound;
              radius += Fp2WallSafetySearchStepMeters)
         {
             const int angularSamples = 36;
@@ -2893,7 +2925,7 @@ public sealed class ExperimentMain : MonoBehaviour
             }
         }
 
-        if (!preferredFound)
+        if (!safePointFound)
         {
             var minimum = boundary[0];
             var maximum = boundary[0];
@@ -2908,20 +2940,38 @@ public sealed class ExperimentMain : MonoBehaviour
                     Consider(new Vector2(x, y));
         }
 
-        if (preferredFound)
+        if (safePointFound)
         {
-            resolvedPoint = preferredPoint;
-            achievedClearance = Clearance(preferredPoint);
-            return true;
-        }
-        if (fallbackFound && fallbackClearance >= Fp2MinimumWallClearanceMeters)
-        {
-            resolvedPoint = fallbackPoint;
-            achievedClearance = fallbackClearance;
+            resolvedPoint = nearestSafePoint;
+            achievedClearance = nearestSafeClearance;
             return true;
         }
 
         failure = $"no_interior_point_with_{Fp2MinimumWallClearanceMeters:F2}m_clearance";
+        return false;
+    }
+
+    public static bool IsFp2ExplicitNoSpawnPoint(
+        Guid roomUuid,
+        Vector2 floorLocalPoint,
+        out string zoneId)
+    {
+        zoneId = string.Empty;
+        if (roomUuid != Fp2VerandaRoomUuid) return false;
+
+        if (floorLocalPoint.x >= Fp2VerandaBathroomNoSpawnMinLocalX)
+        {
+            zoneId = "room7_mens_restroom_hidden_end";
+            return true;
+        }
+        if (floorLocalPoint.x >= Fp2VerandaHiddenWallPocketMinLocalX
+            && floorLocalPoint.x <= Fp2VerandaHiddenWallPocketMaxLocalX
+            && floorLocalPoint.y <= Fp2VerandaHiddenWallPocketMaxLocalY)
+        {
+            zoneId = "room7_observed_hidden_wall_pocket";
+            return true;
+        }
+
         return false;
     }
 

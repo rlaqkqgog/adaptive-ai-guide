@@ -207,6 +207,37 @@ public sealed class AagRoom3AprilTagSceneSetupTests
     }
 
     [Test]
+    public void BakedRoomValidatedYaw_SelectsOppositeBranchForRoom8Start()
+    {
+        const string room8Uuid = "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a";
+        var expectedTagPosition = new Vector3(1.0232f, 1.4446f, 0.1822f);
+        var detectedTagPosition = new Vector3(-20.8388f, 1.3211f, -19.0160f);
+        var observedHeadPosition = new Vector3(-20.54f, 1.45f, -18.23f);
+
+        Assert.That(
+            AagAprilTagTranslationAligner.TryResolveBakedRoomValidatedYaw(
+                expectedTagPosition,
+                detectedTagPosition,
+                observedHeadPosition,
+                room8Uuid,
+                -73.397f,
+                false,
+                out var correction,
+                out var yaw,
+                out var translation,
+                out var branch,
+                out var failure),
+            Is.True,
+            failure);
+        Assert.That(yaw, Is.EqualTo(106.603f).Within(0.01f));
+        Assert.That(branch, Is.EqualTo("opposite_expected_room"));
+        var canonicalHead = Quaternion.Inverse(correction)
+            * (observedHeadPosition - translation);
+        Assert.That(AagFp2BakedSpace.TryResolveRoom(canonicalHead, out var resolvedRoom), Is.True);
+        Assert.That(resolvedRoom.ToString(), Is.EqualTo(room8Uuid).IgnoreCase);
+    }
+
+    [Test]
     public void Room3Reference_FloorLocalPoseRoundTripsToSceneTransform()
     {
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);

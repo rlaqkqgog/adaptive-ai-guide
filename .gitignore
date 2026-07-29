@@ -21,6 +21,26 @@
 # Generated build artifact
 *.apk
 
+# Local field data, diagnostics, and recoverable checkpoints
+/AagManualAnchorBackups/
+/AagRoomExports/
+/Checkpoints/
+/Diagnostics/
+/Exports/
+/QuestAnchorBackup/
+/*_BurstDebugInformation_DoNotShip/
+/TestResults-*.xml
+/*.log
+/Temp_*.json
+/quest_playerprefs.xml
+/aag_hotspot_debug.txt
+
+# Local assistants and generated caches
+/.claude/
+/.utmp/
+**/__pycache__/
+*.pyc
+
 # System files
 .DS_Store
 Thumbs.db

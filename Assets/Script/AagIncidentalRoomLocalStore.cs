@@ -153,6 +153,30 @@ public static class AagIncidentalRoomLocalStore
             return false;
         }
 
+        if (ExperimentSpaceRuntime.IsFp2)
+        {
+            if (!Guid.TryParse(placement.roomUuid, out var roomUuid)
+                || !AagFp2WalkablePath.TryConstrain(
+                    roomUuid,
+                    new Vector2(placement.localX, placement.localY),
+                    out var walkablePoint,
+                    out var distanceToPath,
+                    out var movedMeters))
+            {
+                failure = $"incidental_walkable_path_unavailable_{objectId}_{placement.roomUuid}";
+                return false;
+            }
+
+            if (movedMeters >= 0.01f)
+                Debug.LogWarning(
+                    $"[AAG FP2 Walkable Path] incidental={objectId}; room={roomUuid}; "
+                    + $"distanceToPath={distanceToPath:F3}m; moved={movedMeters:F3}m; "
+                    + $"from=({placement.localX:F3},{placement.localY:F3}); "
+                    + $"to=({walkablePoint.x:F3},{walkablePoint.y:F3})");
+            placement.localX = walkablePoint.x;
+            placement.localY = walkablePoint.y;
+        }
+
         return MrukRoomLocalPlacementStore.TryResolveWorldPose(
             new MrukRoomLocalPlacementStore.Placement
             {
