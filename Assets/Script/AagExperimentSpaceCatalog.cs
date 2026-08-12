@@ -52,6 +52,14 @@ public static class AagExperimentSpaceCatalog
     public static readonly Guid Fp1Room2Part1Uuid = Guid.Parse("5faa1907-d2e2-7605-7b01-5149a34a4c6d");
     public static readonly Guid Fp1Room2Part2Uuid = Guid.Parse("ad306342-a794-cffd-be87-d9aea02c5823");
     public static readonly Guid Fp1Room3Uuid = Guid.Parse("0d537c33-3e47-2606-3ea9-897c2bc9f1ce");
+    public static readonly Guid Fp2UnnamedRoomUuid = Guid.Parse("0e4e8223-3c13-735b-a552-4acf2ba915a7");
+    public static readonly Guid Fp2UnnamedRoom2Uuid = Guid.Parse("d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b");
+    public static readonly Guid Fp2UnnamedRoom3Uuid = Guid.Parse("28e81069-81b3-b60a-0166-50599f88ce42");
+    public static readonly Guid Fp2UnnamedRoom4Uuid = Guid.Parse("133adc09-ce31-302f-1b53-788b59deeb4f");
+    public static readonly Guid Fp2UnnamedRoom5Uuid = Guid.Parse("7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b");
+    public static readonly Guid Fp2UnnamedRoom6Uuid = Guid.Parse("e2e79df2-facb-0150-67b4-a43dfaad9218");
+    public static readonly Guid Fp2UnnamedRoom7Uuid = Guid.Parse("96a223f3-baf3-7044-2958-6f2468b35c72");
+    public static readonly Guid Fp2UnnamedRoom8Uuid = Guid.Parse("2d4f4c7d-9189-0198-a0ff-ecd07d843c6a");
 
     public static readonly AagFloorPlanDefinition Fp1 = new AagFloorPlanDefinition(
         Fp1Id,
@@ -78,12 +86,22 @@ public static class AagExperimentSpaceCatalog
     public static bool IsFp1Room2(Guid roomId) =>
         roomId == Fp1Room2Part1Uuid || roomId == Fp1Room2Part2Uuid;
 
-    // FP2 deliberately starts with no UUIDs. The validator rejects an empty
-    // definition, so a FP2 build cannot silently run against FP1's Meta scene.
-    // Register the confirmed Room UUIDs here after the FP2 Room UUID scan.
+    // Confirmed from the 2026-07-25 FP2 Quest export. Room 2 is the sole UUID
+    // remaining after seven room-labelled screenshots were matched to the same
+    // stable eight-room export.
     public static readonly AagFloorPlanDefinition Fp2 = new AagFloorPlanDefinition(
         Fp2Id,
-        Array.Empty<Guid>(),
+        new[]
+        {
+            Fp2UnnamedRoomUuid,
+            Fp2UnnamedRoom2Uuid,
+            Fp2UnnamedRoom3Uuid,
+            Fp2UnnamedRoom4Uuid,
+            Fp2UnnamedRoom5Uuid,
+            Fp2UnnamedRoom6Uuid,
+            Fp2UnnamedRoom7Uuid,
+            Fp2UnnamedRoom8Uuid,
+        },
         Array.Empty<Guid>(),
         new[]
         {

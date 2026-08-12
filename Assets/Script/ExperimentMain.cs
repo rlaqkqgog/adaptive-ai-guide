@@ -36,6 +36,16 @@ public sealed class ExperimentMain : MonoBehaviour
     private const float InventoryDeliveryDwellSeconds = 3f;
     private const int RequiredRoomInteriorGridSize = 11;
     private const float RequiredRoomMinimumMarkerSeparationMeters = 1.5f;
+    private const float Fp2MinimumWallClearanceMeters = 0.30f;
+    private const float Fp2WallSafetySearchStepMeters = 0.10f;
+    private const float Fp2VerandaTowerSafeLocalX = 2.65f;
+    private const float Fp2VerandaTowerSafeLocalY = 0.10f;
+    private const float Fp2VerandaBathroomNoSpawnMinLocalX = 3.10f;
+    private const float Fp2VerandaHiddenWallPocketMinLocalX = 0f;
+    private const float Fp2VerandaHiddenWallPocketMaxLocalX = 1.30f;
+    private const float Fp2VerandaHiddenWallPocketMaxLocalY = 0.25f;
+    private static readonly Guid Fp2VerandaRoomUuid =
+        Guid.Parse("96a223f3-baf3-7044-2958-6f2468b35c72");
     private static readonly Vector3 HudHeadLockedLocalPosition = new Vector3(0f, -0.02f, 0.85f);
     private static readonly Vector3 HudHeadLockedLocalScale = Vector3.one * 0.001f;
 
@@ -262,6 +272,7 @@ public sealed class ExperimentMain : MonoBehaviour
     [SerializeField] private IncidentalObjectManager incidentalObjectManager;
     [SerializeField] private IncidentalAnchorLoader incidentalAnchorLoader;
     [SerializeField] private AagFiducialZoneAlignment fiducialZoneAlignment;
+    [SerializeField] private AagAprilTagTranslationAligner aprilTagTranslationAligner;
     [SerializeField] private AagFixedSpaceOffset fixedSpaceOffset;
     [SerializeField] private AagSpaceOffsetDiagnostic spaceOffsetDiagnostic;
 
@@ -331,6 +342,7 @@ public sealed class ExperimentMain : MonoBehaviour
     private bool deliveryCompletionFeedbackActive;
     private bool fiducialStartGatePassed;
     private string lastFiducialHudStatus = string.Empty;
+    private string lastAprilTagHudStatus = string.Empty;
 
     private string SelectedParticipantId => SafeChoice(config != null ? config.participantIds : null, participantIndex, "P01");
     private string SelectedSetId => SafeChoice(
@@ -343,6 +355,7 @@ public sealed class ExperimentMain : MonoBehaviour
     private float SessionTime => loggingManager != null ? loggingManager.SessionTime : 0f;
     private float RunningTime => state == SessionState.Running ? Time.realtimeSinceStartup - runClockStart : 0f;
     public ExperimentConfig Configuration => config;
+    public string SelectedSetIdReadOnly => SelectedSetId;
     private Guid ExpectedStartRoomUuid =>
         config != null && config.TryGetStartRoomUuid(out var roomUuid)
             ? roomUuid
@@ -388,6 +401,8 @@ public sealed class ExperimentMain : MonoBehaviour
         if (fixedSpaceOffset == null)
             fixedSpaceOffset = GetComponent<AagFixedSpaceOffset>()
                 ?? gameObject.AddComponent<AagFixedSpaceOffset>();
+        if (aprilTagTranslationAligner == null)
+            aprilTagTranslationAligner = GetComponent<AagAprilTagTranslationAligner>();
         if (spaceOffsetDiagnostic == null)
             spaceOffsetDiagnostic = GetComponent<AagSpaceOffsetDiagnostic>()
                 ?? gameObject.AddComponent<AagSpaceOffsetDiagnostic>();
@@ -450,6 +465,15 @@ public sealed class ExperimentMain : MonoBehaviour
                     StringComparison.Ordinal))
             {
                 lastFiducialHudStatus = fiducialZoneAlignment.StatusLine;
+                RefreshHud("Ready");
+            }
+            if (aprilTagTranslationAligner != null
+                && !string.Equals(
+                    lastAprilTagHudStatus,
+                    aprilTagTranslationAligner.StatusLine,
+                    StringComparison.Ordinal))
+            {
+                lastAprilTagHudStatus = aprilTagTranslationAligner.StatusLine;
                 RefreshHud("Ready");
             }
             return;
@@ -1094,7 +1118,10 @@ public sealed class ExperimentMain : MonoBehaviour
         state = SessionState.Loading;
         PrepareForNewSession();
 
-        if (config.fixedSpaceOffsetEnabled && config.fiducialMarkerAlignmentEnabled)
+        var aprilTagAlignmentApplied = aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.IsApplied;
+        if ((config.fixedSpaceOffsetEnabled || aprilTagAlignmentApplied)
+            && config.fiducialMarkerAlignmentEnabled)
         {
             state = SessionState.Idle;
             RefreshHud("START BLOCKED: fixed_offset_and_fiducial_are_mutually_exclusive");
@@ -1104,12 +1131,27 @@ public sealed class ExperimentMain : MonoBehaviour
                 this);
             yield break;
         }
-        fixedSpaceOffset.Configure(
-            config.fixedSpaceOffsetEnabled,
-            config.fixedSpaceOffsetMeters,
-            config.fixedSpaceOffsetHorizontalOnly);
+        if (!aprilTagAlignmentApplied)
+        {
+            fixedSpaceOffset.Configure(
+                config.fixedSpaceOffsetEnabled,
+                config.fixedSpaceOffsetMeters,
+                config.fixedSpaceOffsetHorizontalOnly);
+        }
 
         fiducialStartGatePassed = false;
+        if (aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.RequireAppliedAlignmentBeforeSession)
+        {
+            RefreshHud($"Checking {aprilTagTranslationAligner.AlignmentLabel} AprilTag translation...");
+            if (!aprilTagTranslationAligner.TryValidateSessionStart(out var aprilTagFailure))
+            {
+                state = SessionState.Idle;
+                RefreshHud($"START BLOCKED: {aprilTagFailure}");
+                yield break;
+            }
+            fiducialStartGatePassed = true;
+        }
         if (config.fiducialMarkerAlignmentEnabled)
         {
             RefreshHud("Checking Room3 QR marker...");
@@ -1148,6 +1190,21 @@ public sealed class ExperimentMain : MonoBehaviour
         }
         behaviorMetrics.BeginSession(config, headTransform, loggingManager);
         aagGuide.BeginSession(config, behaviorMetrics, loggingManager);
+        if (aprilTagTranslationAligner != null && aprilTagTranslationAligner.IsApplied)
+        {
+            var tagOffset = aprilTagTranslationAligner.PreviewOffsetMeters;
+            WriteSystem(
+                "apriltag_alignment_diagnostic",
+                $"label={aprilTagTranslationAligner.AlignmentLabel}; "
+                + $"referenceFrame={(aprilTagTranslationAligner.Room3TagReference != null && aprilTagTranslationAligner.Room3TagReference.UseBakedFloorPose ? "bundled_baked_mruk" : "live_mruk")}; "
+                + $"translation=({tagOffset.x:F4},{tagOffset.y:F4},{tagOffset.z:F4}); "
+                + $"positionJitter={aprilTagTranslationAligner.PreviewJitterMeters:F4}; "
+                + $"yawDiagnosticAvailable={aprilTagTranslationAligner.HasYawDiagnostic}; "
+                + $"yawDiagnostic={aprilTagTranslationAligner.PreviewYawDegrees:F3}; "
+                + $"yawJitter={aprilTagTranslationAligner.PreviewYawJitterDegrees:F3}; "
+                + $"yawApplied={aprilTagTranslationAligner.ApplyDetectedYawRotation}; "
+                + $"yawBranch={aprilTagTranslationAligner.YawBranchStatus}");
+        }
         if (!BeginSessionTrackingSpaceLock(out var trackingLockFailure))
         {
             AbortLoading(trackingLockFailure);
@@ -1538,9 +1595,30 @@ public sealed class ExperimentMain : MonoBehaviour
         var frozenIncidentalAnchors = incidentalAnchorLoader.FreezeRealAnchorPoses();
         WriteSystem("incidental_poses_frozen",
             $"realAnchors={frozenIncidentalAnchors}; total={incidentalsByUuid.Count}");
-        var correctedIncidentalWalls = incidentalObjectManager.ResolveHorizontalWallPenetrations(
-            (objectId, detail) => WriteSystem("incidental_wall_depenetrated", $"object={objectId}; {detail}"));
-        WriteSystem("incidental_wall_validation_complete", $"corrected={correctedIncidentalWalls}");
+        var correctedIncidentalWalls = ExperimentSpaceRuntime.UsesTagCorrectedReferenceSpace
+            && AagMrukSpaceCorrection.IsApplied
+            ? 0
+            : incidentalObjectManager.ResolveHorizontalWallPenetrations(
+                (objectId, detail) => WriteSystem("incidental_wall_depenetrated", $"object={objectId}; {detail}"));
+        WriteSystem(
+            "incidental_wall_validation_complete",
+            $"corrected={correctedIncidentalWalls}; frame={(ExperimentSpaceRuntime.UsesBakedReferenceSpace ? "baked_reference" : "tag_corrected_live_mruk")}");
+        if (!incidentalObjectManager.TryConstrainFp1ToWalkablePaths(
+                (objectId, pathDetail) => WriteSystem(
+                    "fp1_incidental_walkable_path_adjusted",
+                    $"object={objectId}; {pathDetail}"),
+                out var constrainedFp1Incidentals,
+                out var incidentalPathFailure))
+        {
+            AbortLoading(incidentalPathFailure);
+            yield break;
+        }
+        if (!ExperimentSpaceRuntime.IsFp2)
+        {
+            WriteSystem(
+                "fp1_incidental_walkable_path_validation_complete",
+                $"corrected={constrainedFp1Incidentals}; total={incidentalsByUuid.Count}");
+        }
         foreach (var pair in incidentalsByUuid)
         {
             var sourceMode = incidentalAnchorLoader.ApproximateReasons.TryGetValue(pair.Key, out var reason)
@@ -1593,6 +1671,7 @@ public sealed class ExperimentMain : MonoBehaviour
         sampleAccumulator = 0f;
         nextDecisionTime = SessionTime + Mathf.Max(0.5f, config.decisionIntervalSeconds);
         state = SessionState.Running;
+        aprilTagTranslationAligner?.HideRuntimeHud();
         ApplyGuideVisibility();
         ShowParticipantSpawnConfirmation(towersByUuid.Count);
         SetAbortButtonVisible(false);
@@ -1662,11 +1741,25 @@ public sealed class ExperimentMain : MonoBehaviour
         out string failure)
     {
         failure = string.Empty;
-        if (config == null || !config.fixedSpaceOffsetEnabled) return true;
+        var useAprilTagTranslation = aprilTagTranslationAligner != null
+            && aprilTagTranslationAligner.IsApplied;
+        if (config == null || (!config.fixedSpaceOffsetEnabled && !useAprilTagTranslation)) return true;
         if (fixedSpaceOffset == null)
         {
             failure = "manager_missing";
             return false;
+        }
+
+        if (useAprilTagTranslation && AagMrukSpaceCorrection.IsApplied)
+        {
+            var rigidTranslation = AagMrukSpaceCorrection.TranslationMeters;
+            WriteSystem(
+                "apriltag_rigid_correction_applied",
+                $"translation=({rigidTranslation.x:F4},{rigidTranslation.y:F4},{rigidTranslation.z:F4}); "
+                + $"yaw={AagMrukSpaceCorrection.YawDegrees:F3}; "
+                + $"roots_already_resolved={targets.Count + towersByUuid.Count + incidentalsByUuid.Count}; "
+                + "double_offset_registration=skipped");
+            return true;
         }
 
         var correction = fixedSpaceOffset.CorrectionOffsetMeters;
@@ -1675,7 +1768,7 @@ public sealed class ExperimentMain : MonoBehaviour
             failure = "correction_non_finite";
             return false;
         }
-        if (correction.magnitude > AagFiducialZoneAlignment.MaximumAcceptedCorrectionMeters)
+        if (correction.magnitude > AagFixedSpaceOffset.MaximumAcceptedCorrectionMeters)
         {
             failure = $"correction_too_large_{correction.magnitude:F3}m";
             return false;
@@ -1728,7 +1821,8 @@ public sealed class ExperimentMain : MonoBehaviour
             "fixed_space_offset_applied",
             $"roots={fixedSpaceOffset.RegisteredRootCount}; "
             + $"offset=({correction.x:F4},{correction.y:F4},{correction.z:F4}); "
-            + $"horizontalOnly={fixedSpaceOffset.HorizontalOnly}; source=FP1ExperimentConfig");
+            + $"horizontalOnly={fixedSpaceOffset.HorizontalOnly}; "
+            + $"source={(useAprilTagTranslation ? "ROOM3_APRILTAG" : "FP1ExperimentConfig")}");
         return true;
     }
 
@@ -1949,6 +2043,12 @@ public sealed class ExperimentMain : MonoBehaviour
 
     private void ResolveHorizontalWallPenetrations()
     {
+        // FP2 content and its floor-boundary safety checks already use the
+        // AprilTag-aligned frame. Raw MRUK colliders remain in the unmodified
+        // MRUK frame, so querying them here would compare different frames.
+        if (ExperimentSpaceRuntime.UsesTagCorrectedReferenceSpace
+            && AagMrukSpaceCorrection.IsApplied) return;
+
         const float minimumCorrectionMeters = 0.01f;
         const float clearanceMeters = 0.01f;
         const float maximumTotalCorrectionMeters = 0.25f;
@@ -2045,7 +2145,8 @@ public sealed class ExperimentMain : MonoBehaviour
                 return false;
             }
             if (TryGetRequiredRoomUuid(set.set_id, saved.objectId, out var requiredRoomUuid)
-                && !string.Equals(saved.roomUuid, requiredRoomUuid.ToString(), StringComparison.OrdinalIgnoreCase))
+                && !string.Equals(saved.roomUuid, requiredRoomUuid.ToString(), StringComparison.OrdinalIgnoreCase)
+                && !ExperimentSpaceRuntime.UsesBakedReferenceSpace)
             {
                 failure = $"catalog_required_room_mismatch_{saved.objectId}_{saved.roomUuid}_{requiredRoomUuid}";
                 return false;
@@ -2053,28 +2154,138 @@ public sealed class ExperimentMain : MonoBehaviour
             if (!MrukRoomLocalPlacementStore.TryResolveWorldPose(
                     saved, out var position, out var rotation, out failure))
                 return false;
-            if (!AagRecoveryPlacementValidator.TryValidate(position, out var roomIds, out var placementFailure))
+            if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
             {
-                if (!TryRecoverS3VolumePlacement(
-                        set.set_id,
+                if (!TryResolveFp2TargetWallSafePosition(
                         saved,
                         position,
-                        placements,
-                        placementFailure,
-                        out position,
-                        out roomIds,
-                        out var recoveryDetail))
+                        out var wallSafePosition,
+                        out var wallSafetyDetail,
+                        out failure))
+                    return false;
+                position = wallSafePosition;
+                if (!string.IsNullOrEmpty(wallSafetyDetail))
+                    WriteSystem("fp2_target_wall_safety_adjusted", wallSafetyDetail);
+                if (ExperimentSpaceRuntime.IsFp1
+                    && AagFp1FieldSafetyOverrides.TryGetTargetRoom(
+                        set.set_id, saved.objectId, out var centerRoomUuid))
                 {
-                    failure = $"{placementFailure}_{saved.objectId}";
+                    var beforeCenter = position;
+                    if (!AagFp1WalkablePath.TryResolveObservedRoomCenter(
+                            centerRoomUuid,
+                            position,
+                            out position,
+                            out var centralPoint,
+                            out var centralClearance,
+                            out var centerMove,
+                            out var centerFailure))
+                    {
+                        failure = $"target_field_reported_room_center_{saved.objectId}_{centerFailure}";
+                        return false;
+                    }
+                    WriteSystem(
+                        "fp1_field_reported_target_centered",
+                        $"set={set.set_id}; object={saved.objectId}; room={centerRoomUuid}; "
+                        + $"localCenter=({centralPoint.x:F3},{centralPoint.y:F3}); "
+                        + $"clearance={centralClearance:F3}; moved={centerMove:F3}; "
+                        + $"from=({beforeCenter.x:F3},{beforeCenter.y:F3},{beforeCenter.z:F3}); "
+                        + $"to=({position.x:F3},{position.y:F3},{position.z:F3})");
+                }
+            }
+            else
+            {
+                if (!Guid.TryParse(saved.roomUuid, out var fp1RoomUuid)
+                    || !Guid.TryParse(saved.floorAnchorUuid, out var fp1FloorUuid))
+                {
+                    failure = $"target_walkable_path_identity_{saved.objectId}";
                     return false;
                 }
-
-                WriteSystem("target_room_local_volume_rehomed", recoveryDetail);
+                if (!AagFp1WalkablePath.TryResolveObservedFloorLocalPosition(
+                        fp1RoomUuid,
+                        fp1FloorUuid,
+                        saved.LocalPosition,
+                        out var walkablePosition,
+                        out var distanceToPath,
+                        out var pathMove,
+                        out var walkableFailure))
+                {
+                    failure = $"target_walkable_path_{saved.objectId}_{walkableFailure}";
+                    return false;
+                }
+                position = walkablePosition;
+                if (pathMove >= 0.01f)
+                {
+                    WriteSystem(
+                        "fp1_target_walkable_path_adjusted",
+                        $"object={saved.objectId}; room={fp1RoomUuid}; "
+                        + $"distanceToPath={distanceToPath:F3}; moved={pathMove:F3}; "
+                        + $"localFrom=({saved.localX:F3},{saved.localY:F3}); "
+                        + $"worldTo=({position.x:F3},{position.y:F3},{position.z:F3})");
+                }
             }
-            if (!roomIds.Split('|').Contains(saved.roomUuid, StringComparer.OrdinalIgnoreCase))
+            if (!AagRecoveryPlacementValidator.TryValidate(position, out var roomIds, out var placementFailure))
+            {
+                if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+                {
+                    // FP2 uses a freshly device-localized MRUK scene plus an
+                    // AprilTag content correction. Meta can slightly change
+                    // semantic TABLE/STORAGE volumes between localizations, so
+                    // geometry overlap is diagnostic only. The saved room/floor
+                    // frame, finite pose, identity, prefab, and exact count still
+                    // remain mandatory.
+                    roomIds = saved.roomUuid;
+                    WriteSystem(
+                        "fp2_target_geometry_warning",
+                        $"object={saved.objectId}; reason={placementFailure}; action=continue_saved_room_local_pose");
+                }
+                else
+                {
+                    if (!TryRecoverS3VolumePlacement(
+                            set.set_id,
+                            saved,
+                            position,
+                            placements,
+                            placementFailure,
+                            out position,
+                            out roomIds,
+                            out var recoveryDetail))
+                    {
+                        failure = $"{placementFailure}_{saved.objectId}";
+                        return false;
+                    }
+                    WriteSystem("target_room_local_volume_rehomed", recoveryDetail);
+                }
+            }
+            if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+                roomIds = saved.roomUuid;
+            if (!roomIds.Split('|').Contains(saved.roomUuid, StringComparer.OrdinalIgnoreCase)
+                && !ExperimentSpaceRuntime.UsesBakedReferenceSpace)
             {
                 failure = $"resolved_room_mismatch_{saved.objectId}";
                 return false;
+            }
+            if (!ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+            {
+                if (!AagFp1WalkablePath.TryConstrainObservedWorldPosition(
+                        position,
+                        out var finalWalkablePosition,
+                        out var finalPathRoom,
+                        out var finalPathDistance,
+                        out var finalPathMove,
+                        out var finalPathFailure))
+                {
+                    failure = $"target_final_walkable_path_{saved.objectId}_{finalPathFailure}";
+                    return false;
+                }
+                position = finalWalkablePosition;
+                if (finalPathMove >= 0.01f)
+                {
+                    WriteSystem(
+                        "fp1_target_final_walkable_path_adjusted",
+                        $"object={saved.objectId}; room={finalPathRoom}; "
+                        + $"distanceToPath={finalPathDistance:F3}; moved={finalPathMove:F3}; "
+                        + $"worldTo=({position.x:F3},{position.y:F3},{position.z:F3})");
+                }
             }
             var prefab = spatialAnchorManager.GetAnchorPrefabForColor(entry.color);
             if (prefab == null)
@@ -2115,7 +2326,12 @@ public sealed class ExperimentMain : MonoBehaviour
                 DestroyImmediate(anchor);
             instance.SetActive(true);
             approximatedObjects.Add(instance);
-            RegisterTarget(placement.entry, instance.transform, true, "MRUK_ROOM_LOCAL");
+            RegisterTarget(
+                placement.entry,
+                instance.transform,
+                true,
+                "MRUK_ROOM_LOCAL",
+                ExperimentSpaceRuntime.UsesBakedReferenceSpace ? placement.roomIds : null);
             WriteSystem(
                 "target_room_local_loaded",
                 $"object={placement.entry.marker_id}; rooms={placement.roomIds}; "
@@ -2441,7 +2657,7 @@ public sealed class ExperimentMain : MonoBehaviour
         detail = string.Empty;
         var references = new List<AagRigidPoseRecovery.Reference>();
         var rooms = MRUK.Instance?.Rooms;
-        if (rooms == null)
+        if (rooms == null && !ExperimentSpaceRuntime.UsesBakedReferenceSpace)
         {
             failure = "mruk_rooms_unavailable";
             detail = "reason=mruk_rooms_unavailable";
@@ -2450,20 +2666,32 @@ public sealed class ExperimentMain : MonoBehaviour
 
         foreach (var pair in S3CanonicalRoomFloorOrigins.OrderBy(value => value.Key))
         {
-            var room = rooms.FirstOrDefault(value =>
-                value != null && value.Anchor != null && value.Anchor.Uuid == pair.Key);
-            var floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
-            if (floor == null) continue;
+            Vector3 currentFloorPosition;
+            if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+            {
+                if (!AagFp2BakedSpace.TryGetRoomFloor(
+                        pair.Key, out var bakedFloorPose, out _, out _))
+                    continue;
+                currentFloorPosition = bakedFloorPose.position;
+            }
+            else
+            {
+                var room = rooms.FirstOrDefault(value =>
+                    value != null && value.Anchor != null && value.Anchor.Uuid == pair.Key);
+                var floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
+                if (floor == null) continue;
+                currentFloorPosition = floor.transform.position;
+            }
             references.Add(new AagRigidPoseRecovery.Reference(
                 $"room:{pair.Key}",
                 pair.Value,
-                floor.transform.position));
+                currentFloorPosition));
         }
 
         var solved = allowRmsWarning
             ? AagRigidPoseRecovery.TrySolveBestEffort(references, out solution, out failure)
             : AagRigidPoseRecovery.TrySolve(references, out solution, out failure);
-        detail = $"matchedRooms={references.Count}; loadedRooms={rooms.Count}; "
+        detail = $"matchedRooms={references.Count}; loadedRooms={(rooms?.Count ?? 0)}; "
             + $"deletedUnmappedRequired=false; mode={(allowRmsWarning ? "best_effort" : "strict")}; "
             + $"reason={(string.IsNullOrEmpty(failure) ? "none" : failure)}; "
             + (solved
@@ -2484,16 +2712,26 @@ public sealed class ExperimentMain : MonoBehaviour
     {
         detail = string.Empty;
         failure = string.Empty;
+        var useBakedCatalog = ExperimentSpaceRuntime.UsesBakedReferenceSpace;
         if (towersByUuid == null
-            || towersByUuid.Count != FixedTowerManager.RequiredTowerCount
-            || AagFixedTowerRoomLocalCatalog.Count != FixedTowerManager.RequiredTowerCount)
+            || towersByUuid.Count != FixedTowerManager.RequiredTowerCount)
         {
-            failure = $"catalog_count_{AagFixedTowerRoomLocalCatalog.Count}_runtime_{towersByUuid?.Count ?? 0}";
+            failure = $"tower_runtime_count_{towersByUuid?.Count ?? 0}";
+            return false;
+        }
+        var towerCatalogComplete = ExperimentSpaceRuntime.IsFp2
+            ? AagFixedTowerRoomLocalStore.HasCompleteCatalog
+            : AagFixedTowerRoomLocalCatalog.Count == FixedTowerManager.RequiredTowerCount;
+        if (!towerCatalogComplete)
+        {
+            failure = ExperimentSpaceRuntime.IsFp2
+                ? "fp2_tower_room_local_catalog_missing"
+                : $"catalog_count_{AagFixedTowerRoomLocalCatalog.Count}";
             return false;
         }
 
         var rooms = MRUK.Instance?.Rooms;
-        if (rooms == null)
+        if (rooms == null && !useBakedCatalog)
         {
             failure = "mruk_rooms_unavailable";
             return false;
@@ -2502,32 +2740,160 @@ public sealed class ExperimentMain : MonoBehaviour
         var rows = new List<string>();
         foreach (var definition in towersByUuid.Values.OrderBy(value => value.towerId, StringComparer.Ordinal))
         {
-            if (definition == null
-                || !AagFixedTowerRoomLocalCatalog.TryGet(definition.towerId, out var placement))
+            AagFixedTowerRoomLocalCatalog.Entry placement = null;
+            var placementFound = definition != null
+                && (ExperimentSpaceRuntime.IsFp2
+                    ? AagFixedTowerRoomLocalStore.TryGet(
+                        definition.towerId, out placement, out _)
+                    : AagFixedTowerRoomLocalCatalog.TryGet(
+                        definition.towerId, out placement));
+            if (!placementFound)
             {
                 failure = $"catalog_entry_missing_{definition?.towerId ?? "null"}";
                 return false;
             }
 
-            var room = rooms.FirstOrDefault(value =>
-                value != null && value.Anchor != null && value.Anchor.Uuid == placement.RoomUuid);
-            var floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
-            if (floor == null)
+            MRUKAnchor floor = null;
+            Pose bakedFloorPose = default;
+            IReadOnlyList<Vector2> floorBoundary = null;
+            if (useBakedCatalog)
+            {
+                if (!AagFp2BakedSpace.TryGetRoomFloor(
+                        placement.RoomUuid,
+                        out bakedFloorPose,
+                        out floorBoundary,
+                        out var bakedFloorFailure))
+                {
+                    failure = $"tower_baked_floor_{definition.towerId}_{bakedFloorFailure}";
+                    return false;
+                }
+            }
+            else
+            {
+                var room = rooms.FirstOrDefault(value =>
+                    value != null && value.Anchor != null && value.Anchor.Uuid == placement.RoomUuid);
+                floor = room?.FloorAnchors?.FirstOrDefault(value => value != null);
+                floorBoundary = floor?.PlaneBoundary2D;
+            }
+            if (!useBakedCatalog && floor == null)
             {
                 failure = $"floor_missing_{definition.towerId}_{placement.RoomUuid}";
                 return false;
             }
 
             var local = placement.FloorLocalPosition;
-            if (!floor.IsPositionInBoundary(new Vector2(local.x, local.y)))
+            var wallSafetyDetail = string.Empty;
+            if (useBakedCatalog)
+            {
+                var authoredLocal = local;
+                if (ExperimentSpaceRuntime.IsFp2
+                    && string.Equals(definition.towerId, "Tower-4", StringComparison.Ordinal))
+                {
+                    local.x = Fp2VerandaTowerSafeLocalX;
+                    local.y = Fp2VerandaTowerSafeLocalY;
+                }
+                var fieldSafetyMove = Vector2.Distance(
+                    new Vector2(authoredLocal.x, authoredLocal.y),
+                    new Vector2(local.x, local.y));
+                if (!TryResolveFp2WallSafeFloorPoint(
+                        placement.RoomUuid,
+                        bakedFloorPose,
+                        floorBoundary,
+                        new Vector2(local.x, local.y),
+                        out var safePoint,
+                        out var achievedClearance,
+                        out var wallSafetyFailure))
+                {
+                    failure = $"tower_wall_safety_{definition.towerId}_{wallSafetyFailure}";
+                    return false;
+                }
+
+                var originalPoint = new Vector2(local.x, local.y);
+                var movedMeters = Vector2.Distance(originalPoint, safePoint);
+                if (!TryConstrainActiveWalkablePath(
+                        placement.RoomUuid,
+                        safePoint,
+                        out var walkablePoint,
+                        out var distanceToPath,
+                        out var pathMove))
+                {
+                    failure = $"tower_walkable_path_{definition.towerId}_{placement.RoomUuid}";
+                    return false;
+                }
+                local.x = walkablePoint.x;
+                local.y = walkablePoint.y;
+                wallSafetyDetail = $",fieldMove={fieldSafetyMove:F3},wallMove={movedMeters:F3},"
+                    + $"wallClearance={achievedClearance:F3},pathDistance={distanceToPath:F3},pathMove={pathMove:F3}";
+                if (fieldSafetyMove >= 0.01f)
+                    Debug.LogWarning(
+                        $"[AAG FP2 Field Safety] tower={definition.towerId}; "
+                        + $"moved={fieldSafetyMove:F3}m; from={authoredLocal:F3}; to={local:F3}",
+                        this);
+                if (movedMeters >= 0.01f)
+                    Debug.LogWarning(
+                        $"[AAG FP2 Wall Safety] tower={definition.towerId}; "
+                        + $"moved={movedMeters:F3}m; clearance={achievedClearance:F3}m; "
+                        + $"from={originalPoint:F3}; to={safePoint:F3}",
+                        this);
+                if (pathMove >= 0.01f)
+                    Debug.LogWarning(
+                        $"[AAG FP2 Walkable Path] tower={definition.towerId}; "
+                        + $"distanceToPath={distanceToPath:F3}m; moved={pathMove:F3}m; "
+                        + $"from={safePoint:F3}; to={walkablePoint:F3}",
+                        this);
+            }
+            else
+            {
+                if (!AagFp1WalkablePath.TryConstrain(
+                        placement.RoomUuid,
+                        new Vector2(local.x, local.y),
+                        out var walkablePoint,
+                        out var distanceToPath,
+                        out var pathMove))
+                {
+                    failure = $"tower_walkable_path_{definition.towerId}_{placement.RoomUuid}";
+                    return false;
+                }
+                var originalPoint = new Vector2(local.x, local.y);
+                local.x = walkablePoint.x;
+                local.y = walkablePoint.y;
+                wallSafetyDetail = $",pathDistance={distanceToPath:F3},pathMove={pathMove:F3}";
+                if (pathMove >= 0.01f)
+                {
+                    Debug.LogWarning(
+                        $"[AAG FP1 Walkable Path] tower={definition.towerId}; "
+                        + $"distanceToPath={distanceToPath:F3}m; moved={pathMove:F3}m; "
+                        + $"from={originalPoint:F3}; to={walkablePoint:F3}",
+                        this);
+                }
+            }
+            if (!useBakedCatalog
+                && !floor.IsPositionInBoundary(new Vector2(local.x, local.y)))
             {
                 failure = $"outside_floor_{definition.towerId}_{placement.RoomUuid}";
                 return false;
             }
-
-            var worldPosition = floor.transform.TransformPoint(local);
-            var worldRotation = roomConstellationSolution.TransformRotation(
-                placement.CanonicalRotation.normalized);
+            var worldPosition = useBakedCatalog
+                ? bakedFloorPose.position + bakedFloorPose.rotation * local
+                : floor.transform.TransformPoint(local);
+            var worldRotation = useBakedCatalog
+                ? ExperimentSpaceRuntime.IsFp1
+                    ? placement.CanonicalRotation.normalized
+                    : bakedFloorPose.rotation * placement.CanonicalRotation.normalized
+                : placement.CanonicalRotation.normalized;
+            if (useBakedCatalog)
+            {
+                worldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(worldPosition);
+                worldRotation = AagMrukSpaceCorrection.MrukToObservedRotation(worldRotation);
+            }
+            else if (ExperimentSpaceRuntime.UsesTagCorrectedReferenceSpace)
+            {
+                worldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(worldPosition);
+                // FP1 catalog rotations are upright world-yaw rotations, not
+                // floor-local rotations. Multiplying by the floor plane pose
+                // adds its 90-degree pitch and lays the destination tower down.
+                worldRotation = AagMrukSpaceCorrection.MrukToObservedRotation(worldRotation);
+            }
             if (!AagRigidPoseRecovery.IsFinite(worldPosition)
                 || !AagRigidPoseRecovery.IsFinite(worldRotation))
             {
@@ -2541,11 +2907,267 @@ public sealed class ExperimentMain : MonoBehaviour
             rows.Add(
                 $"{definition.towerId}:room={placement.RoomUuid},"
                 + $"local=({local.x:F3},{local.y:F3},{local.z:F3}),"
-                + $"world=({worldPosition.x:F3},{worldPosition.y:F3},{worldPosition.z:F3})");
+                + $"world=({worldPosition.x:F3},{worldPosition.y:F3},{worldPosition.z:F3})"
+                + wallSafetyDetail);
         }
 
         detail = string.Join("|", rows);
         return true;
+    }
+
+    private static bool TryResolveFp2TargetWallSafePosition(
+        MrukRoomLocalPlacementStore.Placement saved,
+        Vector3 originalWorldPosition,
+        out Vector3 resolvedWorldPosition,
+        out string detail,
+        out string failure)
+    {
+        resolvedWorldPosition = originalWorldPosition;
+        detail = string.Empty;
+        failure = string.Empty;
+        if (saved == null
+            || !Guid.TryParse(saved.roomUuid, out var roomUuid)
+            || !Guid.TryParse(saved.floorAnchorUuid, out var floorUuid))
+        {
+            failure = $"target_wall_safety_identity_invalid_{saved?.objectId ?? "null"}";
+            return false;
+        }
+
+        if (!AagFp2BakedSpace.TryGetFloor(
+                floorUuid,
+                out var bakedFloorPose,
+                out var floorBoundary,
+                out failure))
+        {
+            failure = $"target_wall_safety_floor_missing_{saved.objectId}_{roomUuid}_{failure}";
+            return false;
+        }
+
+        var originalCanonicalPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+            originalWorldPosition);
+        var originalLocal = Quaternion.Inverse(bakedFloorPose.rotation)
+            * (originalCanonicalPosition - bakedFloorPose.position);
+        if (!TryResolveFp2WallSafeFloorPoint(
+                roomUuid,
+                bakedFloorPose,
+                floorBoundary,
+                new Vector2(originalLocal.x, originalLocal.y),
+                out var safePoint,
+                out var achievedClearance,
+                out failure))
+        {
+            failure = $"target_wall_safety_{saved.objectId}_{failure}";
+            return false;
+        }
+
+        if (!TryConstrainActiveWalkablePath(
+                roomUuid,
+                safePoint,
+                out var walkablePoint,
+                out var distanceToPath,
+                out var pathMove))
+        {
+            failure = $"target_walkable_path_{saved.objectId}_{roomUuid}";
+            return false;
+        }
+
+        var safeLocal = new Vector3(walkablePoint.x, walkablePoint.y, originalLocal.z);
+        var resolvedMrukPosition = bakedFloorPose.position
+            + bakedFloorPose.rotation * safeLocal;
+        resolvedWorldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(
+            resolvedMrukPosition);
+        var movedMeters = Vector2.Distance(
+            new Vector2(originalLocal.x, originalLocal.y),
+            walkablePoint);
+        if (movedMeters >= 0.01f)
+        {
+            detail = $"object={saved.objectId}; moved={movedMeters:F3}; "
+                + $"clearance={achievedClearance:F3}; pathDistance={distanceToPath:F3}; "
+                + $"pathMove={pathMove:F3}; "
+                + $"from=({originalWorldPosition.x:F4},{originalWorldPosition.y:F4},{originalWorldPosition.z:F4}); "
+                + $"to=({resolvedWorldPosition.x:F4},{resolvedWorldPosition.y:F4},{resolvedWorldPosition.z:F4})";
+        }
+        return true;
+    }
+
+    private static bool TryConstrainActiveWalkablePath(
+        Guid roomUuid,
+        Vector2 original,
+        out Vector2 resolved,
+        out float distanceToPath,
+        out float movedMeters)
+    {
+        return ExperimentSpaceRuntime.IsFp2
+            ? AagFp2WalkablePath.TryConstrain(
+                roomUuid, original, out resolved, out distanceToPath, out movedMeters)
+            : AagFp1WalkablePath.TryConstrain(
+                roomUuid, original, out resolved, out distanceToPath, out movedMeters);
+    }
+
+    private static bool TryResolveFp2WallSafeFloorPoint(
+        Guid roomUuid,
+        Pose floorPose,
+        IReadOnlyList<Vector2> boundary,
+        Vector2 originalPoint,
+        out Vector2 resolvedPoint,
+        out float achievedClearance,
+        out string failure)
+    {
+        resolvedPoint = originalPoint;
+        achievedClearance = 0f;
+        failure = string.Empty;
+        if (boundary == null || boundary.Count < 3)
+        {
+            failure = "floor_boundary_unavailable";
+            return false;
+        }
+
+        float Clearance(Vector2 point)
+        {
+            var floorClearance = DistanceToPolygonBoundary(point, boundary);
+            var canonical = floorPose.position
+                + floorPose.rotation * new Vector3(point.x, point.y, 0f);
+            return AagFp2BakedSpace.TryGetMinimumWallClearance(
+                    roomUuid, canonical, out var wallClearance)
+                ? Mathf.Min(floorClearance, wallClearance)
+                : floorClearance;
+        }
+
+        if (IsPointInPolygon(originalPoint, boundary)
+            && !IsFp2ExplicitNoSpawnPoint(roomUuid, originalPoint, out _))
+        {
+            achievedClearance = Clearance(originalPoint);
+            // Preserve authored placements as soon as the hard minimum is met.
+            // Searching for a preferred 1 m clearance moved some narrow-corridor
+            // targets 3-5 m into unrelated physical pockets.
+            if (achievedClearance >= Fp2MinimumWallClearanceMeters) return true;
+        }
+
+        var safePointFound = false;
+        var nearestSafePoint = originalPoint;
+        var nearestSafeClearance = -1f;
+        var nearestSafeDistanceSquared = float.PositiveInfinity;
+
+        void Consider(Vector2 candidate)
+        {
+            if (!IsPointInPolygon(candidate, boundary)) return;
+            if (IsFp2ExplicitNoSpawnPoint(roomUuid, candidate, out _)) return;
+            var clearance = Clearance(candidate);
+            if (clearance < Fp2MinimumWallClearanceMeters) return;
+            var distanceSquared = (candidate - originalPoint).sqrMagnitude;
+            if (!safePointFound
+                || distanceSquared < nearestSafeDistanceSquared - 0.000001f
+                || (Mathf.Abs(distanceSquared - nearestSafeDistanceSquared) <= 0.000001f
+                    && clearance > nearestSafeClearance))
+            {
+                safePointFound = true;
+                nearestSafePoint = candidate;
+                nearestSafeClearance = clearance;
+                nearestSafeDistanceSquared = distanceSquared;
+            }
+        }
+
+        Consider(originalPoint);
+        for (var radius = Fp2WallSafetySearchStepMeters;
+             radius <= 4f && !safePointFound;
+             radius += Fp2WallSafetySearchStepMeters)
+        {
+            const int angularSamples = 36;
+            for (var index = 0; index < angularSamples; index++)
+            {
+                var angle = index * Mathf.PI * 2f / angularSamples;
+                Consider(originalPoint + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius);
+            }
+        }
+
+        if (!safePointFound)
+        {
+            var minimum = boundary[0];
+            var maximum = boundary[0];
+            for (var index = 1; index < boundary.Count; index++)
+            {
+                minimum = Vector2.Min(minimum, boundary[index]);
+                maximum = Vector2.Max(maximum, boundary[index]);
+            }
+            const float fallbackGridStepMeters = 0.15f;
+            for (var x = minimum.x; x <= maximum.x; x += fallbackGridStepMeters)
+                for (var y = minimum.y; y <= maximum.y; y += fallbackGridStepMeters)
+                    Consider(new Vector2(x, y));
+        }
+
+        if (safePointFound)
+        {
+            resolvedPoint = nearestSafePoint;
+            achievedClearance = nearestSafeClearance;
+            return true;
+        }
+
+        failure = $"no_interior_point_with_{Fp2MinimumWallClearanceMeters:F2}m_clearance";
+        return false;
+    }
+
+    public static bool IsFp2ExplicitNoSpawnPoint(
+        Guid roomUuid,
+        Vector2 floorLocalPoint,
+        out string zoneId)
+    {
+        zoneId = string.Empty;
+        if (roomUuid != Fp2VerandaRoomUuid) return false;
+
+        if (floorLocalPoint.x >= Fp2VerandaBathroomNoSpawnMinLocalX)
+        {
+            zoneId = "room7_mens_restroom_hidden_end";
+            return true;
+        }
+        if (floorLocalPoint.x >= Fp2VerandaHiddenWallPocketMinLocalX
+            && floorLocalPoint.x <= Fp2VerandaHiddenWallPocketMaxLocalX
+            && floorLocalPoint.y <= Fp2VerandaHiddenWallPocketMaxLocalY)
+        {
+            zoneId = "room7_observed_hidden_wall_pocket";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsPointInPolygon(
+        Vector2 point,
+        IReadOnlyList<Vector2> boundary)
+    {
+        if (boundary == null || boundary.Count < 3) return false;
+        if (DistanceToPolygonBoundary(point, boundary) <= 0.001f) return true;
+        var inside = false;
+        for (int current = 0, previous = boundary.Count - 1;
+             current < boundary.Count;
+             previous = current++)
+        {
+            var a = boundary[current];
+            var b = boundary[previous];
+            if ((a.y > point.y) == (b.y > point.y)) continue;
+            var crossingX = (b.x - a.x) * (point.y - a.y)
+                / (b.y - a.y) + a.x;
+            if (point.x < crossingX) inside = !inside;
+        }
+        return inside;
+    }
+
+    private static float DistanceToPolygonBoundary(
+        Vector2 point,
+        IReadOnlyList<Vector2> boundary)
+    {
+        var minimum = float.PositiveInfinity;
+        for (var index = 0; index < boundary.Count; index++)
+        {
+            var start = boundary[index];
+            var end = boundary[(index + 1) % boundary.Count];
+            var segment = end - start;
+            var denominator = segment.sqrMagnitude;
+            var amount = denominator <= 0.000001f
+                ? 0f
+                : Mathf.Clamp01(Vector2.Dot(point - start, segment) / denominator);
+            minimum = Mathf.Min(minimum, Vector2.Distance(point, start + segment * amount));
+        }
+        return minimum;
     }
 
     private static string DescribeReferences(
@@ -3293,7 +3915,7 @@ public sealed class ExperimentMain : MonoBehaviour
         SetAbortButtonVisible(true);
         if (operatorText != null)
         {
-            operatorText.text = "FP1 OPERATOR\n\n"
+            operatorText.text = $"{ExperimentSpaceRuntime.SpaceId} OPERATOR\n\n"
                 + $"PARTICIPANT  {SelectedParticipantId}\n"
                 + $"SET          {currentSetId}\n"
                 + $"GUIDE        {currentGuideMode}\n"
@@ -3353,7 +3975,10 @@ public sealed class ExperimentMain : MonoBehaviour
         RestoreHudToHead();
         lobbyPanel.SetActive(true);
         if (vgPanel != null) vgPanel.gameObject.SetActive(false);
-        operatorText.text = "FP1 PILOT\n\n"
+        var pilotLabel = config != null && !string.IsNullOrWhiteSpace(config.spaceId)
+            ? config.spaceId.Trim().ToUpperInvariant()
+            : ExperimentSpaceRuntime.SpaceId;
+        operatorText.text = $"{pilotLabel} PILOT\n\n"
             + $"PARTICIPANT  {SelectedParticipantId}\n"
             + $"SET          {SelectedSetId}\n"
             + $"GUIDE        {SelectedGuideMode}\n\n"
@@ -3363,6 +3988,9 @@ public sealed class ExperimentMain : MonoBehaviour
             + (config != null && config.fiducialMarkerAlignmentEnabled
                 ? $"{fiducialZoneAlignment?.StatusLine ?? "QR MARKERS UNAVAILABLE"}\n"
                     + "Idle setup: look at one room QR, hold RIGHT STICK 1.2 s\n"
+                : string.Empty)
+            + (aprilTagTranslationAligner != null
+                ? $"APRILTAG: {aprilTagTranslationAligner.StatusLine}\n"
                 : string.Empty)
             + "During run: hold left Y for operator window\n"
             + "Hold a left-hand pinch for 1.2 s: store stone";
@@ -3711,14 +4339,28 @@ public static class AagRecoveryPlacementValidator
             return false;
         }
 
-        var rooms = FindContainingAllowedRooms(worldPosition);
+        var mrukQueryPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(worldPosition);
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace
+            && AagMrukSpaceCorrection.IsApplied)
+        {
+            if (!AagFp2BakedSpace.TryResolveRoom(mrukQueryPosition, out var bakedRoomUuid)
+                || ExperimentSpaceRuntime.FloorPlan == null
+                || !ExperimentSpaceRuntime.FloorPlan.ContainsRoom(bakedRoomUuid))
+            {
+                failure = "outside_allowed_baked_floor";
+                return false;
+            }
+            containingRoomUuids = bakedRoomUuid.ToString();
+            return true;
+        }
+        var rooms = FindContainingAllowedRooms(mrukQueryPosition);
         if (rooms.Count == 0)
         {
             failure = "outside_allowed_mruk_floor";
             return false;
         }
 
-        if (TryFindDeepContainingVolume(worldPosition, rooms, out var volumeDetail))
+        if (TryFindDeepContainingVolume(mrukQueryPosition, rooms, out var volumeDetail))
         {
             failure = $"inside_mruk_volume_{volumeDetail}";
             return false;

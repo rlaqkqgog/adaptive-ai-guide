@@ -1,0 +1,9 @@
+{
+  "spaceId": "FP2",
+  "referenceTag": {
+    "roomId": "room8",
+    "roomUuid": "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a",
+    "aprilTagId": 1,
+    "qrPayload": "AAG-FP2-ZONE:room8"
+  }
+}

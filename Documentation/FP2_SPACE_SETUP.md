@@ -1,5 +1,8 @@
 # FP2 공간 설정 및 빌드 절차
 
+하이브리드 AprilTag 생성, 기준점 배치, Quest 검증, 세션 SOP와 공간 변화 감시까지의
+전체 이식 절차는 [`FP2_HYBRID_APRILTAG_MIGRATION_RUNBOOK_KO.md`](FP2_HYBRID_APRILTAG_MIGRATION_RUNBOOK_KO.md)를 따른다.
+
 ## 보호된 FP1 기준점
 
 - 안정 체크포인트 커밋: `ab1fcaf`

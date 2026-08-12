@@ -1,0 +1,55 @@
+﻿{
+    "schema_version": "aag-fp2-fixed-tower-anchors/v3",
+    "floor_plan_id": "FP2",
+    "updated_at_utc": "2026-07-25T18:36:45.7904570Z",
+    "towers": [
+        {
+            "tower_id": "Tower-1",
+            "anchor_uuid": "8274edab-0a0a-41d0-bcd7-3c3dc755da31",
+            "has_fallback_pose": true,
+            "fallback_x": -1.4463777542114258,
+            "fallback_y": 0.24159766733646394,
+            "fallback_z": 8.54399299621582,
+            "fallback_rotation_x": 0.0,
+            "fallback_rotation_y": -0.42840564250946047,
+            "fallback_rotation_z": 0.0,
+            "fallback_rotation_w": 0.9035865664482117
+        },
+        {
+            "tower_id": "Tower-2",
+            "anchor_uuid": "b59c2e67-f958-4fef-9ba1-7656d2820f88",
+            "has_fallback_pose": true,
+            "fallback_x": -4.216311454772949,
+            "fallback_y": 0.2448207437992096,
+            "fallback_z": 6.811796188354492,
+            "fallback_rotation_x": 0.0,
+            "fallback_rotation_y": -0.02263939008116722,
+            "fallback_rotation_z": 0.0,
+            "fallback_rotation_w": 0.9997437000274658
+        },
+        {
+            "tower_id": "Tower-3",
+            "anchor_uuid": "46e173bd-d502-4bcf-a2e5-60c48e4647c9",
+            "has_fallback_pose": true,
+            "fallback_x": 6.719127655029297,
+            "fallback_y": 0.2550898790359497,
+            "fallback_z": 10.708961486816407,
+            "fallback_rotation_x": 0.0,
+            "fallback_rotation_y": 0.8226522207260132,
+            "fallback_rotation_z": 0.0,
+            "fallback_rotation_w": 0.5685449242591858
+        },
+        {
+            "tower_id": "Tower-4",
+            "anchor_uuid": "8cdb3b82-9610-4c1d-a5a4-360f3b31e2e7",
+            "has_fallback_pose": true,
+            "fallback_x": -13.715108871459961,
+            "fallback_y": 0.25903192162513735,
+            "fallback_z": 11.546403884887696,
+            "fallback_rotation_x": 0.0,
+            "fallback_rotation_y": -0.6573764681816101,
+            "fallback_rotation_z": 0.0,
+            "fallback_rotation_w": 0.753562331199646
+        }
+    ]
+}

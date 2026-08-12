@@ -12,6 +12,8 @@ using UnityEngine;
 [DefaultExecutionOrder(8500)]
 public sealed class AagFixedSpaceOffset : MonoBehaviour
 {
+    public const float MaximumAcceptedCorrectionMeters = 40f;
+
     [Header("Correction")]
     [SerializeField] private bool correctionEnabled;
     [SerializeField] private bool horizontalOnly = true;

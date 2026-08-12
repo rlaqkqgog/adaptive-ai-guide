@@ -24,8 +24,14 @@ public sealed class ExperimentRoomMapping
 {
     public string roomUuid = string.Empty;
     public string roomId = string.Empty;
+    [Tooltip("Optional room suffix used only for AAG clip IDs. Empty values fall back to roomId.")]
+    public string aagClipRoomId = string.Empty;
     public string displayName = string.Empty;
     public int tieOrder;
+
+    public string ResolveAagClipRoomId() => string.IsNullOrWhiteSpace(aagClipRoomId)
+        ? roomId
+        : aagClipRoomId.Trim();
 }
 
 [Serializable]
@@ -61,6 +67,13 @@ public sealed class ExperimentTowerAnchor
     public Vector3 deliveryZoneCenter = new Vector3(0f, 0.75f, 0f);
     public Vector3 deliveryZoneSize = new Vector3(1.5f, 1.5f, 1.5f);
     public bool requireGrabBeforeDelivery = true;
+}
+
+public enum ParticipantExperience
+{
+    Unspecified,
+    Novice,
+    Expert,
 }
 
 public class ExperimentConfig : ScriptableObject
@@ -136,6 +149,13 @@ public class ExperimentConfig : ScriptableObject
     public bool aagPlaybackEnabled;
     [Min(0.1f)] public float captionVisibleSeconds = 3f;
     [Min(0f)] public float minimumUtteranceGapSeconds = 15f;
+    [Tooltip("When greater than zero, suppress generic AAG output and give a room-specific prompt after this many consecutive non-carrying seconds.")]
+    [Min(0f)] public float directRoomPromptAfterEmptyHandSeconds;
+    [Tooltip("Stagnation model (time-since-last-find). When either threshold is > 0 the AAG clip is driven by empty-hand seconds since the last find instead of the revisit proxy. Below T1 = silence, T1..T2 = indirect room hint, >= T2 = top (room hint + cooldown-ignore fallback). Proxy is still computed and logged.")]
+    [Min(0f)] public float stagnationIndirectSeconds;
+    [Min(0f)] public float stagnationMaxSeconds;
+    [Tooltip("Participant experience level for this session (logged in config_snapshot; required for main study cohorting).")]
+    public ParticipantExperience participantExperience = ParticipantExperience.Unspecified;
     [Tooltip("A visited room must remain out of the current path for this long before stalest selection can recommend it.")]
     [Min(0f)] public float stalestRecencyFloorSeconds = 60f;
     [Tooltip("Only visits at least this long update the stalest ordering timestamp. Lostness revisit measurement is unaffected.")]

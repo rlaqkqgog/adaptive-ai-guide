@@ -22,6 +22,7 @@ public sealed class AAGGuide : MonoBehaviour
     {
         public string roomUuid;
         public string roomId;
+        public string aagClipRoomId;
         public int remainingCount;
         public bool visited;
         public float lastVisitedAt;
@@ -48,7 +49,11 @@ public sealed class AAGGuide : MonoBehaviour
         public float proxyRatio;
         public float proxyRevisitSeconds;
         public float proxyEmptyHandSeconds;
+        public float consecutiveEmptyHandSeconds;
+        public float stagnationSeconds;
+        public string stagnationLevel;
         public int carrying;
+        public bool directRoomPrompt;
         public bool playbackEnabled;
         public bool textModeEnabled;
         public string lostnessZone;
@@ -100,6 +105,12 @@ public sealed class AAGGuide : MonoBehaviour
 
     private float lastUtteranceTime = float.NegativeInfinity;
     private float lastAdaptationTime = float.NegativeInfinity;
+    // Last clip that actually played (not merely attempted). Used to avoid
+    // speaking the exact same line twice in a row: on a repeat we swap to the
+    // sibling variant so long runs alternate (e.g. N-01/N-02) instead of
+    // reading as a stuck loop. Only updated after a successful play so a
+    // suppressed/failed attempt never drives the next swap decision.
+    private string lastPlayedClipId = string.Empty;
     private AagSupportLevel currentSupportLevel = AagSupportLevel.Normal;
     private readonly Queue<string> recentZoneVotes = new Queue<string>(4);
 
@@ -120,6 +131,7 @@ public sealed class AAGGuide : MonoBehaviour
         if (utterancePlayer != null) utterancePlayer.StopAndReset(interruptionReason);
         lastUtteranceTime = float.NegativeInfinity;
         lastAdaptationTime = float.NegativeInfinity;
+        lastPlayedClipId = string.Empty;
         recentZoneVotes.Clear();
         currentSupportLevel = config != null ? config.initialSupportLevel : AagSupportLevel.Normal;
         gatePassed = false;
@@ -157,7 +169,17 @@ public sealed class AAGGuide : MonoBehaviour
         var previousLevel = currentSupportLevel;
         var choices = BuildRoomChoices(targets);
         var hasRemainingTargets = HasRemainingTargets(targets);
-        var choice = snapshot.aesGatePassed ? ChooseRoom(choices, loggingManager.SessionTime) : null;
+        var directRoomMode = config.directRoomPromptAfterEmptyHandSeconds > 0f;
+        var directRoomDue = directRoomMode
+            && behaviorMetrics.Carrying == 0
+            && snapshot.consecutiveEmptyHandSeconds
+                >= config.directRoomPromptAfterEmptyHandSeconds;
+        var choice = directRoomDue
+            ? ChooseDirectRoom(choices)
+            : snapshot.aesGatePassed
+                ? ChooseRoom(choices, loggingManager.SessionTime)
+                : null;
+        var directRoomPrompt = directRoomDue && choice != null;
         var selectionRule = choice?.selectionRule
             ?? (!snapshot.aesGatePassed
                 ? "none"
@@ -174,9 +196,42 @@ public sealed class AAGGuide : MonoBehaviour
             ? ApplyLevelAdjustment(previousLevel, voteAdjustment)
             : previousLevel;
         var effectiveLevel = proposedLevel;
-        var nextClipId = !snapshot.aesGatePassed
-            ? "GF-01"
-            : BuildClipId(proposedLevel, choice, out effectiveLevel);
+        var nextClipId = directRoomPrompt
+            ? BuildClipId(AagSupportLevel.VeryEasy, choice, out effectiveLevel)
+            : !snapshot.aesGatePassed
+                ? "GF-01"
+                : BuildClipId(proposedLevel, choice, out effectiveLevel);
+        nextClipId = ApplyAntiRepeat(nextClipId);
+
+        // --- Stagnation model (time-since-last-find) ---
+        // When configured (either threshold > 0), the AAG clip is driven by
+        // empty-hand seconds since the last find instead of the revisit proxy.
+        // The proxy + lostness zone above stay computed and logged as behavioral
+        // indicators only; they no longer select the clip. AES gate still gates
+        // (pass -> level-based hint, fail -> GF), rotation still applies.
+        var stagnationSeconds = behaviorMetrics.Carrying == 0 ? snapshot.consecutiveEmptyHandSeconds : 0f;
+        var stagnationActive = config.stagnationIndirectSeconds > 0f || config.stagnationMaxSeconds > 0f;
+        var stagnationLevel = stagnationActive ? ResolveStagnationLevel(stagnationSeconds) : "disabled";
+        if (stagnationActive)
+        {
+            var wantsRoomHint = snapshot.aesGatePassed && stagnationLevel != "encourage";
+            choice = wantsRoomHint
+                ? ChooseRoom(choices, loggingManager.SessionTime, stagnationLevel == "top")
+                : null;
+            selectionRule = choice?.selectionRule
+                ?? (!snapshot.aesGatePassed
+                    ? "none"
+                    : stagnationLevel == "encourage"
+                        ? "stagnation_low"
+                        : !hasRemainingTargets ? "no_remaining_targets" : "recent_floor_fallback");
+            effectiveLevel = AagSupportLevel.VeryEasy;
+            nextClipId = stagnationLevel == "encourage"
+                ? string.Empty
+                : !snapshot.aesGatePassed
+                    ? "GF-01"
+                    : BuildClipId(AagSupportLevel.VeryEasy, choice, out effectiveLevel);
+            nextClipId = ApplyAntiRepeat(nextClipId);
+        }
         var decision = new DecisionLog
         {
             t = loggingManager.SessionTime,
@@ -191,7 +246,11 @@ public sealed class AAGGuide : MonoBehaviour
             proxyRatio = snapshot.proxyRatio,
             proxyRevisitSeconds = snapshot.proxyRevisitSeconds,
             proxyEmptyHandSeconds = snapshot.proxyEmptyHandSeconds,
+            consecutiveEmptyHandSeconds = snapshot.consecutiveEmptyHandSeconds,
+            stagnationSeconds = stagnationSeconds,
+            stagnationLevel = stagnationLevel,
             carrying = behaviorMetrics.Carrying,
+            directRoomPrompt = directRoomPrompt,
             playbackEnabled = config.aagPlaybackEnabled,
             textModeEnabled = config.aagTextModeEnabled,
             lostnessZone = zone,
@@ -203,7 +262,9 @@ public sealed class AAGGuide : MonoBehaviour
             proposedLevel = proposedLevel.ToString(),
             levelAdjustment = 0,
             level = previousLevel.ToString(),
-            effectiveLevel = snapshot.aesGatePassed ? effectiveLevel.ToString() : "GateFailure",
+            effectiveLevel = directRoomPrompt
+                ? effectiveLevel.ToString()
+                : snapshot.aesGatePassed ? effectiveLevel.ToString() : "GateFailure",
             candidateRooms = string.Join("|", choices.Select(value =>
                 $"{value.roomId}:{value.remainingCount}:{(value.visited ? "visited" : "unvisited")}:"
                 + $"{(value.currentRoom ? "current" : "other")}:"
@@ -245,7 +306,19 @@ public sealed class AAGGuide : MonoBehaviour
             FinishSuppressed(decision, "decision_only");
             return;
         }
-        if (loggingManager.SessionTime < config.aesWindowSeconds)
+        if (string.IsNullOrEmpty(nextClipId))
+        {
+            // Stagnation below T1 (or otherwise nothing to say): stay silent —
+            // the participant is finding stones at a normal pace.
+            FinishSuppressed(decision, "stagnation_low");
+            return;
+        }
+        if (directRoomMode && !directRoomDue)
+        {
+            FinishSuppressed(decision, "direct_room_wait");
+            return;
+        }
+        if (!directRoomDue && loggingManager.SessionTime < config.aesWindowSeconds)
         {
             FinishSuppressed(decision, "aes_cold_start");
             return;
@@ -286,6 +359,7 @@ public sealed class AAGGuide : MonoBehaviour
             decision.level = currentSupportLevel.ToString();
         }
         lastUtteranceTime = loggingManager.SessionTime;
+        lastPlayedClipId = nextClipId;
         decision.played = true;
         decision.playedClipId = nextClipId;
         decision.outputMode = emittedMode;
@@ -301,17 +375,36 @@ public sealed class AAGGuide : MonoBehaviour
     private List<RoomChoice> BuildRoomChoices(IReadOnlyCollection<AagGuideTarget> targets)
     {
         return (targets ?? Array.Empty<AagGuideTarget>())
-            .Where(target => target != null && !target.delivered && !string.IsNullOrEmpty(target.roomUuid))
-            .GroupBy(target => target.roomUuid, StringComparer.OrdinalIgnoreCase)
+            .Where(target => target != null && !target.delivered)
+            .Select(target =>
+            {
+                var mapping = config.FindRoom(target.roomUuid)
+                    ?? (config.rooms ?? Array.Empty<ExperimentRoomMapping>())
+                        .FirstOrDefault(room => room != null && string.Equals(
+                            room.roomId,
+                            target.roomId,
+                            StringComparison.OrdinalIgnoreCase));
+                return new
+                {
+                    target,
+                    mapping,
+                    roomUuid = mapping?.roomUuid ?? target.roomUuid,
+                };
+            })
+            .Where(value => !string.IsNullOrEmpty(value.roomUuid))
+            .GroupBy(value => value.roomUuid, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var first = group.First();
-                var mapping = config.FindRoom(group.Key);
+                var mapping = first.mapping ?? config.FindRoom(group.Key);
                 var visited = behaviorMetrics.HasVisited(group.Key);
                 return new RoomChoice
                 {
                     roomUuid = group.Key,
-                    roomId = mapping != null ? mapping.roomId : first.roomId,
+                    roomId = mapping != null ? mapping.roomId : first.target.roomId,
+                    aagClipRoomId = mapping != null
+                        ? mapping.ResolveAagClipRoomId()
+                        : first.target.roomId,
                     remainingCount = group.Count(),
                     visited = visited,
                     lastVisitedAt = behaviorMetrics.GetLastVisitedAt(group.Key),
@@ -327,7 +420,25 @@ public sealed class AAGGuide : MonoBehaviour
             .ToList();
     }
 
-    private static RoomChoice ChooseRoom(IEnumerable<RoomChoice> choices, float now)
+    private static RoomChoice ChooseDirectRoom(IEnumerable<RoomChoice> choices)
+    {
+        var choice = choices
+            .OrderBy(value => value.currentRoom ? 1 : 0)
+            .ThenBy(value => value.visited ? 1 : 0)
+            .ThenByDescending(value => value.remainingCount)
+            .ThenBy(value => value.lastMeaningfulVisitAt)
+            .ThenBy(value => value.tieOrder)
+            .FirstOrDefault();
+        if (choice != null)
+            choice.selectionRule = choice.currentRoom
+                ? "direct_empty_hand_current_room"
+                : choice.visited
+                    ? "direct_empty_hand_visited_room"
+                    : "direct_empty_hand_unvisited_room";
+        return choice;
+    }
+
+    private static RoomChoice ChooseRoom(IEnumerable<RoomChoice> choices, float now, bool allowCooldownOverride = false)
     {
         var unvisited = choices
             .Where(choice => !choice.visited && !choice.currentRoom)
@@ -346,8 +457,32 @@ public sealed class AAGGuide : MonoBehaviour
             .ThenByDescending(choice => choice.remainingCount)
             .ThenBy(choice => choice.tieOrder)
             .FirstOrDefault();
-        if (stalest != null) stalest.selectionRule = "stalest_visited";
-        return stalest;
+        if (stalest != null)
+        {
+            stalest.selectionRule = "stalest_visited";
+            return stalest;
+        }
+
+        // Terminal fallback (top stagnation only): once the search has narrowed
+        // to a single visited room still inside its stalest cooldown, returning
+        // null would demote the room hint to the generic N-01 clip. When the
+        // caller is in a long-stagnation state, point at the stalest visited
+        // (non-current) room even while its cooldown is active so a stuck
+        // participant still gets a concrete room to re-check. Guarding on a
+        // single remaining non-current room keeps this from firing mid-search;
+        // the current room stays excluded (a stone there is a "search here" case).
+        if (!allowCooldownOverride || choices.Count(choice => !choice.currentRoom) > 1)
+        {
+            return null;
+        }
+        var forced = choices
+            .Where(choice => choice.visited && !choice.currentRoom)
+            .OrderBy(choice => choice.lastMeaningfulVisitAt)
+            .ThenByDescending(choice => choice.remainingCount)
+            .ThenBy(choice => choice.tieOrder)
+            .FirstOrDefault();
+        if (forced != null) forced.selectionRule = "final_room_cooldown_override";
+        return forced;
     }
 
     private void UpdateZoneVotes(string lostnessZone)
@@ -415,6 +550,18 @@ public sealed class AAGGuide : MonoBehaviour
         return "overload";
     }
 
+    /// <summary>
+    /// Time-since-last-find stagnation level. Single place mapping empty-hand
+    /// seconds to a hint tier (see §4 of the rework spec — top may later become
+    /// direct guidance; keep this mapping centralized so that change is one edit).
+    /// </summary>
+    private string ResolveStagnationLevel(float stagnationSeconds)
+    {
+        if (config.stagnationMaxSeconds > 0f && stagnationSeconds >= config.stagnationMaxSeconds) return "top";
+        if (config.stagnationIndirectSeconds > 0f && stagnationSeconds >= config.stagnationIndirectSeconds) return "indirect";
+        return "encourage";
+    }
+
     private static string BuildClipId(
         AagSupportLevel level,
         RoomChoice choice,
@@ -423,10 +570,10 @@ public sealed class AAGGuide : MonoBehaviour
         effectiveLevel = level;
         return level switch
         {
-            AagSupportLevel.VeryEasy when choice != null && !choice.visited => $"VE-U-{choice.roomId}",
-            AagSupportLevel.VeryEasy when choice != null => $"VE-V-{choice.roomId}",
+            AagSupportLevel.VeryEasy when choice != null && !choice.visited => $"VE-U-{choice.aagClipRoomId}",
+            AagSupportLevel.VeryEasy when choice != null => $"VE-V-{choice.aagClipRoomId}",
             AagSupportLevel.VeryEasy => FallbackToNormal(out effectiveLevel),
-            AagSupportLevel.Easy when choice != null => $"E-{choice.roomId}",
+            AagSupportLevel.Easy when choice != null => $"E-{choice.aagClipRoomId}",
             AagSupportLevel.Easy => FallbackToNormal(out effectiveLevel),
             AagSupportLevel.Normal => "N-01",
             AagSupportLevel.Hard when choice != null && !choice.visited => "H-01",
@@ -439,6 +586,58 @@ public sealed class AAGGuide : MonoBehaviour
     {
         effectiveLevel = AagSupportLevel.Normal;
         return "N-01";
+    }
+
+    // If this clip would repeat the one just played, swap to its sibling
+    // variant so consecutive utterances are never identical. Room-independent
+    // families (GF/N/H/VH) each have a 01/02 pair; room-specific VE/E clips are
+    // left alone (their U/V variants already track visited state). The swap only
+    // happens when the sibling is actually available for the current output mode
+    // so a binding gap can never turn a repeated line into silence.
+    private string ApplyAntiRepeat(string clipId)
+    {
+        if (string.IsNullOrEmpty(clipId) || clipId != lastPlayedClipId)
+        {
+            return clipId;
+        }
+        var sibling = SiblingClipId(clipId);
+        if (sibling != null && IsClipAvailable(sibling))
+        {
+            return sibling;
+        }
+        return clipId;
+    }
+
+    private bool IsClipAvailable(string clipId)
+    {
+        if (config == null)
+        {
+            return false;
+        }
+        var binding = config.FindAagClip(clipId);
+        if (binding == null)
+        {
+            return false;
+        }
+        return config.aagTextModeEnabled
+            ? !string.IsNullOrWhiteSpace(binding.captionText)
+            : binding.clip != null;
+    }
+
+    private static string SiblingClipId(string clipId)
+    {
+        switch (clipId)
+        {
+            case "N-01": return "N-02";
+            case "N-02": return "N-01";
+            case "H-01": return "H-02";
+            case "H-02": return "H-01";
+            case "VH-01": return "VH-02";
+            case "VH-02": return "VH-01";
+            case "GF-01": return "GF-02";
+            case "GF-02": return "GF-01";
+            default: return null;
+        }
     }
 
     private void FinishSuppressed(DecisionLog decision, string reason)

@@ -24,7 +24,9 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
         var elapsed = 0f;
         // MRUK fills Rooms progressively.  Do not validate a partial list before
         // the definitive SceneLoadedEvent has completed.
-        while ((MRUK.Instance == null || !MRUK.Instance.IsInitialized) && elapsed < waitForMrukSeconds)
+        while (!string.Equals(floorPlanId, AagExperimentSpaceCatalog.Fp2Id, StringComparison.Ordinal)
+            && (MRUK.Instance == null || !MRUK.Instance.IsInitialized)
+            && elapsed < waitForMrukSeconds)
         {
             elapsed += Time.unscaledDeltaTime;
             yield return null;
@@ -70,6 +72,29 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             LastValidationSummary = $"floor_plan_unconfigured_{floorPlan.FloorPlanId}";
             Debug.LogError($"[AAG Space] {floorPlan.FloorPlanId} has no registered Room UUIDs.");
             IsValidationComplete = true;
+            return;
+        }
+
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+        {
+            var missingBakedRooms = floorPlan.RoomIds.Where(roomUuid =>
+                !AagFp2BakedSpace.TryGetRoomFloor(
+                    roomUuid,
+                    out _,
+                    out var boundary,
+                    out _)
+                || boundary == null
+                || boundary.Count < 3).ToArray();
+            IsValidationComplete = true;
+            IsValidationPassed = missingBakedRooms.Length == 0;
+            ValidatedFloorPlan = IsValidationPassed ? floorPlan : null;
+            LastValidationSummary = IsValidationPassed
+                ? $"passed_baked_reference_space={floorPlan.FloorPlanId};rooms={floorPlan.RoomIds.Count}"
+                : $"failed_baked_reference_missing={string.Join("|", missingBakedRooms)}";
+            if (IsValidationPassed)
+                Debug.Log($"[AAG Space] {floorPlan.FloorPlanId} baked reference validation passed: rooms={floorPlan.RoomIds.Count}.");
+            else
+                Debug.LogError($"[AAG Space] {floorPlan.FloorPlanId} baked reference validation failed: {LastValidationSummary}.");
             return;
         }
 
@@ -187,10 +212,9 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
     }
 
     /// <summary>
-    /// The fiducial overload keeps the exact nine-room/floor, input-focus, and
-    /// World-Lock gates. It skips only MRUK's HMD-in-Room3 test after a fresh,
-    /// calibrated physical Room3 QR marker has independently established the
-    /// start zone.
+    /// The fiducial overload keeps the room/floor, input-focus, and World-Lock
+    /// gates. It skips only MRUK's HMD-in-start-room test after a fresh calibrated
+    /// marker has independently established the start zone.
     /// </summary>
     public bool TryValidateSessionStart(
         Transform headTransform,
@@ -210,7 +234,10 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             failure = "vr_input_focus_unavailable";
             return false;
         }
-        if (MRUK.Instance == null || !MRUK.Instance.IsWorldLockActive)
+        var usesBakedReference = ExperimentSpaceRuntime.UsesBakedReferenceSpace
+            && AagMrukSpaceCorrection.IsApplied;
+        if (!usesBakedReference
+            && (MRUK.Instance == null || !MRUK.Instance.IsWorldLockActive))
         {
             failure = "mruk_world_lock_inactive";
             return false;
@@ -219,6 +246,20 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
         {
             failure = "center_eye_unavailable";
             return false;
+        }
+
+        if (usesBakedReference)
+        {
+            if (independentlyValidatedStartMarker) return true;
+            var canonicalHeadPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+                headTransform.position);
+            if (!AagFp2BakedSpace.TryResolveRoom(canonicalHeadPosition, out var bakedRoomUuid)
+                || bakedRoomUuid != expectedStartRoomUuid)
+            {
+                failure = $"hmd_not_inside_baked_start_room_{expectedStartRoomUuid}";
+                return false;
+            }
+            return true;
         }
 
         var startRoom = MRUK.Instance.Rooms.FirstOrDefault(room =>
@@ -233,7 +274,9 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
 
         try
         {
-            if (!startRoom.IsPositionInRoom(headTransform.position, true))
+            var mrukQueryPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
+                headTransform.position);
+            if (!startRoom.IsPositionInRoom(mrukQueryPosition, true))
             {
                 failure = $"hmd_not_inside_room3_{expectedStartRoomUuid}";
                 return false;

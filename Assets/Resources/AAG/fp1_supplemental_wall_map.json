@@ -1,0 +1,1220 @@
+{
+  "schemaVersion": 1,
+  "purpose": "FP1 baked placement supplemental rescan wall veto",
+  "oldExportedAtUtc": "2026-07-21T02:48:47.5319640Z",
+  "newExportedAtUtc": "2026-08-12T01:59:36.0708670Z",
+  "worldAlignmentRmsMeters": 0.5276,
+  "rooms": [
+    {
+      "logicalName": "Room1",
+      "oldRoomId": "98332012-20ba-e0ba-78ec-8440113270cd",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8",
+      "newRoomId": "3bb04ce0-d25b-0bc7-9b21-d6385158a0ac",
+      "newFloorAnchorId": "8a031b6f-df26-e053-4c69-fcbe496371f9",
+      "oldToNew": {
+        "cos": -0.999997947,
+        "sin": -0.002026136,
+        "tx": 0.148363,
+        "ty": -0.007339
+      },
+      "alignmentRmsMeters": 0.0853,
+      "alignmentP95Meters": 0.1571,
+      "newFloorBoundary": [
+        {
+          "x": 3.271059,
+          "y": -1.448166
+        },
+        {
+          "x": 3.270517,
+          "y": 1.441631
+        },
+        {
+          "x": -3.266617,
+          "y": 1.443138
+        },
+        {
+          "x": -3.266882,
+          "y": -1.296408
+        },
+        {
+          "x": -2.778955,
+          "y": -1.296406
+        },
+        {
+          "x": -2.77895,
+          "y": -1.451118
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "ac39d9dd-dfc0-f8d0-577c-b27a9c18445a",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.266615,
+            "y": 1.443137
+          },
+          "end": {
+            "x": -3.266882,
+            "y": -1.296408
+          }
+        },
+        {
+          "anchorId": "7cfa5a30-31d7-afb9-8389-d36d7d70f831",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -2.778948,
+            "y": -1.296401
+          },
+          "end": {
+            "x": -3.266876,
+            "y": -1.296401
+          }
+        },
+        {
+          "anchorId": "aea3e5a4-1f6d-0b70-7c1a-8e62e6a5da54",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.270517,
+            "y": 1.44163
+          },
+          "end": {
+            "x": 3.271055,
+            "y": -1.448168
+          }
+        },
+        {
+          "anchorId": "2d9d0ebc-a06e-ce9b-1c80-5484cf7e1389",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.266613,
+            "y": 1.443136
+          },
+          "end": {
+            "x": 3.270518,
+            "y": 1.441632
+          }
+        },
+        {
+          "anchorId": "b518635b-c0dd-1195-28c4-bf736755183a",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.271059,
+            "y": -1.448163
+          },
+          "end": {
+            "x": -2.77895,
+            "y": -1.451116
+          }
+        },
+        {
+          "anchorId": "82a219f3-5214-3b84-1921-1968b66a6c30",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -2.778954,
+            "y": -1.296405
+          },
+          "end": {
+            "x": -2.778951,
+            "y": -1.451119
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Room2-1",
+      "oldRoomId": "5faa1907-d2e2-7605-7b01-5149a34a4c6d",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 3",
+      "newRoomId": "0239a778-ea89-55d5-8cf1-26b7cdc58490",
+      "newFloorAnchorId": "708a99f9-1a8f-34d2-2f4b-41806ee6879f",
+      "oldToNew": {
+        "cos": -0.99995622,
+        "sin": 0.009357279,
+        "tx": 0.10295,
+        "ty": 0.150672
+      },
+      "alignmentRmsMeters": 0.1068,
+      "alignmentP95Meters": 0.3023,
+      "newFloorBoundary": [
+        {
+          "x": -3.910371,
+          "y": 5.322226
+        },
+        {
+          "x": -3.904166,
+          "y": 3.65004
+        },
+        {
+          "x": -3.721234,
+          "y": 3.650695
+        },
+        {
+          "x": -3.729492,
+          "y": -5.334599
+        },
+        {
+          "x": 3.904768,
+          "y": -5.275636
+        },
+        {
+          "x": 3.856375,
+          "y": 2.62049
+        },
+        {
+          "x": 2.898791,
+          "y": 2.617216
+        },
+        {
+          "x": 2.895457,
+          "y": 3.60077
+        },
+        {
+          "x": 3.645024,
+          "y": 3.603238
+        },
+        {
+          "x": 3.909788,
+          "y": 4.431149
+        },
+        {
+          "x": -0.427297,
+          "y": 4.414682
+        },
+        {
+          "x": -0.430162,
+          "y": 5.331555
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "cf40ad2a-69d5-977b-44d1-954ac35e6243",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -0.430163,
+            "y": 5.331553
+          },
+          "end": {
+            "x": -0.427298,
+            "y": 4.414679
+          }
+        },
+        {
+          "anchorId": "f433e369-c0e0-48c9-77d2-c73f4e6e3ebf",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.909787,
+            "y": 4.431146
+          },
+          "end": {
+            "x": 3.645022,
+            "y": 3.603235
+          }
+        },
+        {
+          "anchorId": "36ab7150-673a-8954-4bb0-642516092bab",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 2.89879,
+            "y": 2.617214
+          },
+          "end": {
+            "x": 2.895455,
+            "y": 3.600768
+          }
+        },
+        {
+          "anchorId": "d91b6e8c-5351-1c03-d137-f55295b6c756",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": -3.910371,
+            "y": 5.322225
+          },
+          "end": {
+            "x": -0.430162,
+            "y": 5.331553
+          }
+        },
+        {
+          "anchorId": "6e2fd98e-baa1-fe35-9f67-fe12e90164ba",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.909787,
+            "y": 4.431146
+          },
+          "end": {
+            "x": -0.427299,
+            "y": 4.41468
+          }
+        },
+        {
+          "anchorId": "6088215b-1642-62d5-3c9d-01a3fddcd406",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.90477,
+            "y": -5.275634
+          },
+          "end": {
+            "x": 3.856378,
+            "y": 2.620491
+          }
+        },
+        {
+          "anchorId": "e7206358-01d3-e5c2-eccb-73f21f736c6e",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.91037,
+            "y": 5.322224
+          },
+          "end": {
+            "x": -3.904166,
+            "y": 3.650037
+          }
+        },
+        {
+          "anchorId": "d9dca0a0-e0bf-0c4a-906b-7f2ba46b3b1b",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.721235,
+            "y": 3.650693
+          },
+          "end": {
+            "x": -3.729492,
+            "y": -5.334602
+          }
+        },
+        {
+          "anchorId": "56f6652d-2a40-b943-5314-16d12cc041f0",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.645022,
+            "y": 3.603236
+          },
+          "end": {
+            "x": 2.895454,
+            "y": 3.600768
+          }
+        },
+        {
+          "anchorId": "cd3419d1-c636-b546-7d58-6b96480ddde3",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.90477,
+            "y": -5.275635
+          },
+          "end": {
+            "x": -3.729492,
+            "y": -5.334601
+          }
+        },
+        {
+          "anchorId": "9fc6f9a9-e136-a05a-e4ad-6e3433b07493",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": -3.721235,
+            "y": 3.650692
+          },
+          "end": {
+            "x": -3.904168,
+            "y": 3.650037
+          }
+        },
+        {
+          "anchorId": "e724c6ab-6aac-1457-f500-d1282e61d92a",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.856373,
+            "y": 2.620487
+          },
+          "end": {
+            "x": 2.898789,
+            "y": 2.617212
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Room2-2",
+      "oldRoomId": "ad306342-a794-cffd-be87-d9aea02c5823",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 4",
+      "newRoomId": "ad2e0299-6afb-aff2-1acc-7eb24a4d6513",
+      "newFloorAnchorId": "55635bfc-04d5-ad4a-41da-6aadb57be352",
+      "oldToNew": {
+        "cos": 0.005328694,
+        "sin": -0.999985802,
+        "tx": -0.203438,
+        "ty": -0.013578
+      },
+      "alignmentRmsMeters": 0.1222,
+      "alignmentP95Meters": 0.3391,
+      "newFloorBoundary": [
+        {
+          "x": -3.66211,
+          "y": 1.351592
+        },
+        {
+          "x": -3.642267,
+          "y": -1.420816
+        },
+        {
+          "x": 3.661755,
+          "y": -1.420455
+        },
+        {
+          "x": 3.620494,
+          "y": 1.421424
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "9ba5a36f-573c-f27d-0aa2-d746ad7d2afa",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.661755,
+            "y": -1.420455
+          },
+          "end": {
+            "x": -3.642267,
+            "y": -1.420818
+          }
+        },
+        {
+          "anchorId": "ee240fc1-6151-1eb5-7db1-d708d6aeb112",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.662108,
+            "y": 1.351592
+          },
+          "end": {
+            "x": -3.642266,
+            "y": -1.420817
+          }
+        },
+        {
+          "anchorId": "9c280cd9-1929-f8ac-4ebb-ad0f27088273",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.662108,
+            "y": 1.351592
+          },
+          "end": {
+            "x": 3.620494,
+            "y": 1.421424
+          }
+        },
+        {
+          "anchorId": "13c04ae1-94b3-7ae5-c083-350ab406c966",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.620493,
+            "y": 1.421423
+          },
+          "end": {
+            "x": 3.661754,
+            "y": -1.420456
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Room3",
+      "oldRoomId": "0d537c33-3e47-2606-3ea9-897c2bc9f1ce",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 6",
+      "newRoomId": "e5da934c-8d63-05d5-ca0b-48f6ca01ab94",
+      "newFloorAnchorId": "d1d96b95-5d3b-468b-cff9-993783827379",
+      "oldToNew": {
+        "cos": 0.02081513,
+        "sin": 0.999783342,
+        "tx": -0.16013,
+        "ty": -0.004072
+      },
+      "alignmentRmsMeters": 0.0683,
+      "alignmentP95Meters": 0.1632,
+      "newFloorBoundary": [
+        {
+          "x": 3.059939,
+          "y": -3.603184
+        },
+        {
+          "x": 3.058314,
+          "y": -3.1278
+        },
+        {
+          "x": 2.702612,
+          "y": -3.123553
+        },
+        {
+          "x": 2.623989,
+          "y": 3.638745
+        },
+        {
+          "x": -3.060256,
+          "y": 3.574772
+        },
+        {
+          "x": -2.99591,
+          "y": -2.530297
+        },
+        {
+          "x": -2.788043,
+          "y": -2.530533
+        },
+        {
+          "x": -2.806125,
+          "y": -3.638538
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "6895c2ba-930f-a341-e52e-d480221738cc",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.058315,
+            "y": -3.127798
+          },
+          "end": {
+            "x": 2.702615,
+            "y": -3.123552
+          }
+        },
+        {
+          "anchorId": "2ab19c52-d62f-ea65-cbc9-87a6c7decee4",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.060256,
+            "y": 3.574774
+          },
+          "end": {
+            "x": -2.995909,
+            "y": -2.530297
+          }
+        },
+        {
+          "anchorId": "ad35db94-c2e0-bf66-66c4-e5d0bd296bd1",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -2.788041,
+            "y": -2.530531
+          },
+          "end": {
+            "x": -2.995909,
+            "y": -2.530295
+          }
+        },
+        {
+          "anchorId": "59092a70-a650-3fdc-e0a5-90961966703a",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 2.62399,
+            "y": 3.638745
+          },
+          "end": {
+            "x": 2.702613,
+            "y": -3.123554
+          }
+        },
+        {
+          "anchorId": "4b97d78e-3bb8-d710-5994-c8ebcc14d840",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.058314,
+            "y": -3.127799
+          },
+          "end": {
+            "x": 3.05994,
+            "y": -3.603183
+          }
+        },
+        {
+          "anchorId": "b7b8d242-aa37-6bf8-4abb-9b574c1a26e5",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.059941,
+            "y": -3.603182
+          },
+          "end": {
+            "x": -2.806125,
+            "y": -3.638537
+          }
+        },
+        {
+          "anchorId": "2da57f2c-6848-60b3-54e1-71add4853d73",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 2.623991,
+            "y": 3.638745
+          },
+          "end": {
+            "x": -3.060255,
+            "y": 3.574772
+          }
+        },
+        {
+          "anchorId": "f879168b-e158-d678-6628-193c3111acb8",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -2.788042,
+            "y": -2.530531
+          },
+          "end": {
+            "x": -2.806124,
+            "y": -3.638537
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Hall 1-1",
+      "oldRoomId": "7e4d3e1f-3247-602b-3822-c21df384e947",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 2",
+      "newRoomId": "602041c1-5031-cec0-5b52-fb36da9748d2",
+      "newFloorAnchorId": "9876ff53-3df4-4cc4-35a3-1c82aab678a3",
+      "oldToNew": {
+        "cos": 0.006220324,
+        "sin": -0.999980654,
+        "tx": 0.015408,
+        "ty": -0.038048
+      },
+      "alignmentRmsMeters": 0.0995,
+      "alignmentP95Meters": 0.2409,
+      "newFloorBoundary": [
+        {
+          "x": 1.292237,
+          "y": -4.368537
+        },
+        {
+          "x": 1.249602,
+          "y": 4.36878
+        },
+        {
+          "x": -1.292632,
+          "y": 4.360018
+        },
+        {
+          "x": -1.251588,
+          "y": -4.368104
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "60af44a5-284d-0c41-d934-47750e42d696",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 1.249601,
+            "y": 4.368781
+          },
+          "end": {
+            "x": 1.292233,
+            "y": -4.368539
+          }
+        },
+        {
+          "anchorId": "077e3863-c641-3482-f5f5-07191f53ba84",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 1.249599,
+            "y": 4.368777
+          },
+          "end": {
+            "x": -1.292638,
+            "y": 4.360014
+          }
+        },
+        {
+          "anchorId": "dcf038e5-cbcc-6ee1-fef9-4f4ed73544cb",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": 1.292234,
+            "y": -4.368541
+          },
+          "end": {
+            "x": -1.251591,
+            "y": -4.368108
+          }
+        },
+        {
+          "anchorId": "7ad8bfdc-80f3-3512-ee5f-149fb032b7df",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -1.292633,
+            "y": 4.360018
+          },
+          "end": {
+            "x": -1.251588,
+            "y": -4.368106
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Hall 1-2",
+      "oldRoomId": "b4131884-79b1-7db8-5529-4875ea40bdd5",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 5",
+      "newRoomId": "241fca56-f1c0-7905-8f73-105a18c300bd",
+      "newFloorAnchorId": "af28ea69-b713-18ef-d0b4-544059ae1b62",
+      "oldToNew": {
+        "cos": -0.999972503,
+        "sin": 0.007415765,
+        "tx": 0.821421,
+        "ty": 0.128016
+      },
+      "alignmentRmsMeters": 0.4142,
+      "alignmentP95Meters": 1.2247,
+      "newFloorBoundary": [
+        {
+          "x": -5.99092,
+          "y": -0.788395
+        },
+        {
+          "x": -5.45742,
+          "y": -0.788571
+        },
+        {
+          "x": -5.457558,
+          "y": -1.245971
+        },
+        {
+          "x": 5.988763,
+          "y": -1.245958
+        },
+        {
+          "x": 5.989247,
+          "y": 1.246257
+        },
+        {
+          "x": -5.990558,
+          "y": 1.231197
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "4cd5efa8-3d55-706d-6b62-f8db001d11d0",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.457558,
+            "y": -1.245969
+          },
+          "end": {
+            "x": 5.988764,
+            "y": -1.245957
+          }
+        },
+        {
+          "anchorId": "6f4aa45a-71d1-2e7f-5a48-da5ccda3e06d",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": -5.99092,
+            "y": -0.788394
+          },
+          "end": {
+            "x": -5.990558,
+            "y": 1.231198
+          }
+        },
+        {
+          "anchorId": "bcd36aac-69a5-fa26-4891-c9c072e3066f",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.99092,
+            "y": -0.788394
+          },
+          "end": {
+            "x": -5.45742,
+            "y": -0.78857
+          }
+        },
+        {
+          "anchorId": "672defc6-45e3-15ca-981b-f1f4af2204e7",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.45742,
+            "y": -0.78857
+          },
+          "end": {
+            "x": -5.457557,
+            "y": -1.245969
+          }
+        },
+        {
+          "anchorId": "3de73551-5e01-897d-670a-1e0c80d7e918",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.990559,
+            "y": 1.2312
+          },
+          "end": {
+            "x": 5.989248,
+            "y": 1.246259
+          }
+        },
+        {
+          "anchorId": "b130fe6f-5c5c-0172-dbd3-26e9786d244b",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": 5.989248,
+            "y": 1.246258
+          },
+          "end": {
+            "x": 5.988764,
+            "y": -1.245957
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Hall 1-3",
+      "oldRoomId": "7423d1c6-d1e7-3316-6714-6a9b282a396e",
+      "newRoomName": "\uac70\uc2e4",
+      "newRoomId": "f7977287-8ef5-ad3e-6413-a48998cef936",
+      "newFloorAnchorId": "da3ee766-2b87-f343-c3f7-7d31938f3eaf",
+      "oldToNew": {
+        "cos": -0.018392077,
+        "sin": 0.999830851,
+        "tx": -0.103811,
+        "ty": 0.991505
+      },
+      "alignmentRmsMeters": 0.8514,
+      "alignmentP95Meters": 2.4161,
+      "newFloorBoundary": [
+        {
+          "x": 1.282996,
+          "y": -0.233645
+        },
+        {
+          "x": 0.81038,
+          "y": -0.25665
+        },
+        {
+          "x": 0.804119,
+          "y": 0.255969
+        },
+        {
+          "x": 1.272368,
+          "y": 0.270148
+        },
+        {
+          "x": 1.131324,
+          "y": 5.704911
+        },
+        {
+          "x": 0.440353,
+          "y": 5.716046
+        },
+        {
+          "x": -1.334317,
+          "y": 5.723078
+        },
+        {
+          "x": -1.261378,
+          "y": 5.047228
+        },
+        {
+          "x": -1.418293,
+          "y": 5.084256
+        },
+        {
+          "x": -1.112066,
+          "y": -5.72437
+        },
+        {
+          "x": 1.417152,
+          "y": -5.724411
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "d1c464d3-92a6-1599-2b06-8be21d91896d",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -1.112065,
+            "y": -5.724369
+          },
+          "end": {
+            "x": -1.418291,
+            "y": 5.084254
+          }
+        },
+        {
+          "anchorId": "ae362ef3-65b8-3c8a-37f3-df2e368a1788",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 1.282996,
+            "y": -0.233643
+          },
+          "end": {
+            "x": 1.417152,
+            "y": -5.724409
+          }
+        },
+        {
+          "anchorId": "4df4fd0f-8839-8a88-72ef-2249d8fe65a4",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -1.112065,
+            "y": -5.72437
+          },
+          "end": {
+            "x": 1.417154,
+            "y": -5.72441
+          }
+        },
+        {
+          "anchorId": "4f4c33d6-a342-4067-3420-2b28832ef027",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 1.131324,
+            "y": 5.704911
+          },
+          "end": {
+            "x": 1.272369,
+            "y": 0.270149
+          }
+        },
+        {
+          "anchorId": "7df82234-f6a8-5a4b-066b-bc030bd1cd10",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.804119,
+            "y": 0.255969
+          },
+          "end": {
+            "x": 0.810379,
+            "y": -0.256651
+          }
+        },
+        {
+          "anchorId": "0db226ad-866d-6c60-519f-38487b48796c",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -1.334317,
+            "y": 5.723077
+          },
+          "end": {
+            "x": -1.261379,
+            "y": 5.047225
+          }
+        },
+        {
+          "anchorId": "79679186-5892-a2de-5326-06eb2fc6e8a4",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.810379,
+            "y": -0.256649
+          },
+          "end": {
+            "x": 1.282994,
+            "y": -0.233644
+          }
+        },
+        {
+          "anchorId": "c6031394-9e3b-f7c0-b235-cfa92fbc7b4d",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.440353,
+            "y": 5.716036
+          },
+          "end": {
+            "x": -1.334317,
+            "y": 5.723075
+          }
+        },
+        {
+          "anchorId": "bf6d24ca-1ad5-df26-cd4f-d0b08d294c15",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -1.418292,
+            "y": 5.084253
+          },
+          "end": {
+            "x": -1.261378,
+            "y": 5.047226
+          }
+        },
+        {
+          "anchorId": "58359d1f-252f-4c3d-78f9-0e0d1388fd62",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.804119,
+            "y": 0.255969
+          },
+          "end": {
+            "x": 1.272369,
+            "y": 0.270148
+          }
+        },
+        {
+          "anchorId": "631fe7cf-cb1e-1407-b4c3-aa44b81a717d",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.440352,
+            "y": 5.716039
+          },
+          "end": {
+            "x": 1.131323,
+            "y": 5.70491
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Hall 2-1",
+      "oldRoomId": "880b5e63-6438-a8d5-c156-2ddffc48a6d4",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 7",
+      "newRoomId": "3e654fbe-c458-dac1-c25d-c2fc0e5ffaa1",
+      "newFloorAnchorId": "b94ecc04-91a1-a723-b75b-c85f6fd26107",
+      "oldToNew": {
+        "cos": 0.99943494,
+        "sin": -0.033612498,
+        "tx": -0.374181,
+        "ty": 0.01478
+      },
+      "alignmentRmsMeters": 0.1541,
+      "alignmentP95Meters": 0.4647,
+      "newFloorBoundary": [
+        {
+          "x": 6.055271,
+          "y": 1.049321
+        },
+        {
+          "x": -5.975037,
+          "y": 1.464253
+        },
+        {
+          "x": -6.055307,
+          "y": -0.581236
+        },
+        {
+          "x": -5.77578,
+          "y": -0.598288
+        },
+        {
+          "x": -5.760176,
+          "y": -1.064372
+        },
+        {
+          "x": 5.646321,
+          "y": -1.463901
+        },
+        {
+          "x": 5.666332,
+          "y": -0.972893
+        },
+        {
+          "x": 5.972373,
+          "y": -0.973478
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "a4943fe5-372a-f82b-a040-1940d4a26301",
+          "label": "INVISIBLE_WALL_FACE",
+          "start": {
+            "x": 6.055272,
+            "y": 1.049324
+          },
+          "end": {
+            "x": 5.972372,
+            "y": -0.973477
+          }
+        },
+        {
+          "anchorId": "34a7a23f-1df8-9a64-0e24-eab91cd372ed",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.975034,
+            "y": 1.464254
+          },
+          "end": {
+            "x": -6.055307,
+            "y": -0.581236
+          }
+        },
+        {
+          "anchorId": "05260ea5-e505-a12d-6091-0ee88432411d",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 6.055273,
+            "y": 1.04932
+          },
+          "end": {
+            "x": -5.975037,
+            "y": 1.464254
+          }
+        },
+        {
+          "anchorId": "b3414734-9a3e-663d-de80-0a63a5f70b06",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -6.05531,
+            "y": -0.581238
+          },
+          "end": {
+            "x": -5.775783,
+            "y": -0.598292
+          }
+        },
+        {
+          "anchorId": "3f2cef14-11e0-921d-9ef6-c90dbbad84b9",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -5.775778,
+            "y": -0.598288
+          },
+          "end": {
+            "x": -5.760176,
+            "y": -1.064374
+          }
+        },
+        {
+          "anchorId": "0500421f-3ad9-ac1f-a591-9ae506362755",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 5.646324,
+            "y": -1.463902
+          },
+          "end": {
+            "x": -5.760178,
+            "y": -1.06437
+          }
+        },
+        {
+          "anchorId": "00deee43-e56d-d478-d397-313f03b71ee0",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 5.646321,
+            "y": -1.463902
+          },
+          "end": {
+            "x": 5.666329,
+            "y": -0.972894
+          }
+        },
+        {
+          "anchorId": "8c800bd2-1d31-6de7-37e5-daf1128ccce7",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 5.972374,
+            "y": -0.973477
+          },
+          "end": {
+            "x": 5.666331,
+            "y": -0.972893
+          }
+        }
+      ]
+    },
+    {
+      "logicalName": "Hall 2-2",
+      "oldRoomId": "ce00a9e3-c3dc-48cd-a503-e928584055f2",
+      "newRoomName": "\uc774\ub984\uc5c6\ub294 \ub8f8 8",
+      "newRoomId": "6343e8d6-2e59-e74f-7eb8-ad1347750774",
+      "newFloorAnchorId": "d6f19d98-ca0b-cae6-fd8d-b792efd3ab79",
+      "oldToNew": {
+        "cos": 0.008911382,
+        "sin": 0.999960293,
+        "tx": -0.06938,
+        "ty": 0.000665
+      },
+      "alignmentRmsMeters": 0.0468,
+      "alignmentP95Meters": 0.072,
+      "newFloorBoundary": [
+        {
+          "x": 3.070846,
+          "y": 1.461699
+        },
+        {
+          "x": 3.08208,
+          "y": 2.992787
+        },
+        {
+          "x": -3.060091,
+          "y": 2.989424
+        },
+        {
+          "x": -3.08348,
+          "y": -2.99233
+        },
+        {
+          "x": 0.3753,
+          "y": -2.992317
+        },
+        {
+          "x": 0.401314,
+          "y": 1.464617
+        }
+      ],
+      "newWallSegments": [
+        {
+          "anchorId": "24dfe918-c1c6-4da1-f14a-9611aca18ced",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.3753,
+            "y": -2.992317
+          },
+          "end": {
+            "x": -3.083479,
+            "y": -2.992328
+          }
+        },
+        {
+          "anchorId": "d1f8d2d4-8b3d-12fc-ecc1-99f3cd561a37",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.08208,
+            "y": 2.992788
+          },
+          "end": {
+            "x": 3.070845,
+            "y": 1.461699
+          }
+        },
+        {
+          "anchorId": "b1fccd32-b853-065f-6217-41ce836e0d87",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 3.082079,
+            "y": 2.992788
+          },
+          "end": {
+            "x": -3.060093,
+            "y": 2.989422
+          }
+        },
+        {
+          "anchorId": "bb7fcef5-d1d6-d958-d0ed-dd26539fb071",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.401312,
+            "y": 1.464617
+          },
+          "end": {
+            "x": 3.070845,
+            "y": 1.4617
+          }
+        },
+        {
+          "anchorId": "53446f4c-0d42-0063-eaa6-17754c935871",
+          "label": "WALL_FACE",
+          "start": {
+            "x": 0.401314,
+            "y": 1.464619
+          },
+          "end": {
+            "x": 0.375298,
+            "y": -2.992315
+          }
+        },
+        {
+          "anchorId": "18e05df7-db62-1895-a85b-b4ec5e591a31",
+          "label": "WALL_FACE",
+          "start": {
+            "x": -3.060091,
+            "y": 2.989427
+          },
+          "end": {
+            "x": -3.083478,
+            "y": -2.992328
+          }
+        }
+      ]
+    }
+  ]
+}

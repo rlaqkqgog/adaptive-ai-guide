@@ -50,8 +50,13 @@ public static class AagIncidentalAnchorStore
 {
     public static string ManifestFileName =>
         ExperimentSpaceRuntime.NamespacedFileName("incidental_anchor_sets");
+    private static string SeedResourcePath =>
+        $"AAG/{ExperimentSpaceRuntime.StorageKey}_incidental_anchor_sets";
     public const string ResourceRoot = "IncidentalObjects";
-    public const int RequiredObjectsPerSet = 5;
+    public const int DefaultObjectsPerSet = 5;
+    public const int Fp2ObjectsPerSet = 8;
+    public static int RequiredObjectsPerSet =>
+        ExperimentSpaceRuntime.IsFp2 ? Fp2ObjectsPerSet : DefaultObjectsPerSet;
 
     public static string ManifestPath => Path.Combine(AagManualAnchorSetStore.FolderPath, ManifestFileName);
     public static string ExportFolderPath => AagManualAnchorSetStore.ExportFolderPath;
@@ -59,10 +64,26 @@ public static class AagIncidentalAnchorStore
     public static AagIncidentalAnchorManifest LoadOrCreate()
     {
         AagIncidentalAnchorManifest manifest = null;
+        var loadedBundledSeed = false;
         try
         {
             if (File.Exists(ManifestPath))
                 manifest = JsonUtility.FromJson<AagIncidentalAnchorManifest>(File.ReadAllText(ManifestPath));
+
+            // An empty/partial FP2 authoring file from an earlier field build
+            // must not shadow the new deterministic eight-room bundled seed.
+            if (ExperimentSpaceRuntime.IsFp2 && !HasCompleteCurrentSpaceManifest(manifest))
+                manifest = null;
+
+            if (manifest == null)
+            {
+                var seed = Resources.Load<TextAsset>(SeedResourcePath);
+                manifest = seed == null
+                    ? null
+                    : JsonUtility.FromJson<AagIncidentalAnchorManifest>(
+                        seed.text.TrimStart('\uFEFF'));
+                loadedBundledSeed = manifest != null;
+            }
         }
         catch (Exception exception)
         {
@@ -84,6 +105,9 @@ public static class AagIncidentalAnchorStore
             }
             set.objects ??= new List<AagIncidentalAnchorEntry>();
         }
+        if (loadedBundledSeed && !Save(manifest, out var seedWriteFailure))
+            Debug.LogWarning(
+                $"[Incidental Store] using bundled seed without persistent copy: {seedWriteFailure}");
         return manifest;
     }
 
@@ -144,10 +168,18 @@ public static class AagIncidentalAnchorStore
     /// </summary>
     public static GameObject[] LoadPrefabCatalog(string setId)
     {
-        return Resources.LoadAll<GameObject>(ResourceFolderForSet(setId))
+        var catalog = Resources.LoadAll<GameObject>(ResourceFolderForSet(setId))
             .Where(value => value != null && IsOrderedWrapperName(value.name))
             .OrderBy(value => value.name, StringComparer.Ordinal)
             .ToArray();
+
+        // FP2 uses one incidental object in each of its eight rooms. The
+        // experiment owns five authored visual models per set, so the first
+        // three are deliberately reused for rooms 6-8. FP1 remains 5/5.
+        if (!ExperimentSpaceRuntime.IsFp2 || catalog.Length != DefaultObjectsPerSet)
+            return catalog;
+
+        return catalog.Concat(catalog.Take(Fp2ObjectsPerSet - catalog.Length)).ToArray();
     }
 
     private static bool IsOrderedWrapperName(string name)
@@ -158,4 +190,14 @@ public static class AagIncidentalAnchorStore
             && char.IsDigit(name[1])
             && name[2] == '_';
     }
+
+    private static bool HasCompleteCurrentSpaceManifest(AagIncidentalAnchorManifest manifest) =>
+        manifest?.sets != null
+        && ExperimentSpaceRuntime.SetIds.All(setId =>
+        {
+            var set = manifest.sets.FirstOrDefault(value =>
+                string.Equals(value?.set_id, setId, StringComparison.Ordinal));
+            return set?.objects != null
+                && set.objects.Count == RequiredObjectsPerSet;
+        });
 }

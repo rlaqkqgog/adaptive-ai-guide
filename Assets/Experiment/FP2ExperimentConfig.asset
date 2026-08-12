@@ -15,7 +15,7 @@ MonoBehaviour:
   spaceId: FP2
   floorPlanId: FP2
   storageNamespace: fp2
-  startRoomId: room3
+  startRoomId: room8
   participantIds:
   - P01
   - P02
@@ -60,6 +60,9 @@ MonoBehaviour:
   - towerId: Tower-1
     acceptedColor: Red
     anchorUuid: ''
+    hasFallbackPose: 0
+    fallbackWorldPosition: {x: 0, y: 0, z: 0}
+    fallbackWorldRotation: {x: 0, y: 0, z: 0, w: 1}
     visualLocalPosition: {x: 0, y: 0, z: 0}
     visualLocalEulerAngles: {x: 0, y: 0, z: 0}
     visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
@@ -73,6 +76,9 @@ MonoBehaviour:
   - towerId: Tower-2
     acceptedColor: Blue
     anchorUuid: ''
+    hasFallbackPose: 0
+    fallbackWorldPosition: {x: 0, y: 0, z: 0}
+    fallbackWorldRotation: {x: 0, y: 0, z: 0, w: 1}
     visualLocalPosition: {x: 0, y: 0, z: 0}
     visualLocalEulerAngles: {x: 0, y: 0, z: 0}
     visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
@@ -86,6 +92,9 @@ MonoBehaviour:
   - towerId: Tower-3
     acceptedColor: Yellow
     anchorUuid: ''
+    hasFallbackPose: 0
+    fallbackWorldPosition: {x: 0, y: 0, z: 0}
+    fallbackWorldRotation: {x: 0, y: 0, z: 0, w: 1}
     visualLocalPosition: {x: 0, y: 0, z: 0}
     visualLocalEulerAngles: {x: 0, y: 0, z: 0}
     visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
@@ -99,6 +108,9 @@ MonoBehaviour:
   - towerId: Tower-4
     acceptedColor: Green
     anchorUuid: ''
+    hasFallbackPose: 0
+    fallbackWorldPosition: {x: 0, y: 0, z: 0}
+    fallbackWorldRotation: {x: 0, y: 0, z: 0, w: 1}
     visualLocalPosition: {x: 0, y: 0, z: 0}
     visualLocalEulerAngles: {x: 0, y: 0, z: 0}
     visualLocalScale: {x: 0.1, y: 0.1, z: 0.1}
@@ -109,135 +121,174 @@ MonoBehaviour:
     deliveryZoneCenter: {x: 0, y: 0.75, z: 0}
     deliveryZoneSize: {x: 1.5, y: 1.5, z: 1.5}
     requireGrabBeforeDelivery: 1
-  aesWindowSeconds: 24
+  aesWindowSeconds: 16
   decisionIntervalSeconds: 2
-  aesMinimumDistanceMeters: 12
+  aesMinimumDistanceMeters: 6
   aesMinimumUniqueRooms: 2
-  aesMinimumHeadRotationDegrees: 500
-  proxyWindowSeconds: 48
+  aesMinimumHeadRotationDegrees: 360
+  proxyWindowSeconds: 24
   proxyColdStartRatio: 0.5
-  proxyLowBoundary: 0.25
-  proxyHighBoundary: 0.71
+  proxyLowBoundary: 0.2
+  proxyHighBoundary: 0.55
   aagTextModeEnabled: 0
   aagPlaybackEnabled: 1
   captionVisibleSeconds: 3
-  minimumUtteranceGapSeconds: 15
-  stalestRecencyFloorSeconds: 60
-  stalestMeaningfulDwellSeconds: 5
-  initialSupportLevel: 2
+  minimumUtteranceGapSeconds: 25
+  directRoomPromptAfterEmptyHandSeconds: 0
+  stagnationIndirectSeconds: 25
+  stagnationMaxSeconds: 70
+  participantExperience: 0
+  stalestRecencyFloorSeconds: 30
+  stalestMeaningfulDwellSeconds: 3
+  initialSupportLevel: 0
   aagClips:
   - clipId: GF-01
-    captionText: 좀 더 둘러보시겠어요?
+    captionText: "\uC880 \uB354 \uB458\uB7EC\uBCF4\uC2DC\uACA0\uC5B4\uC694?"
     clip: {fileID: 8300000, guid: d64389c160e56304789b2a242596dfb4, type: 3}
   - clipId: GF-02
-    captionText: 다른 곳도 자유롭게 다녀보세요.
+    captionText: "\uB2E4\uB978 \uACF3\uB3C4 \uC790\uC720\uB86D\uAC8C \uB2E4\uB140\uBCF4\uC138\uC694."
     clip: {fileID: 8300000, guid: 26869ed48fec37e4da623ee8f891b9b0, type: 3}
-  - clipId: VE-U-room1
-    captionText: 아직 안 가보신 원우회실을 확인해보세요.
-    clip: {fileID: 8300000, guid: f3cb1b693d0f8604abcf586a0e7a3684, type: 3}
-  - clipId: VE-U-room2
-    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
-    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
-  - clipId: VE-U-room2-1
-    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
-    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
-  - clipId: VE-U-room2-2
-    captionText: 아직 안 가보신 스튜던트 라운지를 확인해보세요.
-    clip: {fileID: 8300000, guid: 4f6ef394db5fb194485f61bb3577df79, type: 3}
-  - clipId: VE-U-room3
-    captionText: 아직 안 가보신 419강의실을 확인해보세요.
-    clip: {fileID: 8300000, guid: 6014f047862beac42841845f65dc4050, type: 3}
-  - clipId: VE-U-hall1-1
-    captionText: 아직 안 가보신 베란다 쪽 복도를 확인해보세요.
-    clip: {fileID: 8300000, guid: aacdcc90661a0514897a82424075a8c6, type: 3}
-  - clipId: VE-U-hall1-2
-    captionText: 아직 안 가보신 라운지 앞 복도를 확인해보세요.
-    clip: {fileID: 8300000, guid: bd7bdd2672a90224b87ddb6e31171271, type: 3}
-  - clipId: VE-U-hall1-3
-    captionText: 아직 안 가보신 정수기 근처 복도를 확인해보세요.
-    clip: {fileID: 8300000, guid: a4915909c7e8bd049ad976a7d270f4c3, type: 3}
-  - clipId: VE-U-hall2-1
-    captionText: 아직 안 가보신 화장실 앞쪽을 확인해보세요.
-    clip: {fileID: 8300000, guid: bee4fd60d22f86748bb3262806964206, type: 3}
-  - clipId: VE-U-hall2-2
-    captionText: 아직 안 가보신 계단 쪽을 확인해보세요.
-    clip: {fileID: 8300000, guid: 6c54272c329208740bd1e04a5fa7fc12, type: 3}
-  - clipId: VE-V-room1
-    captionText: 원우회실은 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 5cefc31e76946584292cf9395ef1ad75, type: 3}
-  - clipId: VE-V-room2
-    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
-  - clipId: VE-V-room2-1
-    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
-  - clipId: VE-V-room2-2
-    captionText: 스튜던트 라운지는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 3d9ec5d470ecf1f409608a96436ad7df, type: 3}
-  - clipId: VE-V-room3
-    captionText: 419강의실은 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 67e51f943531fef459b272aedd0f860a, type: 3}
-  - clipId: VE-V-hall1-1
-    captionText: 베란다 쪽 복도는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: e046a85abc864fc44a9588fdf8749416, type: 3}
-  - clipId: VE-V-hall1-2
-    captionText: 라운지 앞 복도는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 7a6e4f778217bdf40afc30dabc12a516, type: 3}
-  - clipId: VE-V-hall1-3
-    captionText: 정수기 근처 복도는 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 3dc0a2ebd1639004087a0f32253c8a48, type: 3}
-  - clipId: VE-V-hall2-1
-    captionText: 화장실 앞쪽은 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: c20b224893b14164c84e3cafdbdc58e5, type: 3}
-  - clipId: VE-V-hall2-2
-    captionText: 계단 쪽은 꼼꼼히 살펴보셨나요?
-    clip: {fileID: 8300000, guid: 8c08d52de76f6ce47bdd764d979d0695, type: 3}
-  - clipId: E-room1
-    captionText: 원우회실 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: 413c68fcd4ec1a44184df6542b527e81, type: 3}
-  - clipId: E-room2
-    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
-  - clipId: E-room2-1
-    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
-  - clipId: E-room2-2
-    captionText: 스튜던트 라운지 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: e3109535b4469764e83b510bd25f4d0e, type: 3}
-  - clipId: E-room3
-    captionText: 419강의실 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: 2bcb2bce811ef3d4ca7df36489645453, type: 3}
-  - clipId: E-hall1-1
-    captionText: 베란다 쪽 복도도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: 360334a44131a3d48aae98bff5895b10, type: 3}
-  - clipId: E-hall1-2
-    captionText: 라운지 앞 복도도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: 39634461662c5a94797eb83fa37697aa, type: 3}
-  - clipId: E-hall1-3
-    captionText: 정수기 근처도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: d2538af2c6aee9b46932a90cd043c117, type: 3}
-  - clipId: E-hall2-1
-    captionText: 화장실 앞쪽도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: 4ebe1bcef150b1a47837c11a72ea3d4f, type: 3}
-  - clipId: E-hall2-2
-    captionText: 계단 쪽도 한번 살펴보세요.
-    clip: {fileID: 8300000, guid: f9aa1920e7bfe624ea8bcdc686787c46, type: 3}
+  - clipId: VE-U-room414
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 414 \uAC15\uC758\uC2E4\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: f7fb1434d730df146a3c297e7e6b83cf, type: 3}
+  - clipId: VE-V-room414
+    captionText: "414 \uAC15\uC758\uC2E4\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: 018c41c2e23d91d44bdc71e99573b29d, type: 3}
+  - clipId: E-room414
+    captionText: "414 \uAC15\uC758\uC2E4 \uADFC\uCC98\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 651bd9f34f373674fa48f1a73a7b7b8e, type: 3}
+  - clipId: VE-U-room412
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 412 \uAC15\uC758\uC2E4\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 0de007e740d1bc44d8cbc62c0aa22201, type: 3}
+  - clipId: VE-V-room412
+    captionText: "412 \uAC15\uC758\uC2E4\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: 4d443aaa960e02342990a88476b50646, type: 3}
+  - clipId: E-room412
+    captionText: "412 \uAC15\uC758\uC2E4 \uADFC\uCC98\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: a0ba6cfe8cbb12449b25a358da327d63, type: 3}
+  - clipId: VE-U-slot
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 412 \uAC15\uC758\uC2E4 \uC55E\uCABD\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: ce744d226d3e1d140ba659880e779200, type: 3}
+  - clipId: VE-V-slot
+    captionText: "412 \uAC15\uC758\uC2E4 \uC55E\uCABD\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: aac56d300d6110447b2e818eae3309b5, type: 3}
+  - clipId: E-slot
+    captionText: "412 \uAC15\uC758\uC2E4 \uC55E\uCABD\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: dab241cf3dd7101459b009317406d12d, type: 3}
+  - clipId: VE-U-mainhall
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 \uBA54\uC778 \uD640\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 1789dd7562b038c4795204ad30424d81, type: 3}
+  - clipId: VE-V-mainhall
+    captionText: "\uBA54\uC778 \uD640\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: 6ee33931ec86e744d93af6754962a8ff, type: 3}
+  - clipId: E-mainhall
+    captionText: "\uBA54\uC778 \uD640 \uADFC\uCC98\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: e78fc4b7ce151ef4aad6fc47d431c62d, type: 3}
+  - clipId: VE-U-restroom
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 \uD654\uC7A5\uC2E4 \uC55E\uCABD\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 0beac3c1e121bd64dbb23e00013e366b, type: 3}
+  - clipId: VE-V-restroom
+    captionText: "\uD654\uC7A5\uC2E4 \uC55E\uCABD\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: 87a622cb3542dd444887fc7fc57b62f9, type: 3}
+  - clipId: E-restroom
+    captionText: "\uD654\uC7A5\uC2E4 \uC55E\uCABD\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: c7b878bb26e7697468f6fd2096b499dc, type: 3}
+  - clipId: VE-U-trash
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 \uC4F0\uB808\uAE30\uD1B5\uCABD
+      \uACF5\uAC04\uC744 \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: d805ae6f03b589341911d2c473f70cd0, type: 3}
+  - clipId: VE-V-trash
+    captionText: "\uC4F0\uB808\uAE30\uD1B5\uCABD \uACF5\uAC04\uC740 \uAF3C\uAF3C\uD788
+      \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: dc29aaa3f759a184baa9dfc4fc11db83, type: 3}
+  - clipId: E-trash
+    captionText: "\uC4F0\uB808\uAE30\uD1B5\uCABD\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 01349345954b9674ab7ccebbb7cb4e2d, type: 3}
+  - clipId: VE-U-veranda
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 \uBCA0\uB780\uB2E4 \uAC00\uB294
+      \uBCF5\uB3C4\uB97C \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 581a02b127b7c9144b9d36eeb345422d, type: 3}
+  - clipId: VE-V-veranda
+    captionText: "\uBCA0\uB780\uB2E4 \uAC00\uB294 \uBCF5\uB3C4\uB294 \uAF3C\uAF3C\uD788
+      \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: f876785df6b632a42aac17357a1563d9, type: 3}
+  - clipId: E-veranda
+    captionText: "\uBCA0\uB780\uB2E4 \uAC00\uB294 \uBCF5\uB3C4\uB3C4 \uD55C\uBC88
+      \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 839acfba37634b64b9016d1d56b9e249, type: 3}
+  - clipId: VE-U-room413
+    captionText: "\uC544\uC9C1 \uC548 \uAC00\uBCF4\uC2E0 413 \uAC15\uC758\uC2E4\uC744
+      \uD655\uC778\uD574\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 052569f6b0efc7f41bfabf9bb468ab01, type: 3}
+  - clipId: VE-V-room413
+    captionText: "413 \uAC15\uC758\uC2E4\uC740 \uAF3C\uAF3C\uD788 \uC0B4\uD3B4\uBCF4\uC168\uB098\uC694?"
+    clip: {fileID: 8300000, guid: d830208d1981c524abc92503dab15679, type: 3}
+  - clipId: E-room413
+    captionText: "413 \uAC15\uC758\uC2E4 \uADFC\uCC98\uB3C4 \uD55C\uBC88 \uC0B4\uD3B4\uBCF4\uC138\uC694."
+    clip: {fileID: 8300000, guid: 3d59116c31aab0749a6b260fd0469851, type: 3}
   - clipId: N-01
-    captionText: 아직 찾지 못한 돌이 남아 있어요.
+    captionText: "\uC544\uC9C1 \uCC3E\uC9C0 \uBABB\uD55C \uB3CC\uC774 \uB0A8\uC544
+      \uC788\uC5B4\uC694."
     clip: {fileID: 8300000, guid: 1c236de0d515393429923088eb059f09, type: 3}
   - clipId: N-02
-    captionText: 남은 돌이 아직 있어요.
+    captionText: "\uB0A8\uC740 \uB3CC\uC774 \uC544\uC9C1 \uC788\uC5B4\uC694."
     clip: {fileID: 8300000, guid: 282900ebf0a15f74e84b580c671eac77, type: 3}
   - clipId: H-01
-    captionText: 아직 둘러보지 않은 공간이 남아 있어요.
+    captionText: "\uC544\uC9C1 \uB458\uB7EC\uBCF4\uC9C0 \uC54A\uC740 \uACF5\uAC04\uC774
+      \uB0A8\uC544 \uC788\uC5B4\uC694."
     clip: {fileID: 8300000, guid: 0665dd57df0161f46ac7142d0c58a716, type: 3}
   - clipId: H-02
-    captionText: 가보지 않은 곳이 아직 있어요.
+    captionText: "\uAC00\uBCF4\uC9C0 \uC54A\uC740 \uACF3\uC774 \uC544\uC9C1 \uC788\uC5B4\uC694."
     clip: {fileID: 8300000, guid: 81ed568bb6351a54ebc36e042eed312a, type: 3}
   - clipId: VH-01
-    captionText: 계속 자유롭게 다녀보세요.
+    captionText: "\uACC4\uC18D \uC790\uC720\uB86D\uAC8C \uB2E4\uB140\uBCF4\uC138\uC694."
     clip: {fileID: 8300000, guid: 73776a9a114789749b8b63aef7851471, type: 3}
   - clipId: VH-02
-    captionText: 편하신 대로 계속 진행하세요.
+    captionText: "\uD3B8\uD558\uC2E0 \uB300\uB85C \uACC4\uC18D \uC9C4\uD589\uD558\uC138\uC694."
     clip: {fileID: 8300000, guid: c86245494dee457428153de1a2226bab, type: 3}
-  rooms: []
+  rooms:
+  - roomUuid: 0e4e8223-3c13-735b-a552-4acf2ba915a7
+    roomId: room1
+    aagClipRoomId: room414
+    displayName: "414 \uAC15\uC758\uC2E4"
+    tieOrder: 0
+  - roomUuid: d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b
+    roomId: room2
+    aagClipRoomId: room412
+    displayName: "412 \uAC15\uC758\uC2E4"
+    tieOrder: 1
+  - roomUuid: 28e81069-81b3-b60a-0166-50599f88ce42
+    roomId: room3
+    aagClipRoomId: slot
+    displayName: "412 \uAC15\uC758\uC2E4 \uC55E\uCABD"
+    tieOrder: 2
+  - roomUuid: 133adc09-ce31-302f-1b53-788b59deeb4f
+    roomId: room4
+    aagClipRoomId: mainhall
+    displayName: "\uBA54\uC778 \uD640"
+    tieOrder: 3
+  - roomUuid: 7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b
+    roomId: room5
+    aagClipRoomId: restroom
+    displayName: "\uD654\uC7A5\uC2E4 \uC55E\uCABD"
+    tieOrder: 4
+  - roomUuid: e2e79df2-facb-0150-67b4-a43dfaad9218
+    roomId: room6
+    aagClipRoomId: trash
+    displayName: "\uC4F0\uB808\uAE30\uD1B5\uCABD \uACF5\uAC04"
+    tieOrder: 5
+  - roomUuid: 96a223f3-baf3-7044-2958-6f2468b35c72
+    roomId: room7
+    aagClipRoomId: veranda
+    displayName: "\uBCA0\uB780\uB2E4 \uAC00\uB294 \uBCF5\uB3C4"
+    tieOrder: 6
+  - roomUuid: 2d4f4c7d-9189-0198-a0ff-ecd07d843c6a
+    roomId: room8
+    aagClipRoomId: room413
+    displayName: "413 \uAC15\uC758\uC2E4"
+    tieOrder: 7

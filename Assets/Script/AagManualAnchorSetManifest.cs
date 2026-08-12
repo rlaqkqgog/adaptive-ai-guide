@@ -67,6 +67,8 @@ public static class AagManualAnchorSetStore
     public const string FolderName = "AagManualAnchorSets";
     public const float ApproximateOffsetScale = 0.5f;
     public static readonly string[] Colors = { "Red", "Blue", "Green", "Yellow" };
+    private static string SeedResourcePath =>
+        $"AAG/{ExperimentSpaceRuntime.StorageKey}_manual_anchor_sets";
 
     public static string ManifestFileName =>
         ExperimentSpaceRuntime.NamespacedFileName("manual_anchor_sets");
@@ -89,11 +91,22 @@ public static class AagManualAnchorSetStore
     {
         AagManualAnchorSetManifest manifest = null;
         var runtimeFileExists = false;
+        var loadedBundledSeed = false;
         try
         {
             runtimeFileExists = File.Exists(ManifestPath);
             if (runtimeFileExists)
                 manifest = JsonUtility.FromJson<AagManualAnchorSetManifest>(File.ReadAllText(ManifestPath));
+
+            if (manifest == null)
+            {
+                var seed = Resources.Load<TextAsset>(SeedResourcePath);
+                manifest = seed == null
+                    ? null
+                    : JsonUtility.FromJson<AagManualAnchorSetManifest>(
+                        seed.text.TrimStart('\uFEFF'));
+                loadedBundledSeed = manifest != null;
+            }
         }
         catch (Exception exception)
         {
@@ -112,9 +125,14 @@ public static class AagManualAnchorSetStore
         foreach (var set in manifest.sets)
             set.anchors ??= new List<AagManualAnchorEntry>();
 
+        if (loadedBundledSeed && !Save(manifest, out var seedWriteFailure))
+            Debug.LogWarning(
+                $"[AAG Manual Sets] using bundled seed without persistent copy: {seedWriteFailure}");
+
         var anchorCount = manifest.sets.Sum(set => set.anchors.Count);
         Debug.Log(
-            $"[AAG Runtime Manifest] source=FIXED_RUNTIME_FILE path={ManifestPath} exists={runtimeFileExists} " +
+            $"[AAG Runtime Manifest] source={(loadedBundledSeed ? "BUNDLED_SEED" : "FIXED_RUNTIME_FILE")} " +
+            $"path={ManifestPath} exists={runtimeFileExists} " +
             $"sets={manifest.sets.Count} anchors={anchorCount} exportsSearched=false backupsSearched=false " +
             "playerPrefsUsed=false legacyAnchorLogUsed=false");
         return manifest;

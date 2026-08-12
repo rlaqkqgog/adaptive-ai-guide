@@ -84,6 +84,21 @@ public static class AagS3IncidentalRoomLocalCatalog
             failure = $"s3_room_local_entry_missing_{objectId}";
             return false;
         }
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+        {
+            if (!AagFp2BakedSpace.TryResolveFloorLocalPose(
+                    entry.FloorAnchorUuid,
+                    entry.FloorLocalPosition,
+                    entry.FloorLocalRotation,
+                    out var canonicalPosition,
+                    out var canonicalRotation,
+                    out failure))
+                return false;
+            worldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(canonicalPosition);
+            worldRotation = AagMrukSpaceCorrection.MrukToObservedRotation(canonicalRotation);
+            return AagRigidPoseRecovery.IsFinite(worldPosition)
+                && AagRigidPoseRecovery.IsFinite(worldRotation);
+        }
         if (MRUK.Instance == null)
         {
             failure = "s3_room_local_mruk_unavailable";
@@ -105,6 +120,11 @@ public static class AagS3IncidentalRoomLocalCatalog
         }
         worldPosition = floor.transform.TransformPoint(entry.FloorLocalPosition);
         worldRotation = floor.transform.rotation * entry.FloorLocalRotation;
+        if (ExperimentSpaceRuntime.UsesTagCorrectedReferenceSpace)
+        {
+            worldPosition = AagMrukSpaceCorrection.MrukToObservedPosition(worldPosition);
+            worldRotation = AagMrukSpaceCorrection.MrukToObservedRotation(worldRotation);
+        }
         if (!AagRigidPoseRecovery.IsFinite(worldPosition)
             || !AagRigidPoseRecovery.IsFinite(worldRotation))
         {

@@ -1,0 +1,55 @@
+{
+    "schemaVersion": "aag-fixed-tower-floor-local/v1",
+    "floorPlanId": "FP2",
+    "updatedAtUtc": "2026-07-25T18:36:45.7882220Z",
+    "placements": [
+        {
+            "towerId": "Tower-1",
+            "roomUuid": "133adc09-ce31-302f-1b53-788b59deeb4f",
+            "floorAnchorUuid": "7b2eb8ee-670a-1682-98b8-c59e59afdede",
+            "localX": -4.006657123565674,
+            "localY": -2.4414730072021486,
+            "localZ": 0.3899819850921631,
+            "localRotationX": -0.6367367506027222,
+            "localRotationY": 0.3075163662433624,
+            "localRotationZ": 0.30751627683639529,
+            "localRotationW": -0.6367369294166565
+        },
+        {
+            "towerId": "Tower-2",
+            "roomUuid": "7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b",
+            "floorAnchorUuid": "54865dfb-f0fd-40a5-6b03-d06cc925aee6",
+            "localX": -3.486703634262085,
+            "localY": 0.6034564971923828,
+            "localZ": 0.41247716546058657,
+            "localRotationX": 0.01934371329843998,
+            "localRotationY": 0.7068421244621277,
+            "localRotationZ": 0.7068420648574829,
+            "localRotationW": 0.019343694671988488
+        },
+        {
+            "towerId": "Tower-3",
+            "roomUuid": "133adc09-ce31-302f-1b53-788b59deeb4f",
+            "floorAnchorUuid": "7b2eb8ee-670a-1682-98b8-c59e59afdede",
+            "localX": 4.126860618591309,
+            "localY": -4.7236785888671879,
+            "localZ": 0.4034748077392578,
+            "localRotationX": -0.4061954915523529,
+            "localRotationY": -0.57879638671875,
+            "localRotationZ": -0.5787962675094605,
+            "localRotationW": -0.40619564056396487
+        },
+        {
+            "towerId": "Tower-4",
+            "roomUuid": "96a223f3-baf3-7044-2958-6f2468b35c72",
+            "floorAnchorUuid": "99cafbbb-f370-f0d7-294e-6a0dbceedcd4",
+            "localX": 5.103934288024902,
+            "localY": 0.27161705493927,
+            "localZ": 0.43213385343551638,
+            "localRotationX": 0.46882960200309756,
+            "localRotationY": 0.5293381810188294,
+            "localRotationZ": 0.529338002204895,
+            "localRotationW": 0.4688296616077423
+        }
+    ]
+}
