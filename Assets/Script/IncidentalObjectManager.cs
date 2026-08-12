@@ -186,6 +186,73 @@ public sealed class IncidentalObjectManager : MonoBehaviour
         return correctedCount;
     }
 
+    public bool TryConstrainFp1ToWalkablePaths(
+        Action<string, string> writeCorrection,
+        out int correctedCount,
+        out string failure)
+    {
+        correctedCount = 0;
+        failure = string.Empty;
+        if (ExperimentSpaceRuntime.IsFp2) return true;
+
+        foreach (var pair in spawnedByObjectId.OrderBy(value => value.Key, StringComparer.Ordinal))
+        {
+            var instance = pair.Value;
+            if (instance == null)
+            {
+                failure = $"fp1_incidental_instance_missing_{pair.Key}";
+                return false;
+            }
+            var original = instance.transform.position;
+            if (AagFp1FieldSafetyOverrides.TryGetIncidentalRoom(
+                    pair.Key, out var overrideRoomUuid))
+            {
+                if (!AagFp1WalkablePath.TryResolveObservedRoomCenter(
+                        overrideRoomUuid,
+                        original,
+                        out var centered,
+                        out var centralPoint,
+                        out var centralClearance,
+                        out var centerMove,
+                        out var centerFailure))
+                {
+                    failure = $"fp1_incidental_room_center_{pair.Key}_{centerFailure}";
+                    return false;
+                }
+                instance.transform.position = centered;
+                if (centerMove >= 0.01f) correctedCount++;
+                writeCorrection?.Invoke(
+                    pair.Key,
+                    $"mode=field_reported_room_center; room={overrideRoomUuid}; "
+                    + $"localCenter=({centralPoint.x:F3},{centralPoint.y:F3}); "
+                    + $"clearance={centralClearance:F3}; moved={centerMove:F3}; "
+                    + $"from=({original.x:F3},{original.y:F3},{original.z:F3}); "
+                    + $"to=({centered.x:F3},{centered.y:F3},{centered.z:F3})");
+                continue;
+            }
+            if (!AagFp1WalkablePath.TryConstrainObservedWorldPosition(
+                    original,
+                    out var resolved,
+                    out var roomUuid,
+                    out var distanceToPath,
+                    out var movedMeters,
+                    out var pathFailure))
+            {
+                failure = $"fp1_incidental_walkable_path_{pair.Key}_{pathFailure}";
+                return false;
+            }
+            if (movedMeters < 0.01f) continue;
+            instance.transform.position = resolved;
+            correctedCount++;
+            writeCorrection?.Invoke(
+                pair.Key,
+                $"room={roomUuid}; distanceToPath={distanceToPath:F3}; moved={movedMeters:F3}; "
+                + $"from=({original.x:F3},{original.y:F3},{original.z:F3}); "
+                + $"to=({resolved.x:F3},{resolved.y:F3},{resolved.z:F3})");
+        }
+        return true;
+    }
+
     public bool TryGetSpawnedTransform(string objectId, out Transform result)
     {
         if (!string.IsNullOrEmpty(objectId)

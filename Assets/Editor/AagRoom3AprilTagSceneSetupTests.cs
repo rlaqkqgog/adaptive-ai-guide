@@ -9,7 +9,7 @@ public sealed class AagRoom3AprilTagSceneSetupTests
     private const string Fp2ScenePath = "Assets/Scenes/MainTest_FP2.unity";
 
     [Test]
-    public void MainTestFp1_HasWiredArmedRoom3AlignmentSetup()
+    public void MainTestFp1_HasWiredArmedRoom6HybridBakedAlignmentSetup()
     {
         EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
 
@@ -27,8 +27,11 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(aligner, Is.Not.Null);
         Assert.That(fixedOffset, Is.Not.Null);
         Assert.That(reference.transform.parent.name, Is.EqualTo("MRUKAlignmentRoot"));
-        Assert.That(reference.ExpectedRoomUuid, Is.EqualTo(AagRoom3TagReference.Room3Uuid));
-        Assert.That(reference.ExpectedFloorAnchorUuid, Is.EqualTo(AagRoom3TagReference.Room3FloorAnchorUuid));
+        Assert.That(reference.ReferenceLabel, Is.EqualTo("FP1 Room6"));
+        Assert.That(reference.ReferencePlacementConfirmed, Is.True);
+        Assert.That(reference.UseBakedFloorPose, Is.True);
+        Assert.That(reference.ExpectedRoomUuid, Is.EqualTo(AagRoom3TagReference.Room6Uuid));
+        Assert.That(reference.ExpectedFloorAnchorUuid, Is.EqualTo(AagRoom3TagReference.Room6FloorAnchorUuid));
         Assert.That(aligner.Room3TagReference, Is.SameAs(reference));
         Assert.That(aligner.FixedSpaceOffset, Is.SameAs(fixedOffset));
         Assert.That(aligner.ExpectedTagId, Is.Zero);
@@ -36,18 +39,30 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(aligner.PreviewOnly, Is.False);
         Assert.That(aligner.AllowQuestControllerApply, Is.True);
         Assert.That(aligner.HorizontalOnly, Is.False);
-        Assert.That(aligner.ApplyDetectedYawRotation, Is.False);
+        Assert.That(aligner.AlignmentLabel, Is.EqualTo("FP1 ROOM6"));
+        Assert.That(aligner.RecordDetectedYaw, Is.True);
+        Assert.That(aligner.ApplyDetectedYawRotation, Is.True);
+        Assert.That(aligner.MaximumStableYawJitterDegrees, Is.EqualTo(3f).Within(0.001f));
         Assert.That(fixedOffset.HorizontalOnly, Is.False);
-        Assert.That(aligner.ContentAlongWallBaselineMeters, Is.EqualTo(-0.65f).Within(0.0001f));
-        Assert.That(aligner.ContentAlongWallAdjustmentMeters, Is.EqualTo(0.15f).Within(0.0001f));
-        Assert.That(aligner.ContentAlongWallBackMeters, Is.EqualTo(-0.50f).Within(0.0001f));
-        Assert.That(aligner.ContentWallClearanceMeters, Is.EqualTo(0.25f).Within(0.0001f));
+        Assert.That(aligner.ContentFineTuneMeters.sqrMagnitude, Is.LessThan(0.000001f));
+
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP1ExperimentConfig.asset");
+        Assert.That(config, Is.Not.Null);
+        ExperimentSpaceRuntime.Configure(config);
+        Assert.That(ExperimentSpaceRuntime.UsesBakedReferenceSpace, Is.True);
+        Assert.That(config.rooms, Has.Length.EqualTo(9));
+        Assert.That(config.TryGetStartRoomUuid(out var startRoomUuid), Is.True);
+        Assert.That(startRoomUuid.ToString(), Is.EqualTo(AagRoom3TagReference.Room6Uuid));
         Assert.That(
-            Vector3.Distance(
-                aligner.ContentFineTuneMeters,
-                new Vector3(0.25f, 0f, -0.50f)),
-            Is.LessThan(0.0001f));
-        Assert.That(Mathf.Abs(aligner.ContentFineTuneMeters.y), Is.LessThan(0.0001f));
+            AagFp2BakedSpace.TryGetFloor(
+                System.Guid.Parse(reference.ExpectedFloorAnchorUuid),
+                out _,
+                out var bakedBoundary,
+                out var bakedFailure),
+            Is.True,
+            bakedFailure);
+        Assert.That(bakedBoundary.Count, Is.GreaterThanOrEqualTo(3));
 
         var fixedOffsetSerialized = new SerializedObject(fixedOffset);
         Assert.That(
@@ -89,6 +104,10 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(aligner, Is.Not.Null);
         Assert.That(fixedOffset, Is.Not.Null);
         Assert.That(experimentMain, Is.Not.Null);
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP2ExperimentConfig.asset");
+        Assert.That(config, Is.Not.Null);
+        ExperimentSpaceRuntime.Configure(config);
         Assert.That(reference.ReferenceLabel, Is.EqualTo("FP2 Room8"));
         Assert.That(reference.ReferencePlacementConfirmed, Is.True);
         Assert.That(reference.UseBakedFloorPose, Is.True);
@@ -100,7 +119,7 @@ public sealed class AagRoom3AprilTagSceneSetupTests
                 out var bakedFailure),
             Is.True,
             bakedFailure);
-        Assert.That(bakedBoundary, Has.Count.GreaterThanOrEqualTo(3));
+        Assert.That(bakedBoundary.Count, Is.GreaterThanOrEqualTo(3));
         Assert.That(AagIncidentalRoomLocalStore.Fp2FloorHeightMeters, Is.EqualTo(0.20f));
         Assert.That(
             reference.ExpectedRoomUuid,
@@ -121,9 +140,6 @@ public sealed class AagRoom3AprilTagSceneSetupTests
         Assert.That(aligner.MaximumStableYawJitterDegrees, Is.EqualTo(3f).Within(0.001f));
         Assert.That(aligner.ContentFineTuneMeters.sqrMagnitude, Is.LessThan(0.000001f));
 
-        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
-            "Assets/Experiment/FP2ExperimentConfig.asset");
-        Assert.That(config, Is.Not.Null);
         Assert.That(config.startRoomId, Is.EqualTo("room8"));
         Assert.That(config.rooms, Has.Length.EqualTo(8));
         Assert.That(config.TryGetStartRoomUuid(out var startRoomUuid), Is.True);
@@ -207,8 +223,36 @@ public sealed class AagRoom3AprilTagSceneSetupTests
     }
 
     [Test]
+    public void StableTagYaw_DoesNotReportFalseJitterAcrossNinetyDegreeBoundary()
+    {
+        var expected = Quaternion.identity;
+        var observed = new[]
+        {
+            Quaternion.Euler(0f, 89.2f, 0f),
+            Quaternion.Euler(0f, 89.8f, 0f),
+            Quaternion.Euler(0f, 90.1f, 0f),
+            Quaternion.Euler(0f, 90.4f, 0f),
+        };
+
+        Assert.That(
+            AagAprilTagTranslationAligner.TryResolveStableYawCorrection(
+                expected,
+                observed,
+                out _,
+                out var yaw,
+                out var jitter),
+            Is.True);
+        Assert.That(Mathf.Abs(Mathf.Abs(yaw) - 90f), Is.LessThan(0.5f));
+        Assert.That(jitter, Is.LessThan(1f));
+    }
+
+    [Test]
     public void BakedRoomValidatedYaw_SelectsOppositeBranchForRoom8Start()
     {
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP2ExperimentConfig.asset");
+        Assert.That(config, Is.Not.Null);
+        ExperimentSpaceRuntime.Configure(config);
         const string room8Uuid = "2d4f4c7d-9189-0198-a0ff-ecd07d843c6a";
         var expectedTagPosition = new Vector3(1.0232f, 1.4446f, 0.1822f);
         var detectedTagPosition = new Vector3(-20.8388f, 1.3211f, -19.0160f);

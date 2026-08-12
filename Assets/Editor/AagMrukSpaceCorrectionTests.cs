@@ -1,12 +1,20 @@
 using System;
 using System.Reflection;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 public sealed class AagMrukSpaceCorrectionTests
 {
     [SetUp]
-    public void SetUp() => AagMrukSpaceCorrection.Reset();
+    public void SetUp()
+    {
+        AagMrukSpaceCorrection.Reset();
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP2ExperimentConfig.asset");
+        Assert.That(config, Is.Not.Null);
+        ExperimentSpaceRuntime.Configure(config);
+    }
 
     [TearDown]
     public void TearDown() => AagMrukSpaceCorrection.Reset();

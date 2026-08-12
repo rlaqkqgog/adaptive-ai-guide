@@ -2510,17 +2510,17 @@ MonoBehaviour:
   fixedSpaceOffset: {fileID: 920000043}
   expectedTagId: 0
   tagSizeMeters: 0.095
-  alignmentLabel: FP1 ROOM3
+  alignmentLabel: FP1 ROOM6
   previewOnly: 0
   allowQuestControllerApply: 1
   horizontalOnly: 0
   requireAppliedAlignmentBeforeSession: 1
-  recordDetectedYaw: 0
-  applyDetectedYawRotation: 0
-  maximumStableYawJitterDegrees: 0.75
-  contentAlongWallBaselineMeters: -0.65
-  contentAlongWallAdjustmentMeters: 0.15
-  contentWallClearanceMeters: 0.25
+  recordDetectedYaw: 1
+  applyDetectedYawRotation: 1
+  maximumStableYawJitterDegrees: 3
+  contentAlongWallBaselineMeters: 0
+  contentAlongWallAdjustmentMeters: 0
+  contentWallClearanceMeters: 0
   showRuntimeHud: 1
   hideReferenceVisualsAfterApply: 1
 --- !u!114 &920000043
@@ -3758,10 +3758,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c7b4f23b7e5d4fc1a2b8b633e0f88411, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  referenceLabel: FP1 Room3
+  referenceLabel: FP1 Room6
   referencePlacementConfirmed: 1
   roomUuid: 0d537c33-3e47-2606-3ea9-897c2bc9f1ce
   floorAnchorUuid: 62768480-a2ae-7bb5-3d77-e8de8355e2cb
+  useBakedFloorPose: 1
   exportFloorWorldPosition: {x: 0.15373255, y: -0.01663506, z: 1.2934226}
   exportFloorWorldRotation: {x: 0.5104028, y: -0.48937613, z: -0.48937613, w: -0.51040286}
   floorLocalPosition: {x: 1.2393612, y: 2.8103256, z: 1.3499999}

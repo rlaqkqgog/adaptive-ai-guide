@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" role="img">
+<title>FP2 FP2-S2 정답지 지도</title>
+<rect width="100%" height="100%" fill="#f8fafc"/>
+<style>
+text{font-family:"Malgun Gothic","Segoe UI",Arial,sans-serif;fill:#0f172a}
+.title{font-size:28px;font-weight:700}.subtitle{font-size:14px;fill:#475569}
+.room{stroke:#334155;stroke-width:2;fill-opacity:.72}.roomLabel{font-size:14px;font-weight:700}
+.pointLabel{font-size:11px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3px;stroke-linejoin:round}
+.panelTitle{font-size:17px;font-weight:700}.row{font-size:12px}.small{font-size:11px;fill:#64748b}
+</style>
+<text x="35.0" y="42.0" class="title" text-anchor="start">FP2-S2 정답지 지도</text>
+<text x="35.0" y="68.0" class="subtitle" text-anchor="start">방 8 · 돌 12 · 돌탑 4 · 우연객체 8 | 위에서 본 X-Z 배치</text>
+<text x="35.0" y="90.0" class="subtitle" text-anchor="start">AprilTag 보정은 전체에 동일 평행이동으로 적용되므로 상대 배치는 동일합니다.</text>
+<rect x="35" y="110" width="1030" height="845" rx="16" fill="#ffffff" stroke="#cbd5e1"/>
+<polygon points="689.5,869.5 519.1,853.4 543.0,597.7 712.4,611.9" class="room" fill="#dbeafe"><title>이름없는룸8 2d4f4c7d-9189-0198-a0ff-ecd07d843c6a</title></polygon>
+<text x="616.0" y="733.1" class="roomLabel" text-anchor="middle">이름없는룸8</text>
+<polygon points="549.3,888.7 278.5,884.4 278.4,890.3 210.1,889.7 211.7,619.3 231.8,619.4 232.3,560.9 266.9,561.1 266.8,569.6 485.7,571.6 485.8,560.3 551.3,560.8" class="room" fill="#fef3c7"><title>이름없는룸 0e4e8223-3c13-735b-a552-4acf2ba915a7</title></polygon>
+<text x="337.4" y="681.4" class="roomLabel" text-anchor="middle">이름없는룸</text>
+<polygon points="1034.7,633.9 1033.7,889.6 781.1,887.0 782.6,845.9 777.0,845.8 778.9,631.9" class="room" fill="#ede9fe"><title>이름없는룸2 d45cc90a-b2c1-b189-efe9-d58eb2f4cf7b</title></polygon>
+<text x="864.6" y="789.0" class="roomLabel" text-anchor="middle">이름없는룸2</text>
+<polygon points="66.0,559.8 231.8,561.2 230.5,611.0 65.3,608.9" class="room" fill="#dcfce7"><title>이름없는룸6 e2e79df2-facb-0150-67b4-a43dfaad9218</title></polygon>
+<text x="148.4" y="585.2" class="roomLabel" text-anchor="middle">이름없는룸6</text>
+<polygon points="571.1,238.0 338.0,234.5 337.8,244.8 247.9,243.4 248.1,234.7 97.5,232.5 98.3,183.3 120.3,169.9 572.0,175.0" class="room" fill="#ffedd5"><title>이름없는룸7 96a223f3-baf3-7044-2958-6f2468b35c72</title></polygon>
+<text x="292.3" y="217.3" class="roomLabel" text-anchor="middle">이름없는룸7</text>
+<polygon points="548.4,341.0 569.2,341.3 571.8,173.4 970.3,179.1 968.5,289.9 778.9,287.1 776.2,631.1 551.5,627.7 552.4,566.5 565.9,566.7 567.5,466.5 546.4,466.1" class="room" fill="#cffafe"><title>이름없는룸4 133adc09-ce31-302f-1b53-788b59deeb4f</title></polygon>
+<text x="663.9" y="411.4" class="roomLabel" text-anchor="middle">이름없는룸4</text>
+<polygon points="232.5,463.4 231.6,546.4 188.7,545.5 192.4,242.6 236.0,243.4 234.4,347.8 548.6,351.2 546.6,466.2 401.9,464.6 401.5,476.6 354.6,476.2 354.7,464.1" class="room" fill="#fce7f3"><title>이름없는룸5 7d466842-a3fd-ca0c-bcc1-595d9ddfcf0b</title></polygon>
+<text x="327.0" y="424.0" class="roomLabel" text-anchor="middle">이름없는룸5</text>
+<polygon points="777.1,629.1 773.5,895.1 718.7,894.3 722.2,628.4" class="room" fill="#e2e8f0"><title>이름없는룸3 28e81069-81b3-b60a-0166-50599f88ce42</title></polygon>
+<text x="747.9" y="761.7" class="roomLabel" text-anchor="middle">이름없는룸3</text>
+<polygon points="606.7,296.7 618.7,308.7 606.7,320.7 594.7,308.7" fill="#111827" stroke="#fff" stroke-width="2"><title>Tower-1 (-1.686, 0.361, 9.071)</title></polygon>
+<text x="621.7" y="300.7" class="pointLabel" text-anchor="start">T1</text>
+<polygon points="501.6,362.4 513.6,374.4 501.6,386.4 489.6,374.4" fill="#111827" stroke="#fff" stroke-width="2"><title>Tower-2 (-4.456, 0.364, 7.339)</title></polygon>
+<text x="516.6" y="366.4" class="pointLabel" text-anchor="start">T2</text>
+<polygon points="916.4,214.6 928.4,226.6 916.4,238.6 904.4,226.6" fill="#111827" stroke="#fff" stroke-width="2"><title>Tower-3 (6.479, 0.374, 11.236)</title></polygon>
+<text x="931.4" y="218.6" class="pointLabel" text-anchor="start">T3</text>
+<polygon points="141.3,182.9 153.3,194.9 141.3,206.9 129.3,194.9" fill="#111827" stroke="#fff" stroke-width="2"><title>Tower-4 (-13.955, 0.378, 12.073)</title></polygon>
+<text x="156.3" y="186.9" class="pointLabel" text-anchor="start">T4</text>
+<rect x="387.4" y="723.5" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_01_01_drill (-7.308, 0.006, -2.024)</title></rect>
+<text x="402.4" y="733.5" class="pointLabel" text-anchor="start">I1</text>
+<rect x="900.3" y="754.4" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_02_02_jar (6.214, -0.004, -2.838)</title></rect>
+<text x="915.3" y="764.4" class="pointLabel" text-anchor="start">I2</text>
+<rect x="743.3" y="652.7" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_03_03_kettle (2.074, -0.021, -0.155)</title></rect>
+<text x="758.3" y="662.7" class="pointLabel" text-anchor="start">I3</text>
+<rect x="656.7" y="401.8" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_04_04_lantern (-0.209, -0.009, 6.460)</title></rect>
+<text x="671.7" y="411.8" class="pointLabel" text-anchor="start">I4</text>
+<rect x="363.1" y="401.4" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_05_05_sewingMachin (-7.950, -0.029, 6.470)</title></rect>
+<text x="378.1" y="411.4" class="pointLabel" text-anchor="start">I5</text>
+<rect x="198.5" y="579.8" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_06_01_drill (-12.289, -0.046, 1.766)</title></rect>
+<text x="213.5" y="589.8" class="pointLabel" text-anchor="start">I6</text>
+<rect x="269.5" y="202.1" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_07_02_jar (-10.417, -0.034, 11.725)</title></rect>
+<text x="284.5" y="212.1" class="pointLabel" text-anchor="start">I7</text>
+<rect x="606.4" y="768.6" width="12" height="12" rx="2" fill="#64748b" stroke="#fff" stroke-width="2"><title>incidental_08_03_kettle (-1.534, 0.115, -3.213)</title></rect>
+<text x="621.4" y="778.6" class="pointLabel" text-anchor="start">I8</text>
+<circle cx="798.7" cy="251.9" r="9" fill="#2563eb" stroke="#fff" stroke-width="2"><title>blue_1 (3.377, 1.014, 10.571)</title></circle>
+<text x="810.7" y="241.9" class="pointLabel" text-anchor="start">blue_1</text>
+<circle cx="667.2" cy="591.7" r="9" fill="#2563eb" stroke="#fff" stroke-width="2"><title>blue_2 (-0.088, 1.149, 1.612)</title></circle>
+<text x="679.2" y="581.7" class="pointLabel" text-anchor="start">blue_2</text>
+<circle cx="524.0" cy="601.8" r="9" fill="#2563eb" stroke="#fff" stroke-width="2"><title>blue_3 (-3.866, 1.054, 1.343)</title></circle>
+<text x="536.0" y="591.8" class="pointLabel" text-anchor="start">blue_3</text>
+<circle cx="377.0" cy="681.6" r="9" fill="#16a34a" stroke="#fff" stroke-width="2"><title>green_1 (-7.742, 0.764, -0.760)</title></circle>
+<text x="389.0" y="671.6" class="pointLabel" text-anchor="start">green_1</text>
+<circle cx="745.5" cy="754.5" r="9" fill="#16a34a" stroke="#fff" stroke-width="2"><title>green_2 (1.975, 0.587, -2.682)</title></circle>
+<text x="757.5" y="744.5" class="pointLabel" text-anchor="start">green_2</text>
+<circle cx="832.5" cy="682.2" r="9" fill="#16a34a" stroke="#fff" stroke-width="2"><title>green_3 (4.268, 1.035, -0.777)</title></circle>
+<text x="844.5" y="672.2" class="pointLabel" text-anchor="start">green_3</text>
+<circle cx="258.0" cy="375.3" r="9" fill="#dc2626" stroke="#fff" stroke-width="2"><title>red_1 (-10.877, 1.085, 7.316)</title></circle>
+<text x="270.0" y="365.3" class="pointLabel" text-anchor="start">red_1</text>
+<circle cx="221.9" cy="201.0" r="9" fill="#dc2626" stroke="#fff" stroke-width="2"><title>red_2 (-11.831, 0.981, 11.912)</title></circle>
+<text x="233.9" y="191.0" class="pointLabel" text-anchor="start">red_2</text>
+<circle cx="588.4" cy="235.3" r="9" fill="#dc2626" stroke="#fff" stroke-width="2"><title>red_3 (-2.167, 0.872, 11.007)</title></circle>
+<text x="600.4" y="225.3" class="pointLabel" text-anchor="start">red_3</text>
+<circle cx="946.1" cy="708.5" r="9" fill="#eab308" stroke="#fff" stroke-width="2"><title>yellow_1 (7.263, 0.645, -1.469)</title></circle>
+<text x="958.1" y="698.5" class="pointLabel" text-anchor="start">yellow_1</text>
+<circle cx="658.2" cy="450.0" r="9" fill="#eab308" stroke="#fff" stroke-width="2"><title>yellow_2 (-0.328, 0.533, 5.346)</title></circle>
+<text x="670.2" y="440.0" class="pointLabel" text-anchor="start">yellow_2</text>
+<circle cx="407.6" cy="426.0" r="9" fill="#eab308" stroke="#fff" stroke-width="2"><title>yellow_3 (-6.933, 1.003, 5.980)</title></circle>
+<text x="419.6" y="416.0" class="pointLabel" text-anchor="start">yellow_3</text>
+<text x="51.0" y="937.0" class="small" text-anchor="start">저장 MRUK 좌표 범위 X -16.0…9.6 m / Z -6.4…12.7 m</text>
+<text x="1090.0" y="130.0" class="panelTitle" text-anchor="start">기호</text>
+<circle cx="1110" cy="155" r="8" fill="#dc2626"/><text x="1128" y="160" class="row">돌 (색상 = 정답 색)</text>
+<polygon points="1110,174 1120,184 1110,194 1100,184" fill="#111827"/><text x="1128" y="189" class="row">돌탑 T1–T4</text>
+<rect x="1104" y="207" width="12" height="12" rx="2" fill="#64748b"/><text x="1128" y="218" class="row">우연객체 I1–I8</text>
+<text x="1090.0" y="255.0" class="panelTitle" text-anchor="start">돌 12개 (XYZ m)</text>
+<text x="1090.0" y="278.0" class="row" text-anchor="start">blue_1    Blue   (  3.38,  1.01,  10.57)</text>
+<text x="1090.0" y="296.0" class="row" text-anchor="start">blue_2    Blue   ( -0.09,  1.15,   1.61)</text>
+<text x="1090.0" y="314.0" class="row" text-anchor="start">blue_3    Blue   ( -3.87,  1.05,   1.34)</text>
+<text x="1090.0" y="332.0" class="row" text-anchor="start">green_1   Green  ( -7.74,  0.76,  -0.76)</text>
+<text x="1090.0" y="350.0" class="row" text-anchor="start">green_2   Green  (  1.97,  0.59,  -2.68)</text>
+<text x="1090.0" y="368.0" class="row" text-anchor="start">green_3   Green  (  4.27,  1.04,  -0.78)</text>
+<text x="1090.0" y="386.0" class="row" text-anchor="start">red_1     Red    (-10.88,  1.08,   7.32)</text>
+<text x="1090.0" y="404.0" class="row" text-anchor="start">red_2     Red    (-11.83,  0.98,  11.91)</text>
+<text x="1090.0" y="422.0" class="row" text-anchor="start">red_3     Red    ( -2.17,  0.87,  11.01)</text>
+<text x="1090.0" y="440.0" class="row" text-anchor="start">yellow_1  Yellow (  7.26,  0.64,  -1.47)</text>
+<text x="1090.0" y="458.0" class="row" text-anchor="start">yellow_2  Yellow ( -0.33,  0.53,   5.35)</text>
+<text x="1090.0" y="476.0" class="row" text-anchor="start">yellow_3  Yellow ( -6.93,  1.00,   5.98)</text>
+<text x="1090.0" y="504.0" class="panelTitle" text-anchor="start">돌탑 4개 (XYZ m)</text>
+<text x="1090.0" y="527.0" class="row" text-anchor="start">Tower-1  ( -1.69,  0.36,   9.07)</text>
+<text x="1090.0" y="545.0" class="row" text-anchor="start">Tower-2  ( -4.46,  0.36,   7.34)</text>
+<text x="1090.0" y="563.0" class="row" text-anchor="start">Tower-3  (  6.48,  0.37,  11.24)</text>
+<text x="1090.0" y="581.0" class="row" text-anchor="start">Tower-4  (-13.95,  0.38,  12.07)</text>
+<text x="1090.0" y="609.0" class="panelTitle" text-anchor="start">우연객체 8개 (XYZ m)</text>
+<text x="1090.0" y="632.0" class="row" text-anchor="start">I1 drill                  ( -7.3,  0.0,  -2.0)</text>
+<text x="1090.0" y="650.0" class="row" text-anchor="start">I2 jar                    (  6.2, -0.0,  -2.8)</text>
+<text x="1090.0" y="668.0" class="row" text-anchor="start">I3 kettle                 (  2.1, -0.0,  -0.2)</text>
+<text x="1090.0" y="686.0" class="row" text-anchor="start">I4 lantern                ( -0.2, -0.0,   6.5)</text>
+<text x="1090.0" y="704.0" class="row" text-anchor="start">I5 sewingMachin           ( -7.9, -0.0,   6.5)</text>
+<text x="1090.0" y="722.0" class="row" text-anchor="start">I6 drill                  (-12.3, -0.0,   1.8)</text>
+<text x="1090.0" y="740.0" class="row" text-anchor="start">I7 jar                    (-10.4, -0.0,  11.7)</text>
+<text x="1090.0" y="758.0" class="row" text-anchor="start">I8 kettle                 ( -1.5,  0.1,  -3.2)</text>
+</svg>

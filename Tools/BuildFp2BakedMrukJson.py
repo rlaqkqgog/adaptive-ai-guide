@@ -78,7 +78,7 @@ def _build_anchor(surface: dict) -> dict:
     return anchor
 
 
-def convert(source: Path, destination: Path) -> None:
+def convert(source: Path, destination: Path, expected_rooms: int | None = None) -> None:
     capture = json.loads(source.read_text(encoding="utf-8-sig"))
     rooms = []
     for room in capture.get("rooms", []):
@@ -107,8 +107,10 @@ def convert(source: Path, destination: Path) -> None:
             }
         )
 
-    if len(rooms) != 8:
-        raise ValueError(f"FP2 baked scene requires 8 rooms; found {len(rooms)}")
+    if expected_rooms is not None and len(rooms) != expected_rooms:
+        raise ValueError(
+            f"baked scene requires {expected_rooms} rooms; found {len(rooms)}"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(
         json.dumps({"CoordinateSystem": "Unity", "Rooms": rooms}, indent=2) + "\n",
@@ -121,8 +123,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=Path)
     parser.add_argument("destination", type=Path)
+    parser.add_argument("--expected-rooms", type=int)
     args = parser.parse_args()
-    convert(args.source, args.destination)
+    convert(args.source, args.destination, args.expected_rooms)
 
 
 if __name__ == "__main__":

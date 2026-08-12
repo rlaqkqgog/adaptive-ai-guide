@@ -75,7 +75,7 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             return;
         }
 
-        if (string.Equals(floorPlan.FloorPlanId, AagExperimentSpaceCatalog.Fp2Id, StringComparison.Ordinal))
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
         {
             var missingBakedRooms = floorPlan.RoomIds.Where(roomUuid =>
                 !AagFp2BakedSpace.TryGetRoomFloor(
@@ -89,12 +89,12 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             IsValidationPassed = missingBakedRooms.Length == 0;
             ValidatedFloorPlan = IsValidationPassed ? floorPlan : null;
             LastValidationSummary = IsValidationPassed
-                ? $"passed_baked_reference_rooms={floorPlan.RoomIds.Count}"
+                ? $"passed_baked_reference_space={floorPlan.FloorPlanId};rooms={floorPlan.RoomIds.Count}"
                 : $"failed_baked_reference_missing={string.Join("|", missingBakedRooms)}";
             if (IsValidationPassed)
-                Debug.Log($"[AAG Space] FP2 baked reference validation passed: rooms={floorPlan.RoomIds.Count}.");
+                Debug.Log($"[AAG Space] {floorPlan.FloorPlanId} baked reference validation passed: rooms={floorPlan.RoomIds.Count}.");
             else
-                Debug.LogError($"[AAG Space] FP2 baked reference validation failed: {LastValidationSummary}.");
+                Debug.LogError($"[AAG Space] {floorPlan.FloorPlanId} baked reference validation failed: {LastValidationSummary}.");
             return;
         }
 
@@ -234,12 +234,9 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             failure = "vr_input_focus_unavailable";
             return false;
         }
-        var usesBakedFp2Reference = string.Equals(
-                ValidatedFloorPlan?.FloorPlanId,
-                AagExperimentSpaceCatalog.Fp2Id,
-                StringComparison.Ordinal)
+        var usesBakedReference = ExperimentSpaceRuntime.UsesBakedReferenceSpace
             && AagMrukSpaceCorrection.IsApplied;
-        if (!usesBakedFp2Reference
+        if (!usesBakedReference
             && (MRUK.Instance == null || !MRUK.Instance.IsWorldLockActive))
         {
             failure = "mruk_world_lock_inactive";
@@ -251,7 +248,7 @@ public sealed class AagExperimentSpaceValidator : MonoBehaviour
             return false;
         }
 
-        if (usesBakedFp2Reference)
+        if (usesBakedReference)
         {
             if (independentlyValidatedStartMarker) return true;
             var canonicalHeadPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(

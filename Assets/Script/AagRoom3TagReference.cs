@@ -12,13 +12,16 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public sealed class AagRoom3TagReference : MonoBehaviour
 {
+    public const string Room6Uuid = "0d537c33-3e47-2606-3ea9-897c2bc9f1ce";
+    public const string Room6FloorAnchorUuid = "62768480-a2ae-7bb5-3d77-e8de8355e2cb";
+    // Backward-compatible aliases for older authoring tools and tests.
     public const string Room3Uuid = "0d537c33-3e47-2606-3ea9-897c2bc9f1ce";
     public const string Room3FloorAnchorUuid = "62768480-a2ae-7bb5-3d77-e8de8355e2cb";
     public const float PrintedBoardSizeMeters = 0.171f;
     public const float DetectionBorderSizeMeters = 0.095f;
 
     [Header("Reference identity")]
-    [SerializeField] private string referenceLabel = "FP1 Room3";
+    [SerializeField] private string referenceLabel = "FP1 Room6";
 
     [Header("Confirm after placing this transform on the physical wall")]
     [Tooltip("Alignment is fail-closed until this is checked after the tag center has been positioned.")]
@@ -29,7 +32,7 @@ public sealed class AagRoom3TagReference : MonoBehaviour
     [SerializeField] private string floorAnchorUuid = Room3FloorAnchorUuid;
 
     [Header("Space Setup export frame")]
-    [Tooltip("Resolve this reference from the bundled immutable FP2 scene instead of live device MRUK transforms.")]
+    [Tooltip("Resolve this reference from the bundled immutable experiment scene instead of live device MRUK transforms.")]
     [SerializeField] private bool useBakedFloorPose;
     [SerializeField] private Vector3 exportFloorWorldPosition =
         new Vector3(0.15373255f, -0.01663506f, 1.2934226f);

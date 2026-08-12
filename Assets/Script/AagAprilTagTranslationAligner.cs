@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using AprilTag;
 using Meta.XR;
+using Meta.XR.MRUtilityKit;
 using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UI;
@@ -520,7 +521,7 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
                 return;
             }
             if (applyDetectedYawRotation
-                && room3TagReference.UseBakedFloorPose)
+                && ExperimentSpaceRuntime.UsesTagCorrectedReferenceSpace)
             {
                 var trackedHead = ResolveTrackedHeadTransform();
                 if (trackedHead == null)
@@ -763,24 +764,44 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         jitterDegrees = 0f;
         if (!TryGetYawDegrees(expectedReferenceRotation, out var expectedYaw)) return false;
 
+        // AprilTag's planar pose has a 180-degree branch ambiguity. Treat the
+        // measurements as axial angles while establishing stability, then let
+        // the baked-room validation below choose the physical yaw branch.
+        // Folding each sample independently by smallest absolute yaw makes
+        // measurements around 90 degrees alternate between +89 and -89 and
+        // falsely reports almost 180 degrees of jitter.
         var corrections = new List<float>();
         foreach (var observed in observedWorldRotations ?? Array.Empty<Quaternion>())
         {
             if (!TryGetYawDegrees(observed, out var observedYaw)) continue;
-            var direct = Mathf.DeltaAngle(expectedYaw, observedYaw);
-            var flipped = Mathf.DeltaAngle(expectedYaw, observedYaw + 180f);
-            corrections.Add(Mathf.Abs(direct) <= Mathf.Abs(flipped) ? direct : flipped);
+            corrections.Add(Mathf.DeltaAngle(expectedYaw, observedYaw));
         }
         if (corrections.Count == 0) return false;
 
-        var medianYaw = Median(corrections);
+        var doubledSin = corrections.Sum(value =>
+            Mathf.Sin(2f * value * Mathf.Deg2Rad));
+        var doubledCos = corrections.Sum(value =>
+            Mathf.Cos(2f * value * Mathf.Deg2Rad));
+        if (Mathf.Abs(doubledSin) < 0.000001f
+            && Mathf.Abs(doubledCos) < 0.000001f)
+            return false;
+
+        var axialSeed = 0.5f
+            * Mathf.Atan2(doubledSin, doubledCos)
+            * Mathf.Rad2Deg;
+        var medianOffset = Median(corrections.Select(value =>
+            0.5f * Mathf.DeltaAngle(2f * axialSeed, 2f * value)));
+        var medianYaw = NormalizeAxialYaw(axialSeed + medianOffset);
         var maximumJitter = corrections.Max(value =>
-            Mathf.Abs(Mathf.DeltaAngle(medianYaw, value)));
+            0.5f * Mathf.Abs(Mathf.DeltaAngle(2f * medianYaw, 2f * value)));
         yawDegrees = medianYaw;
         jitterDegrees = maximumJitter;
         yawCorrection = Quaternion.Euler(0f, medianYaw, 0f);
         return IsFinite(yawCorrection);
     }
+
+    private static float NormalizeAxialYaw(float yawDegrees) =>
+        Mathf.Repeat(yawDegrees + 90f, 180f) - 90f;
 
     public static bool TryResolveBakedRoomValidatedYaw(
         Vector3 expectedReferencePosition,
@@ -839,8 +860,8 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
 
         if (foldedMatches == oppositeMatches)
         {
-            var reason = foldedMatches ? "AMBIGUOUS BOTH MATCH" : "NO ROOM8 MATCH";
-            failure = $"{reason}; stand inside Room8 "
+            var reason = foldedMatches ? "AMBIGUOUS BOTH MATCH" : "NO EXPECTED ROOM MATCH";
+            failure = $"{reason}; stand inside the tag reference room "
                 + $"(folded={FormatResolvedRoom(foldedRoom)}, opposite={FormatResolvedRoom(oppositeRoom)})";
             return false;
         }
@@ -879,8 +900,28 @@ public sealed class AagAprilTagTranslationAligner : MonoBehaviour
         if (horizontalOnly) candidateTranslation.y = 0f;
         var canonicalHeadPosition = Quaternion.Inverse(candidateRotation)
             * (observedHeadPosition - candidateTranslation);
-        return AagFp2BakedSpace.TryResolveRoom(canonicalHeadPosition, out resolvedRoomUuid)
-            && resolvedRoomUuid == expectedRoomUuid;
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+            return AagFp2BakedSpace.TryResolveRoom(
+                    canonicalHeadPosition, out resolvedRoomUuid)
+                && resolvedRoomUuid == expectedRoomUuid;
+
+        resolvedRoomUuid = Guid.Empty;
+        var rooms = MRUK.Instance?.Rooms;
+        if (rooms == null) return false;
+        foreach (var room in rooms)
+        {
+            if (room == null || room.Anchor == null) continue;
+            foreach (var floor in room.FloorAnchors)
+            {
+                if (floor == null || floor.PlaneBoundary2D == null
+                    || floor.PlaneBoundary2D.Count < 3) continue;
+                var local = floor.transform.InverseTransformPoint(canonicalHeadPosition);
+                if (!floor.IsPositionInBoundary(new Vector2(local.x, local.y))) continue;
+                if (resolvedRoomUuid != Guid.Empty) return false;
+                resolvedRoomUuid = room.Anchor.Uuid;
+            }
+        }
+        return resolvedRoomUuid == expectedRoomUuid;
     }
 
     private static string FormatResolvedRoom(Guid roomUuid) =>

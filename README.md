@@ -322,3 +322,90 @@ Unity Editor에서는 `Window > General > Test Runner`에서 EditMode 테스트�
 - [`README_AAG_MANUAL_ANCHOR_SET_AUTHORING.md`](README_AAG_MANUAL_ANCHOR_SET_AUTHORING.md): 수동 앵커 세트와 핵심 객체 로더
 - [`README_AAG_ROOM_COORDINATE_EXPORT.md`](README_AAG_ROOM_COORDINATE_EXPORT.md): MRUK 방 좌표 export와 배치 저작
 - [`README_AAG_HOTSPOT_PERSISTENCE.md`](README_AAG_HOTSPOT_PERSISTENCE.md): 승인 hotspot 복구와 저장 수명주기
+
+## FP1·FP2 현장 오류 이력과 최종 대응 (2026-08-12 체크포인트)
+
+이 절은 FP1과 FP2를 실제 Quest 공간에서 반복 점검하면서 확인한 오류, 원인, 대응을 기록한다. 가장 중요한 안전 기준은 **돌·돌탑·우연 객체가 벽이나 기둥에 박히거나 창문 밖으로 나가지 않는 것**이다. 단순히 좌표가 로드되거나 태그가 인식되는 것만으로 배치 성공으로 간주하지 않는다.
+
+### 오류와 대응 요약
+
+| 구분 | 실제 증상 | 원인 | 최종 대응 |
+|---|---|---|---|
+| FP1/FP2 데이터 혼용 | 다른 공간의 Room UUID와 배치가 로드되거나 검증이 잘못 통과함 | 공통 코드에서 공간별 manifest, PlayerPrefs, 로그 경로가 충분히 분리되지 않음 | `ExperimentSpaceRuntime`을 기준으로 FP1/FP2 설정, UUID namespace, 배치 리소스, 씬, 스캐너와 로그 폴더를 분리함 |
+| AprilTag 미인식 | 태그를 바라봐도 시작 준비 상태가 되지 않음 | 태그가 있는 실제 방과 선택한 스캔 데이터가 다르거나, 새 스캔만 선택하면서 기준 태그 방을 잃음 | FP1은 기존 baked 공간의 Room3(새 스캔 이름 `이름없는 룸 6`) 태그 기준을 유지하고, FP2와 동일하게 태그를 응시한 뒤 컨트롤러 입력으로 확정함 |
+| 태그 정렬 180도 반전 | 태그는 잡히지만 전체 객체가 반대편 공간으로 이동함 | 평면 태그 pose의 yaw 후보가 앞/뒤 방향에서 모호함 | 후보 yaw를 모두 계산하고 HMD가 baked 기준 기대 방 안에 들어가는 후보만 선택함. `folded_expected_room` 또는 `opposite_expected_room` 진단을 로그에 기록함 |
+| 태그 순간 흔들림 | 인식 직후 공간이 조금씩 흔들리거나 잘못된 정렬이 적용됨 | 단일 프레임 pose와 불안정한 yaw 샘플을 즉시 사용함 | 다중 샘플의 위치/yaw jitter를 검사하고 안정된 상태에서만 rigid correction을 적용함. 유효하지 않으면 fail-closed로 세션 시작을 막음 |
+| live MRUK와 저장 배치 불일치 | Room UUID는 맞아도 객체가 전체적으로 밀려남 | 재스캔 또는 Space Setup 변경으로 MRUK 원점·방 pose가 달라짐 | 저장 당시 baked MRUK 공간을 배치 기준으로 사용하고 AprilTag의 yaw+translation을 공간 전체에 하나의 rigid transform으로 적용함 |
+| 새 스캔만 사용한 FP1 | FP1 태그를 아예 찾지 못하거나 기존 배치 기준이 사라짐 | 최신 스캔을 기존 baked 데이터의 대체재로 사용함 | FP1에서는 baked 공간을 태그·룸·배치의 권위 데이터로 유지하고 새 스캔은 변경된 벽/기둥/창문을 거부하는 보조 wall map으로만 사용함 |
+| 오래된 baked 데이터만 사용한 FP1 | 평면도가 조금 달라진 구간에서 돌이 벽·기둥 안 또는 창밖에 생성됨 | 실제 공간의 국소 구조 변화가 baked 경계에 반영되지 않음 | 최종 룸 매핑을 이용해 baked floor-local 좌표를 새 스캔으로 변환하고, 새 경계와 벽에서 `0.45 m` 이내인 점을 추가로 거부함 |
+| Room2 분할 누락 | Room2 주변 경계 보정과 룸 이름 대응이 잘못됨 | 최종 스캔에서 Room2가 Room2-1과 Room2-2로 나뉜 사실이 초기 매핑에서 빠짐 | 아래의 9개 논리 공간 매핑으로 확정하고 supplemental wall map을 다시 생성함 |
+| 벽에서 몇 cm만 이동 | 안전 보정 로그는 남지만 돌이 여전히 벽이나 창밖에 보임 | 가장 가까운 안전점을 찾는 국소 이동만으로는 스캔 오차와 객체 크기를 흡수하지 못함 | 현장에서 확인된 문제 객체 6개는 두 스캔 모두에서 벽 여유가 가장 큰 검증 waypoint, 즉 해당 룸 중앙 안전점으로 명시적으로 이동함 |
+| 우연 객체가 잘못된 룸으로 보정 | Room2-2/Hall1-2 경계의 항아리가 다른 복도 기준으로 이동함 | 월드 위치에서 가장 가까운 동선만 선택해 원래 소속 룸을 추정함 | 문제 우연 객체는 객체 ID별 소속 룸을 명시하고 그 룸의 중앙 안전점으로 이동함 |
+| 돌탑이 누움 | 돌탑 전체가 바닥에 눕거나 벽 안에 생성됨 | floor anchor 회전을 이미 world-upright인 돌탑 회전에 다시 곱해 90도 pitch가 추가됨 | FP1 돌탑 회전은 world-yaw/upright 기준을 보존하고 태그의 rigid correction만 적용함. 위치에는 벽·동선 검사를 적용함 |
+| 창문·외부 공간 생성 | 특히 Room7/Room8 노란 돌이 실제 창문 밖에 생성됨 | floor polygon만 통과하고 창문/벽 선분과 충분한 여유를 확보하지 못함 | baked 경계, baked wall, supplemental rescan 경계와 wall segment를 모두 검사하고, 재현된 객체는 중앙 override를 사용함 |
+| 빌드 메뉴 혼동 | 일반 Android, FP1, FP2, scanner APK 중 잘못된 메뉴를 선택할 위험 | 여러 목적의 빌드 메뉴가 한곳에 존재함 | 참가자 FP1은 `AAG > Build FP1 Android APK`, FP2는 `AAG > Build FP2 Android APK`만 사용함. UUID scanner와 validator는 현장 등록/진단 전용임 |
+| Unity EditMode 실행 실패 | 배치 테스트가 시작되지 않거나 프로젝트 잠금 오류 발생 | Unity Hub 라이선스 미로그인 또는 같은 프로젝트를 에디터와 batchmode가 동시에 열음 | Hub 로그인 후 원본 프로젝트의 에디터를 닫고 batchmode 테스트를 실행함. 복사본 결과를 최종 근거로 사용하지 않음 |
+| `dotnet --no-restore` 실패 | `project.assets.json`이 없다는 오류로 컴파일 검사가 중단됨 | Unity가 `Temp/obj`를 정리해 임시 NuGet 자산이 사라짐 | `dotnet restore` 후 런타임과 Editor 어셈블리를 다시 빌드함 |
+
+### FP1 최종 룸 매핑
+
+왼쪽은 기존 baked 논리 공간이고 오른쪽은 2026-08-12 보조 스캔에서 표시된 이름이다.
+
+| 기존 논리 공간 | 새 스캔 이름 |
+|---|---|
+| Room1 | 이름없는 룸 |
+| Room2-1 | 이름없는 룸 3 |
+| Room2-2 | 이름없는 룸 4 |
+| Room3 | 이름없는 룸 6 |
+| Hall 1-1 | 이름없는 룸 2 |
+| Hall 1-2 | 이름없는 룸 5 |
+| Hall 1-3 | 거실 |
+| Hall 2-1 | 이름없는 룸 7 |
+| Hall 2-2 | 이름없는 룸 8 |
+
+### FP1 현장 재현 사례와 조치
+
+- 모든 세션에서 Room1과 Hall 1-1 사이 벽에 돌탑이 박힘: baked 위치를 유지하되 supplemental wall veto와 FP1 walkable path를 적용하고 upright 회전을 보존함.
+- S1 `yellow_3`가 이름없는 룸 7의 창밖에 생성됨: Hall 2-1 중앙 안전점으로 이동함.
+- S1 `yellow_1`이 이름없는 룸 3의 기둥 벽 안에 생성됨: Room2-1 중앙 안전점으로 이동함.
+- S2 `yellow_1`이 이름없는 룸 7의 창밖에 생성됨: Hall 2-1 중앙 안전점으로 이동함.
+- S2 `incidental_02_02_jar`가 이름없는 룸 4/5 경계에서 Room2-2 벽에 박힘: Room2-2 중앙 안전점으로 이동함.
+- S3 `yellow_2`가 이름없는 룸 8과 이름없는 룸 7 경계의 벽에 박힘: Hall 2-2 중앙 안전점으로 이동함.
+- S3 `incidental_02_02_hairDryer`가 이름없는 룸의 문 쪽에 박힘: 카탈로그상 소속인 Hall 1-1(이름없는 룸 2) 중앙 안전점으로 이동함.
+
+이 6개 override는 `(setId, objectId)` 또는 incidental `objectId`에만 적용한다. 다른 객체는 안전한 원래 위치를 유지하고, 일반 벽/동선 검사에서 실패한 경우에만 이동한다. 높이와 회전은 유지하고 floor-local 수평 위치만 중앙점으로 바꾼다.
+
+### 현재 최종 구조
+
+#### FP1
+
+1. 기존 `fp1_baked_mruk_scene.json`이 태그 정렬, 방/floor pose와 저장 배치의 기준이다.
+2. `fp1_supplemental_wall_map.json`은 새 스캔에서 바뀐 경계·벽·기둥·창문을 확인하는 보조 veto다.
+3. `AagFp1WalkablePath`는 baked와 supplemental 양쪽을 통과한 현장 이동 waypoint만 사용한다.
+4. 일반 객체는 안전하면 원래 위치를 유지하고, 안전하지 않으면 가까운 검증점으로 이동한다.
+5. 위 6개 현장 재현 객체는 가장 큰 복합 벽 여유를 가진 룸 중앙 검증점으로 이동한다.
+6. supplemental 매핑이 없거나 손상되면 임의 fallback 없이 배치를 중단한다.
+
+#### FP2
+
+1. FP2 전용 baked MRUK, Room UUID, set manifest, room-local 배치와 로그 namespace를 사용한다.
+2. Room8 AprilTag를 응시해 얻은 yaw+translation으로 baked 공간 전체를 정렬한다.
+3. 객체는 baked 방 경계와 wall clearance, 명시적 금지구역, 참가자 추적 기반 walkable path를 통과해야 한다.
+4. 안전한 저작 위치는 유지하고 위험한 위치만 검증 경로로 옮긴다.
+5. FP2 정답표 SVG와 스폰 CSV는 실제 세션의 `target_loaded`, `target_room_local_loaded`, `incidental_loaded` 로그를 기준으로 생성한다.
+
+### 검증 기록과 알려진 테스트 상태
+
+- 2026-08-12 런타임 `Assembly-CSharp`와 Editor `Assembly-CSharp-Editor` C# 컴파일: 오류 0.
+- FP1 supplemental/walkable EditMode 테스트: 10/10 통과 기록.
+- 당시 전체 EditMode 테스트: 82개 중 80개 통과. 남은 2개는 이번 벽/태그 배치 오류와 직접 관련 없는 기존 기대값 문제였다.
+  - best-effort rigid recovery의 RMS 문자열 기대값 `0.1689`와 계산값 `0.1523` 불일치.
+  - FP2 공간 분리 테스트가 현재 등록된 8개 FP2 방 대신 빈 목록을 기대함.
+- 최종 APK 빌드와 Quest 설치·현장 확인은 Unity 에디터에서 운영자가 수행한다.
+
+### 체크포인트 운용 원칙
+
+- 이 체크포인트는 FP1과 FP2의 현재 현장 운용 기준을 함께 보존한다.
+- APK, 참가자 원본 로그, 개인 백업, `Library`, `Temp`, 로컬 Unity AI 설정과 공간 메모리 캐시는 Git 체크포인트에 포함하지 않는다.
+- Room Setup을 다시 생성하거나 태그 위치, 벽 구조, 창문/기둥 형상이 바뀌면 룸 export와 supplemental map, walkable path 테스트를 다시 만들어야 한다.
+- 새 현장 오류를 발견하면 전역 좌표를 임의 수정하지 말고 `(공간, 세트, 객체, 소속 룸, 재현 사진/로그)` 단위로 기록한 뒤 최소 범위 override 또는 안전 규칙으로 대응한다.

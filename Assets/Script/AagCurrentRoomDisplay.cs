@@ -42,7 +42,7 @@ public class AagCurrentRoomDisplay : MonoBehaviour
 
     private void UpdateCurrentRoomDisplay()
     {
-        if (ExperimentSpaceRuntime.IsFp2
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace
             && AagMrukSpaceCorrection.IsApplied
             && hmdTransform != null)
         {

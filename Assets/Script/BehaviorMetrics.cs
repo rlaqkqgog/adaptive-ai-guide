@@ -502,7 +502,7 @@ public sealed class BehaviorMetrics : MonoBehaviour
     {
         var canonicalPosition = AagMrukSpaceCorrection.ObservedToMrukPosition(
             observedWorldPosition);
-        if (ExperimentSpaceRuntime.IsFp2 && AagMrukSpaceCorrection.IsApplied)
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace && AagMrukSpaceCorrection.IsApplied)
             return AagFp2BakedSpace.TryResolveRoom(canonicalPosition, out var bakedRoomUuid)
                 ? bakedRoomUuid.ToString()
                 : string.Empty;

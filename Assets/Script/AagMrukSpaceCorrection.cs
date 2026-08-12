@@ -99,13 +99,14 @@ public static class AagMrukSpaceCorrection
 }
 
 /// <summary>
-/// Immutable FP2 reference space captured when placements were authored.
+/// Immutable experiment reference space captured when placements were authored.
 /// Runtime device MRUK transforms are deliberately excluded: the complete
-/// captured layout is moved as one rigid body by the Room8 AprilTag.
+/// captured layout is moved as one rigid body by the space's AprilTag.
 /// </summary>
 public static class AagFp2BakedSpace
 {
-    private const string ResourcePath = "AAG/fp2_baked_mruk_scene";
+    private static string ResourcePath =>
+        $"AAG/{ExperimentSpaceRuntime.StorageKey}_baked_mruk_scene";
 
     private readonly struct FloorRecord
     {
@@ -139,6 +140,7 @@ public static class AagFp2BakedSpace
     private static Dictionary<Guid, FloorRecord> floorsByRoomUuid;
     private static Dictionary<Guid, List<WallSegment>> wallsByRoomUuid;
     private static string loadFailure;
+    private static string loadedResourcePath;
 
     public static bool TryGetFloor(
         Guid floorUuid,
@@ -151,7 +153,7 @@ public static class AagFp2BakedSpace
         if (!EnsureLoaded(out failure)) return false;
         if (!floorsByUuid.TryGetValue(floorUuid, out var floor))
         {
-            failure = $"fp2_baked_floor_missing_{floorUuid}";
+            failure = $"baked_floor_missing_{ExperimentSpaceRuntime.StorageKey}_{floorUuid}";
             return false;
         }
         pose = floor.Pose;
@@ -170,7 +172,7 @@ public static class AagFp2BakedSpace
         if (!EnsureLoaded(out failure)) return false;
         if (!floorsByRoomUuid.TryGetValue(roomUuid, out var floor))
         {
-            failure = $"fp2_baked_room_floor_missing_{roomUuid}";
+            failure = $"baked_room_floor_missing_{ExperimentSpaceRuntime.StorageKey}_{roomUuid}";
             return false;
         }
         pose = floor.Pose;
@@ -239,6 +241,15 @@ public static class AagFp2BakedSpace
 
     private static bool EnsureLoaded(out string failure)
     {
+        var resourcePath = ResourcePath;
+        if (!string.Equals(loadedResourcePath, resourcePath, StringComparison.Ordinal))
+        {
+            floorsByUuid = null;
+            floorsByRoomUuid = null;
+            wallsByRoomUuid = null;
+            loadFailure = null;
+            loadedResourcePath = resourcePath;
+        }
         if (floorsByUuid != null)
         {
             failure = loadFailure;
@@ -248,10 +259,10 @@ public static class AagFp2BakedSpace
         floorsByUuid = new Dictionary<Guid, FloorRecord>();
         floorsByRoomUuid = new Dictionary<Guid, FloorRecord>();
         wallsByRoomUuid = new Dictionary<Guid, List<WallSegment>>();
-        var asset = Resources.Load<TextAsset>(ResourcePath);
+        var asset = Resources.Load<TextAsset>(resourcePath);
         if (asset == null)
         {
-            loadFailure = "fp2_baked_scene_resource_missing";
+            loadFailure = $"baked_scene_resource_missing_{ExperimentSpaceRuntime.StorageKey}";
             failure = loadFailure;
             return false;
         }
@@ -263,14 +274,14 @@ public static class AagFp2BakedSpace
         }
         catch (Exception exception)
         {
-            loadFailure = $"fp2_baked_scene_json_{exception.GetType().Name}";
+            loadFailure = $"baked_scene_json_{ExperimentSpaceRuntime.StorageKey}_{exception.GetType().Name}";
             failure = loadFailure;
             return false;
         }
 
         if (!(scene["Rooms"] is JArray rooms))
         {
-            loadFailure = "fp2_baked_scene_rooms_missing";
+            loadFailure = $"baked_scene_rooms_missing_{ExperimentSpaceRuntime.StorageKey}";
             failure = loadFailure;
             return false;
         }
@@ -318,8 +329,9 @@ public static class AagFp2BakedSpace
             wallsByRoomUuid[roomUuid] = walls;
         }
 
-        if (floorsByRoomUuid.Count != 8)
-            loadFailure = $"fp2_baked_scene_requires_8_rooms_actual_{floorsByRoomUuid.Count}";
+        var expectedRoomCount = ExperimentSpaceRuntime.FloorPlan?.RoomIds.Count ?? 0;
+        if (expectedRoomCount <= 0 || floorsByRoomUuid.Count != expectedRoomCount)
+            loadFailure = $"baked_scene_requires_{expectedRoomCount}_rooms_actual_{floorsByRoomUuid.Count}";
         failure = loadFailure;
         return string.IsNullOrEmpty(failure);
     }

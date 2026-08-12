@@ -253,11 +253,21 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             }
             if (!AagRecoveryPlacementValidator.TryValidate(position, out _, out var placementFailure))
             {
-                LastRecoverySummary =
-                    $"set={setId}; status=failed; source=room_local_20260721; "
-                    + $"object={pair.Value.object_id}; reason={placementFailure}";
-                failures[pair.Key] = $"{failures[pair.Key]}; room_local={placementFailure}";
-                return false;
+                if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+                {
+                    Debug.LogWarning(
+                        $"[AAG Baked] Incidental {pair.Value.object_id} geometry warning: "
+                        + $"{placementFailure}; continuing with saved room-local pose.",
+                        this);
+                }
+                else
+                {
+                    LastRecoverySummary =
+                        $"set={setId}; status=failed; source=room_local_20260721; "
+                        + $"object={pair.Value.object_id}; reason={placementFailure}";
+                    failures[pair.Key] = $"{failures[pair.Key]}; room_local={placementFailure}";
+                    return false;
+                }
             }
             placements.Add((pair.Key, pair.Value, position, rotation));
         }
@@ -388,6 +398,11 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
         {
             var position = solution.TransformPoint(pair.Value.FallbackPosition);
             var rotation = solution.TransformRotation(pair.Value.FallbackRotation);
+            if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+            {
+                position = AagMrukSpaceCorrection.MrukToObservedPosition(position);
+                rotation = AagMrukSpaceCorrection.MrukToObservedRotation(rotation);
+            }
             if (!AagRigidPoseRecovery.IsFinite(position) || !AagRigidPoseRecovery.IsFinite(rotation))
             {
                 LastRecoverySummary = $"set={setId}; status=failed; object={pair.Value.object_id}; reason=non_finite_pose";
@@ -396,10 +411,21 @@ public sealed class IncidentalAnchorLoader : MonoBehaviour
             }
             if (!AagRecoveryPlacementValidator.TryValidate(position, out var rooms, out var placementFailure))
             {
-                LastRecoverySummary =
-                    $"set={setId}; status=failed; object={pair.Value.object_id}; reason={placementFailure}";
-                failures[pair.Key] = $"{failures[pair.Key]}; rigid_recovery={placementFailure}";
-                return;
+                if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
+                {
+                    rooms = "baked_geometry_warning";
+                    Debug.LogWarning(
+                        $"[AAG Baked] Incidental {pair.Value.object_id} geometry warning: "
+                        + $"{placementFailure}; continuing with deterministic pose.",
+                        this);
+                }
+                else
+                {
+                    LastRecoverySummary =
+                        $"set={setId}; status=failed; object={pair.Value.object_id}; reason={placementFailure}";
+                    failures[pair.Key] = $"{failures[pair.Key]}; rigid_recovery={placementFailure}";
+                    return;
+                }
             }
             placements.Add((pair.Key, pair.Value, position, rotation, rooms, failures[pair.Key]));
         }

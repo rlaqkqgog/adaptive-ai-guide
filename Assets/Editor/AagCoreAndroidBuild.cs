@@ -9,6 +9,7 @@ using UnityEngine.SceneManagement;
 
 public static class AagCoreAndroidBuild
 {
+    private const string Fp1ScenePath = "Assets/Scenes/MainTest_FP1.unity";
     private const string Fp2ScenePath = "Assets/Scenes/MainTest_FP2.unity";
 
     [MenuItem("AAG/Build Android APK")]
@@ -33,9 +34,74 @@ public static class AagCoreAndroidBuild
         Build(new[] { Fp2ScenePath }, "Builds/aag_fp2.apk", "FP2");
     }
 
+    [MenuItem("AAG/Build FP1 Android APK")]
+    public static void BuildFp1AndroidApk()
+    {
+        ValidateFp1AprilTagScene();
+        Build(new[] { Fp1ScenePath }, "Builds/aag_fp1.apk", "FP1");
+    }
+
+    [MenuItem("AAG/Validate FP1 AprilTag Scene")]
+    public static void ValidateFp1AprilTagScene()
+    {
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP1ExperimentConfig.asset");
+        if (config == null) throw new InvalidOperationException("FP1 config is missing.");
+        ExperimentSpaceRuntime.Configure(config);
+
+        var scene = EditorSceneManager.OpenScene(Fp1ScenePath, OpenSceneMode.Single);
+        var aligner = UnityEngine.Object.FindFirstObjectByType<AagAprilTagTranslationAligner>(
+            FindObjectsInactive.Include);
+        var reference = UnityEngine.Object.FindFirstObjectByType<AagRoom3TagReference>(
+            FindObjectsInactive.Include);
+        var offset = UnityEngine.Object.FindFirstObjectByType<AagFixedSpaceOffset>(
+            FindObjectsInactive.Include);
+        var mruk = UnityEngine.Object.FindFirstObjectByType<MRUK>(FindObjectsInactive.Include);
+        if (aligner == null || reference == null || offset == null || mruk == null)
+            throw new InvalidOperationException("FP1 AprilTag scene wiring is incomplete.");
+        if (mruk.SceneSettings.DataSource != MRUK.SceneDataSource.Device
+            || !mruk.SceneSettings.LoadSceneOnStartup
+            || !mruk.EnableWorldLock)
+            throw new InvalidOperationException(
+                "FP1 baked-tag mode still requires device MRUK startup and World Lock.");
+        if (aligner.ExpectedTagId != 0
+            || Mathf.Abs(aligner.TagSizeMeters - 0.095f) > 0.0001f)
+            throw new InvalidOperationException("FP1 must use tagStandard41h12 ID 0 at 0.095 m.");
+        if (!string.Equals(reference.ExpectedRoomUuid, AagRoom3TagReference.Room6Uuid,
+                StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(reference.ExpectedFloorAnchorUuid,
+                AagRoom3TagReference.Room6FloorAnchorUuid, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("FP1 tag reference must be the confirmed Room6 floor pose.");
+        if (!reference.ReferencePlacementConfirmed || !reference.UseBakedFloorPose)
+            throw new InvalidOperationException("FP1 Room6 baked tag reference is not confirmed.");
+        var bakedFailure = "reference_floor_uuid_invalid";
+        if (!Guid.TryParse(reference.ExpectedFloorAnchorUuid, out var floorUuid)
+            || !AagFp2BakedSpace.TryGetFloor(
+                floorUuid, out _, out var boundary, out bakedFailure)
+            || boundary == null || boundary.Count < 3)
+            throw new InvalidOperationException(
+                $"FP1 baked reference is invalid: {bakedFailure ?? "floor_boundary_missing"}.");
+        if (aligner.PreviewOnly || !aligner.AllowQuestControllerApply
+            || !aligner.RequireAppliedAlignmentBeforeSession
+            || !aligner.RecordDetectedYaw || !aligner.ApplyDetectedYawRotation
+            || aligner.MaximumStableYawJitterDegrees > 3f)
+            throw new InvalidOperationException("FP1 rigid AprilTag safety gates are not armed.");
+        if (aligner.ContentFineTuneMeters.sqrMagnitude > 0.000001f)
+            throw new InvalidOperationException(
+                "FP1 baked-space mode must not reuse the former Room3 content fine tune.");
+        Debug.Log(
+            $"[AAG FP1 Build] Validation passed: scene={scene.path}; tag=standard41h12/0; "
+            + $"reference=Room6/{reference.ExpectedRoomUuid}; rooms={config.rooms.Length}; "
+            + "mode=bundled_baked_mruk+live_wall_veto+rigid_apriltag.");
+    }
+
     [MenuItem("AAG/Validate FP2 AprilTag Scene")]
     public static void ValidateFp2AprilTagScene()
     {
+        var config = AssetDatabase.LoadAssetAtPath<ExperimentConfig>(
+            "Assets/Experiment/FP2ExperimentConfig.asset");
+        if (config == null) throw new InvalidOperationException("FP2 config is missing.");
+        ExperimentSpaceRuntime.Configure(config);
         var scene = EditorSceneManager.OpenScene(Fp2ScenePath, OpenSceneMode.Single);
         var aligners = UnityEngine.Object.FindObjectsByType<AagAprilTagTranslationAligner>(
             FindObjectsInactive.Include,

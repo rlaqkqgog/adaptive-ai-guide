@@ -192,7 +192,7 @@ public static class MrukRoomLocalPlacementStore
             failure = $"invalid_room_or_floor_uuid_{placement?.objectId ?? "NULL"}";
             return false;
         }
-        if (ExperimentSpaceRuntime.IsFp2)
+        if (ExperimentSpaceRuntime.UsesBakedReferenceSpace)
         {
             if (!AagFp2BakedSpace.TryResolveFloorLocalPose(
                     floorUuid,
